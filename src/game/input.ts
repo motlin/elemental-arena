@@ -1,9 +1,10 @@
 /** Turning clicks and keys into moves. */
 
+import {simStore} from "./bridge.js";
 import {clickCard, doPlace} from "./cards.js";
 import {attackTiles, doAttack, startAttack} from "./combat.js";
 import {endTurn} from "./match.js";
-import {closeTable, rvStop} from "./menu.js";
+import {closeSim, closeTable, rvStop} from "./menu.js";
 import {
 	doDash,
 	doFloat,
@@ -112,8 +113,8 @@ addEventListener("keydown", (e) => {
 		$("replay").classList.remove("on");
 		return;
 	}
-	if (e.key === "Escape" && $("sim").classList.contains("on")) {
-		$("sim").classList.remove("on");
+	if (e.key === "Escape" && simStore.get() !== null) {
+		closeSim();
 		return;
 	}
 	if (e.key === "Escape" && $("table").classList.contains("on")) {

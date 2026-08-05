@@ -1,5 +1,12 @@
 import {describe, it, expect, afterEach} from "vitest";
-import {handoffStore, overStore, type HandoffView, type OverView} from "../../src/game/bridge.js";
+import {
+	handoffStore,
+	overStore,
+	simStore,
+	type HandoffView,
+	type OverView,
+	type SimView,
+} from "../../src/game/bridge.js";
 import type {LogEntry} from "../../src/game/types.js";
 
 function view(overrides: Partial<HandoffView> = {}): HandoffView {
@@ -13,6 +20,7 @@ function noop(): void {
 afterEach(() => {
 	handoffStore.set(null);
 	overStore.set(null);
+	simStore.set(null);
 });
 
 describe("handoffStore", () => {
@@ -113,6 +121,49 @@ describe("overStore", () => {
 
 		overStore.set(over());
 		overStore.set(over({log: [{r: 1, who: "Cyan", c: "#4dd8ff", t: "took the arena", say: false}]}));
+		unsubscribe();
+
+		expect(calls).toBe(2);
+	});
+});
+
+function sim(overrides: Partial<SimView> = {}): SimView {
+	return {weapons: ["dagger"], elements: ["fire"], fusions: [], hp: 60, close: noop, ...overrides};
+}
+
+describe("simStore", () => {
+	it("starts with the simulator shut", () => {
+		expect(simStore.get()).toBeNull();
+	});
+
+	it("hands subscribers the shelves it was last given", () => {
+		const seen: (SimView | null)[] = [];
+		const unsubscribe = simStore.subscribe(() => seen.push(simStore.get()));
+
+		simStore.set(sim({fusions: ["steam"]}));
+		simStore.set(null);
+		unsubscribe();
+
+		expect(seen).toStrictEqual([sim({fusions: ["steam"]}), null]);
+	});
+
+	it("counts the same unlocks as no news, even in a fresh array", () => {
+		let calls = 0;
+		const unsubscribe = simStore.subscribe(() => calls++);
+
+		simStore.set(sim());
+		simStore.set(sim());
+		unsubscribe();
+
+		expect(calls).toBe(1);
+	});
+
+	it("speaks up once something new has been unlocked", () => {
+		let calls = 0;
+		const unsubscribe = simStore.subscribe(() => calls++);
+
+		simStore.set(sim());
+		simStore.set(sim({elements: ["fire", "water"]}));
 		unsubscribe();
 
 		expect(calls).toBe(2);

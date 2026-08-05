@@ -2,20 +2,9 @@
 
 import {handoffStore} from "./bridge.js";
 import {badPlace, cardLabel, clickCard, doToss, lethalRaw, logit, mixPartners, sealed, startMix} from "./cards.js";
-import {
-	attackTiles,
-	foeEls,
-	leaveFoe,
-	leaveSelf,
-	liveTargets,
-	selfEls,
-	smashMult,
-	startAttack,
-	wepDmg,
-	wepName,
-} from "./combat.js";
+import {attackTiles, foeEls, leaveFoe, leaveSelf, liveTargets, selfEls, smashMult, startAttack} from "./combat.js";
 import {COST, EL, MV, T} from "./data/index.js";
-import {elColor, elName, forgeOf, isComp, wColor, wCost, wDesc, wHits, wStrip} from "./lookups.js";
+import {elColor, elName, forgeOf, isComp, wColor, wCost, wDesc, wHits, wStrip, wepDmg, wepName} from "./lookups.js";
 import {checkRefill} from "./match.js";
 import {
 	canEnter,

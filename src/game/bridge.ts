@@ -89,3 +89,35 @@ function sameOver(a: OverView | null, b: OverView | null): boolean {
 }
 
 export const overStore = createStore<OverView | null>(null, sameOver);
+
+/** What the power simulator needs to know about the save it was opened from. */
+export interface SimView {
+	/** Weapon keys the save has unlocked, cheapest first. */
+	readonly weapons: readonly string[];
+	/** Element keys the save has unlocked, cheapest first. */
+	readonly elements: readonly string[];
+	/** Fused element keys already discovered in play. */
+	readonly fusions: readonly string[];
+	/** The health a match starts on, which the swings-to-drop figure counts down. */
+	readonly hp: number;
+	/** Shuts the simulator and goes back to the setup screen. */
+	readonly close: () => void;
+}
+
+/** A shelf is the same shelf whatever array it arrived in. */
+function sameKeys(a: readonly string[], b: readonly string[]): boolean {
+	return a.length === b.length && a.every((k, i) => k === b[i]);
+}
+
+function sameSim(a: SimView | null, b: SimView | null): boolean {
+	if (a === null || b === null) return a === b;
+	return (
+		a.hp === b.hp &&
+		a.close === b.close &&
+		sameKeys(a.weapons, b.weapons) &&
+		sameKeys(a.elements, b.elements) &&
+		sameKeys(a.fusions, b.fusions)
+	);
+}
+
+export const simStore = createStore<SimView | null>(null, sameSim);

@@ -57,7 +57,22 @@ export type {
 } from "./types.js";
 export {BASE, CFORGE, EL, FUSE, MV, PAT, T, W, WBASE} from "./data/index.js";
 export {S, cur} from "./state.js";
-export {elColor, elName, forgeOf, mvOwnedMask, terrOf, wColor, wCost, wDesc, wHits, wStrip} from "./lookups.js";
+export {
+	elColor,
+	elName,
+	forgeOf,
+	mvOwnedMask,
+	terrOf,
+	wColor,
+	wCost,
+	wDesc,
+	wHits,
+	wReach,
+	wStrip,
+	wepDmg,
+	wepName,
+	wepOf,
+} from "./lookups.js";
 export {
 	ARENA_BOARD_MAX,
 	ARENA_CELL_MAX,
@@ -73,7 +88,7 @@ export {
 	boardWidth,
 } from "./board.js";
 export {startMatch} from "./match.js";
-export {attackTiles, leaveFoe, leaveSelf, wepDmg, wepName} from "./combat.js";
+export {attackTiles, leaveFoe, leaveSelf} from "./combat.js";
 export {
 	buildTable,
 	drawCheat,
@@ -86,11 +101,9 @@ export {
 	drawReplay,
 	drawSeg,
 	drawShop,
-	drawSim,
 	drawSpawnPicker,
 	drawSpawns,
 	drawTeams,
 	drawWho,
-	simAdd,
 } from "./menu.js";
 export {MODEHINT, drawChat, render} from "./render.js";

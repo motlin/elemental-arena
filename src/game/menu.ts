@@ -1,10 +1,10 @@
 /**
  * The setup screen: the seats and their colours, the shop, the loadout, the board builder, the
- * weapon simulator, the replay, and the fusion table.
+ * replay, the fusion table, and the door to the power simulator React paints.
  */
 
-import {wepDmg, wepName} from "./combat.js";
-import {BASE, COST, EL, FUSE, MV, PAT, T, W, WBASE, fkey} from "./data/index.js";
+import {simStore} from "./bridge.js";
+import {BASE, COST, EL, FUSE, MV, T, W, WBASE, fkey} from "./data/index.js";
 import type {ActionKey} from "./data/index.js";
 import {
 	elName,
@@ -20,14 +20,13 @@ import {
 	ownEl,
 	parentsOf,
 	terrOf,
-	wCost,
-	wHits,
+	wepDmg,
 	wsOn,
 } from "./lookups.js";
 import {ringSpots, startMatch} from "./match.js";
 import {errText, save} from "./save.js";
 import {$, PC, PCN, PN, S, idx, nameOf, rgba, src, teamName} from "./state.js";
-import type {Offs, ShopItem, WeaponSpec} from "./types.js";
+import type {Offs, ShopItem} from "./types.js";
 
 export function drawSeg(): void {
 	$("np").value = String(S.np);
@@ -621,134 +620,6 @@ $("bclear").onclick = () => {
 	S.preset = Array(S.dim * S.dim).fill(null);
 	buildBBoard();
 };
-/* The weapon simulator: a card built out of nothing, read for what it would do if it were real. */
-const simCard: WeaponSpec = {ids: [], els: []};
-export function simAdd(kind: string, k: string): void {
-	if (kind === "w") simCard.ids.push(k);
-	else simCard.els.push(k);
-	drawSim();
-}
-function simDrop(kind: string, k: string): void {
-	const list = kind === "w" ? simCard.ids : simCard.els;
-	const at = list.lastIndexOf(k);
-	if (at >= 0) list.splice(at, 1);
-	drawSim();
-}
-export function drawSim(): void {
-	const w = $("simw"),
-		e = $("sime"),
-		f = $("simf"),
-		out = $("simout");
-	w.innerHTML =
-		[...S.wunlocked]
-			.sort((a, b) => (W[a]!.price || 0) - (W[b]!.price || 0))
-			.map(
-				(k) =>
-					`<button class="bp simadd" data-t="w" data-k="${k}">
-      <span class="d" style="background:${W[k]!.c}"></span>${W[k]!.n} · ${W[k]!.dmg}</button>`,
-			)
-			.join("") || '<span class="hint">No weapons yet.</span>';
-	e.innerHTML =
-		[...S.unlocked]
-			.sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0))
-			.map(
-				(k) =>
-					`<button class="bp simadd" data-t="el" data-k="${k}">
-      <span class="d" style="background:${EL[k]!.c}"></span>${EL[k]!.n}</button>`,
-			)
-			.join("") || '<span class="hint">No elements yet.</span>';
-	const found = Object.values(FUSE).filter((k) => known(k));
-	f.innerHTML = found.length
-		? [...new Set(found)]
-				.map(
-					(k) =>
-						`<button class="bp simadd" data-t="el" data-k="${k}">
-      <span class="d" style="background:${T[k]!.c}"></span>${T[k]!.n}</button>`,
-				)
-				.join("")
-		: '<span class="hint">None discovered yet. Mix some in a match.</span>';
-
-	if (simCard.ids.length) {
-		const dmg = wepDmg(simCard),
-			hits = wHits(simCard),
-			cost = wCost(simCard),
-			total = dmg * hits;
-		const fit = (v: number | string): string => {
-			const t = typeof v === "number" ? v.toLocaleString() : v;
-			return `<b class="${t.length > 9 ? "vlong" : t.length > 6 ? "long" : ""}" title="${t}">${t}</b>`;
-		};
-		const fx = [...new Set(simCard.els.map((x) => forgeOf(x).fx))];
-		const reach = new Set<string>();
-		simCard.ids.forEach((id) => {
-			PAT[W[id]!.pat]!().forEach(([dx, dy]) => reach.add(dx + "," + dy));
-		});
-		out.innerHTML = `<div class="simname">${wepName(simCard)}</div>
-      <div class="simempty">${[...new Set(simCard.ids.map((i) => W[i]!.d))].join(" ")}</div>
-      <div class="simnums">
-        <div class="sn">${fit(dmg)}<span>per strike</span></div>
-        <div class="sn">${fit(hits)}<span>strikes</span></div>
-        <div class="sn hot">${fit(total)}<span>total damage</span></div>
-        <div class="sn">${fit(cost)}<span>energy</span></div>
-        <div class="sn">${fit((total / cost).toFixed(1))}<span>per energy</span></div>
-        <div class="sn">${fit(reach.size)}<span>squares hit</span></div>
-        <div class="sn">${fit(Math.ceil(S.hp / total))}<span>swings to drop ${S.hp} hp</span></div>
-        <div class="sn">${fit(Math.max(1, cost - 1))}<span>earliest turn</span></div>
-      </div>
-      ${fx.length ? `<div class="simfx">On hit: ${fx.join(". ")}.</div>` : ""}
-      ${partsHTML()}`;
-	} else {
-		out.innerHTML =
-			'<div class="simempty">Add a weapon to begin. Elements on their own cannot be swung.</div>' + partsHTML();
-	}
-	$("sim")
-		.querySelectorAll(".simadd")
-		.forEach(
-			(b) =>
-				(b.onclick = () => {
-					simAdd(b.dataset["t"]!, b.dataset["k"]!);
-				}),
-		);
-	$("sim")
-		.querySelectorAll(".ptdrop")
-		.forEach(
-			(b) =>
-				(b.onclick = () => {
-					simDrop(b.dataset["t"]!, b.dataset["k"]!);
-				}),
-		);
-	if ($("simclear"))
-		$("simclear").onclick = () => {
-			simCard.ids = [];
-			simCard.els = [];
-			drawSim();
-		};
-}
-// duplicates collapse into one tag with a count; the cross removes one at a time
-function tallyList(list: string[]): [string, number][] {
-	const order: string[] = [],
-		n: Record<string, number> = {};
-	list.forEach((k) => {
-		if (!(k in n)) {
-			order.push(k);
-			n[k] = 0;
-		}
-		n[k]!++;
-	});
-	return order.map((k) => [k, n[k]!]);
-}
-function partsHTML(): string {
-	if (!simCard.ids.length && !simCard.els.length) return "";
-	const tag = (k: string, count: number, kind: string, colour: string, label: string): string =>
-		`<span class="pt"><span class="d" style="background:${colour}"></span>${label}${
-			count > 1 ? ` <b class="ptn">x${count}</b>` : ""
-		}
-      <button class="ptdrop" data-t="${kind}" data-k="${k}" title="Remove one">&times;</button></span>`;
-	const bits = tallyList(simCard.ids)
-		.map(([k, c]) => tag(k, c, "w", W[k]!.c, W[k]!.n))
-		.concat(tallyList(simCard.els).map(([k, c]) => tag(k, c, "el", EL[k] ? EL[k].c : T[k]!.c, elName(k))));
-	return `<div class="simparts">${bits.join("")}
-    <button class="bp" id="simclear" style="border-color:var(--hot);color:var(--hot)">Clear</button></div>`;
-}
 /* The replay: stepping through the frames `logit` snapshotted, one log line at a time. */
 let rvTimer: ReturnType<typeof setInterval> | null = null;
 export function drawReplay(): void {
@@ -849,14 +720,25 @@ $("rvbar").oninput = (e) => {
 	rvStop();
 	rvGo(+src(e).value);
 };
-function openSim(): void {
-	drawSim();
-	$("sim").classList.add("on");
-}
-$("simopen").onclick = openSim;
-$("simclose").onclick = () => {
-	$("sim").classList.remove("on");
+/**
+ * The weapon simulator: a card built out of nothing, read for what it would do if it were real.
+ * The card itself is React's to keep, so all the menu hands over is what the save has to build one
+ * out of, taken as it stands the moment the screen goes up.
+ */
+$("simopen").onclick = () => {
+	simStore.set({
+		weapons: [...S.wunlocked].sort((a, b) => (W[a]!.price || 0) - (W[b]!.price || 0)),
+		elements: [...S.unlocked].sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0)),
+		fusions: [...new Set(Object.values(FUSE).filter((k) => known(k)))],
+		hp: S.hp,
+		close: closeSim,
+	});
 };
+
+/** Takes the simulator down; a stable reference, so republishing the same shelves is not news. */
+export function closeSim(): void {
+	simStore.set(null);
+}
 function openTable(): void {
 	S.tsel = S.tsel || "fire";
 	buildTable();

@@ -241,7 +241,6 @@ describe("menu panels", () => {
 			h.game.drawPalette,
 			h.game.drawSpawnPicker,
 			h.game.drawSpawns,
-			h.game.drawSim,
 			h.game.drawReplay,
 		]) {
 			expect(() => {
@@ -357,6 +356,54 @@ describe("the end of a match", () => {
 	});
 });
 
+describe("the power simulator", () => {
+	let h: GameHarness;
+
+	beforeAll(async () => {
+		h = await loadGame();
+	});
+
+	afterAll(() => {
+		h.close();
+	});
+
+	it("publishes nothing until the menu asks for it", () => {
+		expect(h.bridge.simStore.get()).toBeNull();
+	});
+
+	it("shelves what the save has unlocked and the health the arena is set to", () => {
+		h.document.getElementById("simopen")?.click();
+
+		const view = h.bridge.simStore.get();
+		expect(view?.weapons).toStrictEqual(h.game.S.wunlocked);
+		expect(view?.elements).toStrictEqual(h.game.S.unlocked);
+		expect(view?.fusions).toStrictEqual([]);
+		expect(view?.hp).toBe(h.game.S.hp);
+	});
+
+	it("shelves a fusion only once it has been mixed in play", () => {
+		h.game.S.codex["steam"] = 1;
+		h.document.getElementById("simopen")?.click();
+
+		expect(h.bridge.simStore.get()?.fusions).toStrictEqual(["steam"]);
+	});
+
+	it("shuts through the view it published", () => {
+		h.bridge.simStore.get()?.close();
+
+		expect(h.bridge.simStore.get()).toBeNull();
+	});
+
+	it("shuts on Escape, the way every other overlay does", () => {
+		h.document.getElementById("simopen")?.click();
+		expect(h.bridge.simStore.get()).not.toBeNull();
+
+		h.window.dispatchEvent(new h.window.KeyboardEvent("keydown", {key: "Escape"}));
+
+		expect(h.bridge.simStore.get()).toBeNull();
+	});
+});
+
 describe("ids the script reaches for", () => {
 	it("are all produced by the markup or by a panel", async () => {
 		const referenced = [
@@ -381,7 +428,6 @@ describe("ids the script reaches for", () => {
 				h.game.drawMvChips,
 				h.game.drawPalette,
 				h.game.drawSpawnPicker,
-				h.game.drawSim,
 				h.game.drawReplay,
 				h.game.buildTable,
 			]) {
@@ -421,9 +467,6 @@ describe("ids the script reaches for", () => {
 			h.game.S.who = 0;
 			h.game.S.pOff = {0: {el: ["fire"], w: []}};
 			h.game.drawWho();
-			collect();
-
-			h.game.simAdd("w", "dagger");
 			collect();
 
 			h.game.S.replyTo = 1;

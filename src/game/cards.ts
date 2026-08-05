@@ -1,9 +1,8 @@
 /** Playing a card: laying ground with it, mixing two into one, tossing one, and who owns the result. */
 
-import {wepName} from "./combat.js";
 import {CFORGE, COST, EL, FUSE, T, fkey} from "./data/index.js";
 import type {Offset} from "./data/index.js";
-import {elName, isComp} from "./lookups.js";
+import {elName, isComp, wepName} from "./lookups.js";
 import {checkAlive} from "./match.js";
 import {afterMove, voidOut} from "./movement.js";
 import {save} from "./save.js";

@@ -3,8 +3,8 @@
  * what mixes into what. Nothing here changes the game; it only reads it.
  */
 
-import {CFORGE, EL, FORGE, FUSE, MV, T, W} from "./data/index.js";
-import type {ForgeDef, TerrainDef} from "./data/index.js";
+import {CFORGE, EL, FORGE, FUSE, MV, PAT, T, W} from "./data/index.js";
+import type {ForgeDef, TerrainDef, WeaponDef} from "./data/index.js";
 import {S} from "./state.js";
 import type {WeaponSpec} from "./types.js";
 
@@ -20,6 +20,16 @@ export const wCost = (c: WeaponSpec): number =>
 export const wHits = (c: WeaponSpec): number =>
 	Math.max(...c.ids.map((i) => W[i]!.hits)) + c.els.reduce((s, e) => s + (forgeOf(e).hits || 0), 0);
 export const wRing = (c: WeaponSpec): boolean => c.ids.some((i) => W[i]!.sweep);
+/** One weapon by key, for the screens that stack weapons up by name and colour. */
+export const wepOf = (k: string): WeaponDef => W[k]!;
+/** How many distinct squares the weapons on a card reach between them. */
+export const wReach = (c: WeaponSpec): number => {
+	const seen = new Set<string>();
+	c.ids.forEach((i) => {
+		PAT[W[i]!.pat]!().forEach(([dx, dy]) => seen.add(dx + "," + dy));
+	});
+	return seen.size;
+};
 export const wColor = (c: WeaponSpec): string => W[c.ids[0]!]!.c;
 export const wStrip = (c: WeaponSpec): string => {
 	const cols = c.ids.map((i) => W[i]!.c);
@@ -32,6 +42,32 @@ export const wStrip = (c: WeaponSpec): string => {
 export const wDesc = (c: WeaponSpec): string => [...new Set(c.ids.map((i) => W[i]!.d))].join(" ");
 export const elName = (e: string): string => (EL[e] ? EL[e].n : T[e]!.n);
 export const elColor = (e: string): string => (EL[e] ? EL[e].c : T[e]!.c);
+/** Names a list the way a card reads it out: one entry per distinct name, doubles counted off. */
+function tally(list: string[], label: (k: string) => string): string {
+	const order: string[] = [],
+		count = new Map<string, number>();
+	list.forEach((x) => {
+		const n = label(x);
+		if (!count.has(n)) {
+			order.push(n);
+			count.set(n, 0);
+		}
+		count.set(n, count.get(n)! + 1);
+	});
+	return order.map((n) => (count.get(n)! > 1 ? `${n} x${count.get(n)}` : n)).join(" ");
+}
+export function wepName(c: WeaponSpec): string {
+	return (tally(c.els, elName) + " " + tally(c.ids, (i) => W[i]!.n)).trim();
+}
+export function wepDmg(c: WeaponSpec): number {
+	const forges = c.els.map(forgeOf);
+	let d = c.ids.reduce((s, i) => s + W[i]!.dmg, 0) + forges.reduce((s, f) => s + (f.dmg || 0), 0);
+	// poison doubles once regardless of stack count: extra stacks add a flat kicker instead of compounding
+	const venom = forges.reduce((s, f) => s + (f.pow || 0), 0);
+	if (venom) d = d * 2 + 6 * venom;
+	const mult = forges.reduce((m, f) => m * (f.mult || 1), 1);
+	return Math.round(d * mult);
+}
 export const isComp = (e: string): boolean => !!CFORGE[e];
 // a tile is a gift only if it helps its occupant and costs them nothing
 export const terrOf = (e: string): TerrainDef | undefined => (EL[e] ? T[EL[e].t] : T[e]);

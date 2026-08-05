@@ -26,10 +26,6 @@ const REQUIRED = [
 	"matrix",
 	"mvpal",
 	"tdetail",
-	"simw",
-	"sime",
-	"simf",
-	"simout",
 ] as const;
 
 describe("static markup", () => {

@@ -3,7 +3,7 @@
 import {logit, place, setTerrain, spend} from "./cards.js";
 import {PAT, T, W, boon} from "./data/index.js";
 import type {Offset} from "./data/index.js";
-import {elName, forgeOf, isComp, wCost, wHits, wRing} from "./lookups.js";
+import {forgeOf, isComp, wCost, wHits, wRing, wepDmg, wepName} from "./lookups.js";
 import {checkAlive} from "./match.js";
 import {afterMove, canStand, settle} from "./movement.js";
 import {saveSoon} from "./save.js";
@@ -11,31 +11,6 @@ import {PC, S, ally, cheb, cur, held, hidden, idx, inb, layFor, occupantsAt} fro
 import type {Player, WeaponSpec} from "./types.js";
 import {redraw} from "./view.js";
 
-function tally(list: string[], label: (k: string) => string): string {
-	const order: string[] = [],
-		count = new Map<string, number>();
-	list.forEach((x) => {
-		const n = label(x);
-		if (!count.has(n)) {
-			order.push(n);
-			count.set(n, 0);
-		}
-		count.set(n, count.get(n)! + 1);
-	});
-	return order.map((n) => (count.get(n)! > 1 ? `${n} x${count.get(n)}` : n)).join(" ");
-}
-export function wepName(c: WeaponSpec): string {
-	return (tally(c.els, elName) + " " + tally(c.ids, (i) => W[i]!.n)).trim();
-}
-export function wepDmg(c: WeaponSpec): number {
-	const forges = c.els.map(forgeOf);
-	let d = c.ids.reduce((s, i) => s + W[i]!.dmg, 0) + forges.reduce((s, f) => s + (f.dmg || 0), 0);
-	// poison doubles once regardless of stack count: extra stacks add a flat kicker instead of compounding
-	const venom = forges.reduce((s, f) => s + (f.pow || 0), 0);
-	if (venom) d = d * 2 + 6 * venom;
-	const mult = forges.reduce((m, f) => m * (f.mult || 1), 1);
-	return Math.round(d * mult);
-}
 export function attackTiles(p: Player, c: WeaponSpec): Offset[] {
 	const out = new Set<string>();
 	if (c.ids.some((id) => W[id]!.pat === "any")) {
