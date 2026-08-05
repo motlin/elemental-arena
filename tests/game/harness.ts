@@ -2,23 +2,53 @@ import {readFileSync} from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {JSDOM, VirtualConsole} from "jsdom";
+import * as data from "../../src/game/data/index.js";
+import type {ElementDef, ForgeDef, MoveDef, Offset, TerrainDef, WeaponDef} from "../../src/game/data/index.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const indexHtmlPath = path.join(repoRoot, "index.html");
 
+const stylesDir = path.join(repoRoot, "src", "styles");
+
 export function readIndexHtml(): string {
 	return readFileSync(indexHtmlPath, "utf8");
 }
 
+/** Reads one of the stylesheets `index.css` pulls in, e.g. "arena.css". */
+export function readStylesheet(name: string): string {
+	return readFileSync(path.join(stylesDir, name), "utf8");
+}
+
 /**
- * The game lives in the one attribute-less `<script>` in index.html. The other two script tags
- * carry `src`, so matching `<script>` with no attributes picks out the game and nothing else.
+ * The game lives in the one inline `<script type="module">` in index.html. The other two script
+ * tags carry `src`, so requiring `>` straight after the type picks out the game and nothing else.
  */
 export function extractGameScript(html: string): string {
-	const body = /<script>\n([\s\S]*?)\n\t*<\/script>/.exec(html)?.[1];
-	if (body === undefined || body === "") throw new Error("no inline <script> found in index.html");
+	const body = /<script type="module">\n([\s\S]*?)\n\t*<\/script>/.exec(html)?.[1];
+	if (body === undefined || body === "") throw new Error("no inline module <script> found in index.html");
 	return body;
+}
+
+const DATA_IMPORT = /^(\t*)import \{([\s\S]*?)\} from "\/src\/game\/data\/index\.ts";/m;
+
+/**
+ * The game script is a module, but it is evaluated as loose script text here so the tests can still
+ * reach its top-level bindings. That trades its one `import` for a `const` per imported name, read
+ * off the `window.__DATA__` that `loadGame` fills from the very modules the browser would have
+ * fetched -- one per line, at the indent `topLevelNames` looks for.
+ */
+function inlineDataImport(script: string): string {
+	const match = DATA_IMPORT.exec(script);
+	if (match === null) throw new Error("index.html no longer imports /src/game/data/index.ts");
+	const [, indent = "", names = ""] = match;
+	const declarations = names
+		.split(",")
+		.map((name) => name.trim())
+		.filter((name) => name !== "")
+		.map((name) => `${indent}const ${name} = window.__DATA__.${name};`)
+		.join("\n");
+	return script.replace(DATA_IMPORT, () => declarations);
 }
 
 /**
@@ -54,47 +84,8 @@ function captureBootPromise(script: string): string {
 	return script.slice(0, at) + "window.__BOOT__ = " + script.slice(at);
 }
 
-export interface ElementDef {
-	n: string;
-	c: string;
-	t: string;
-	cost?: number;
-	blurb?: string;
-}
-
-export interface TerrainDef {
-	n: string;
-	c: string;
-	life: number;
-	gone?: number;
-}
-
-export interface WeaponDef {
-	n: string;
-	c: string;
-	cost: number;
-	dmg: number;
-	hits: number;
-	pat: string;
-	sweep?: number;
-	price?: number;
-	d: string;
-}
-
-export interface ForgeDef {
-	dmg: number;
-	fx: string;
-	mult?: number;
-	pow?: number;
-	hits?: number;
-}
-
-export interface MoveDef {
-	n: string;
-	bit: number;
-	price: number;
-	d: string;
-}
+/** The table shapes come straight from the modules the game imports, so tests share one definition. */
+export type {ElementDef, ForgeDef, MoveDef, TerrainDef, WeaponDef};
 
 export interface Card {
 	uid: number;
@@ -180,7 +171,7 @@ export interface GameGlobals {
 	FUSE: Record<string, string | undefined>;
 	CFORGE: Record<string, ForgeDef | undefined>;
 	MV: Record<string, MoveDef | undefined>;
-	PAT: Record<string, (() => number[][]) | undefined>;
+	PAT: Record<string, (() => Offset[]) | undefined>;
 	MODEHINT: Record<string, string | undefined>;
 	BASE: string[];
 	WBASE: string[];
@@ -291,7 +282,7 @@ export interface LoadGameOptions {
  */
 export async function loadGame(options: LoadGameOptions = {}): Promise<GameHarness> {
 	const html = readIndexHtml();
-	const script = extractGameScript(html);
+	const script = inlineDataImport(extractGameScript(html));
 	const source = captureBootPromise(script) + exportEpilogue(topLevelNames(script));
 
 	const errors: string[] = [];
@@ -307,6 +298,7 @@ export async function loadGame(options: LoadGameOptions = {}): Promise<GameHarne
 	});
 	const window = dom.window;
 	installStorage(window, options.storage ?? {});
+	Object.defineProperty(window, "__DATA__", {configurable: true, value: data});
 	window.eval(source);
 
 	const exported: unknown = window["__GAME__"];

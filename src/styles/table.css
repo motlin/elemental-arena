@@ -1,0 +1,292 @@
+/* The mixing table overlay, its detail pane, and the chat log beside the board. */
+#table {
+	position: fixed;
+	inset: 0;
+	background: var(--scrim);
+	display: none;
+	overflow-y: auto;
+	padding: 24px 20px;
+	z-index: 40;
+}
+#table.on {
+	display: block;
+}
+.tbox {
+	max-width: 880px;
+	margin: 0 auto;
+}
+.thead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	margin-bottom: 8px;
+}
+.thead h2 {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.2em;
+	font-size: 15px;
+	margin: 0;
+	font-weight: 700;
+}
+.thint {
+	color: var(--muted);
+	font-size: 12px;
+	line-height: 1.6;
+	margin: 0 0 18px;
+	max-width: 62ch;
+}
+/* The two grids that can outgrow their container: the mixing table and the arena board. */
+.matrixwrap,
+.boardscroll {
+	overflow-x: auto;
+	overscroll-behavior-x: contain;
+	scrollbar-width: thin;
+	scrollbar-color: var(--accent) var(--slot);
+}
+.matrixwrap::-webkit-scrollbar,
+.boardscroll::-webkit-scrollbar {
+	height: 10px;
+}
+.matrixwrap::-webkit-scrollbar-track,
+.boardscroll::-webkit-scrollbar-track {
+	background: var(--slot);
+	border-radius: 5px;
+}
+.matrixwrap::-webkit-scrollbar-thumb,
+.boardscroll::-webkit-scrollbar-thumb {
+	background: var(--accent);
+	border-radius: 5px;
+}
+.matrixwrap {
+	margin-bottom: 20px;
+}
+.matrix {
+	display: grid;
+	gap: 3px;
+	width: max-content;
+	min-width: 100%;
+}
+.mc {
+	padding: 6px 4px;
+	border-radius: 3px;
+	background: var(--panel2);
+	border: 1px solid var(--rule);
+	font-size: 10px;
+	line-height: 1.25;
+	text-align: center;
+	cursor: pointer;
+	min-height: 50px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	color: var(--ink);
+	min-width: 0;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+.mc:hover {
+	border-color: var(--accent);
+	background: #7ce0ff14;
+}
+.mc .d {
+	width: 11px;
+	height: 11px;
+	border-radius: 50%;
+	flex: none;
+}
+.mc .sub {
+	font-size: 8px;
+	color: var(--muted);
+	letter-spacing: 0.02em;
+	line-height: 1.2;
+}
+.mc.hdr {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.09em;
+	font-weight: 600;
+	font-size: 10px;
+	min-height: 0;
+}
+.mc.self {
+	background: var(--tile);
+}
+.mc.found {
+	border-color: #7dffb055;
+}
+.mc.unknown span:last-child {
+	color: var(--muted);
+	letter-spacing: 0.14em;
+}
+.mc[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: #7ce0ff1f;
+}
+.mc.parent {
+	border-color: var(--go);
+	box-shadow:
+		0 0 14px -3px var(--go),
+		inset 0 0 0 1px var(--go);
+}
+.mc.hdr.parent {
+	box-shadow: none;
+	border: none;
+	text-decoration: underline;
+	text-underline-offset: 4px;
+	text-decoration-thickness: 2px;
+}
+.tdetail {
+	background: var(--panel);
+	border: 1px solid var(--rule);
+	border-radius: 4px;
+	padding: 20px;
+	min-height: 150px;
+}
+.dh {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 16px;
+	flex-wrap: wrap;
+}
+.dh .d {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	flex: none;
+}
+.dh b {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	font-size: 17px;
+}
+.dh .made {
+	font-family: var(--mono);
+	font-size: 11px;
+	color: var(--muted);
+}
+.drow {
+	display: flex;
+	gap: 16px;
+	padding: 9px 0;
+	border-top: 1px solid var(--rule);
+	font-size: 12.5px;
+	line-height: 1.55;
+}
+.drow > span:first-child {
+	flex: none;
+	width: 150px;
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.11em;
+	font-size: 10.5px;
+	color: var(--muted);
+	padding-top: 2px;
+}
+.drow em {
+	font-style: normal;
+	color: var(--accent);
+	font-family: var(--mono);
+}
+#chatlog {
+	max-height: 150px;
+	overflow-y: auto;
+	font-size: 12.5px;
+	line-height: 1.5;
+	margin-bottom: 9px;
+}
+#chatlog p {
+	margin: 0 0 6px;
+}
+#chatlog b {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	font-size: 11px;
+}
+#chatlog .rnd {
+	color: var(--muted);
+	font-family: var(--mono);
+	font-size: 9.5px;
+	margin-left: 4px;
+}
+#chatlog .none {
+	color: var(--muted);
+}
+#chatlog .quote {
+	display: block;
+	border-left: 2px solid var(--rule);
+	padding-left: 7px;
+	margin-bottom: 3px;
+	color: var(--muted);
+	font-size: 11px;
+	line-height: 1.4;
+}
+.reply {
+	color: var(--muted);
+	font-size: 10px;
+	margin-left: 6px;
+	text-decoration: underline;
+}
+.reply:hover {
+	color: var(--accent);
+}
+.rto {
+	display: block;
+	font-size: 11px;
+	color: var(--muted);
+	margin-bottom: 6px;
+	border-left: 2px solid var(--accent);
+	padding-left: 7px;
+}
+.chatrow {
+	display: flex;
+	gap: 6px;
+}
+.chatrow input {
+	flex: 1;
+	min-width: 0;
+	background: var(--panel2);
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	padding: 7px 9px;
+	color: var(--ink);
+	font-family: var(--body);
+	font-size: 12px;
+}
+.chatrow input:focus {
+	border-color: var(--accent);
+	outline: none;
+}
+.chatrow button {
+	flex: none;
+	padding: 7px 11px;
+}
+.codexline {
+	font-family: var(--mono);
+	font-size: 12px;
+	color: var(--muted);
+	margin-bottom: 11px;
+}
+@media (max-width: 700px) {
+	.mc {
+		font-size: 8.5px;
+		min-height: 44px;
+		padding: 4px 2px;
+	}
+	.drow {
+		flex-direction: column;
+		gap: 4px;
+	}
+	.drow > span:first-child {
+		width: auto;
+	}
+}

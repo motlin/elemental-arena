@@ -1,0 +1,332 @@
+/* The setup screen: title, settings fields, shop rows, chips. */
+#menu {
+	display: none;
+	place-items: center;
+	min-height: 100%;
+	padding: 40px 20px;
+}
+#menu.on {
+	display: grid;
+}
+.menuwrap {
+	width: 100%;
+	max-width: 880px;
+}
+.titlerow {
+	display: flex;
+	align-items: center;
+	gap: 28px;
+	margin-bottom: 36px;
+	flex-wrap: wrap;
+}
+.sigil {
+	width: 96px;
+	height: 96px;
+	position: relative;
+	flex: none;
+}
+.sigil i {
+	position: absolute;
+	inset: 0;
+	animation: spin 14s linear infinite;
+}
+.sigil i:nth-child(1) {
+	background: var(--hot);
+	clip-path: polygon(50% 3%, 97% 90%, 3% 90%);
+	filter: drop-shadow(0 0 14px var(--hot));
+}
+.sigil i:nth-child(2) {
+	background: #2f9dff;
+	clip-path: polygon(50% 97%, 97% 10%, 3% 10%);
+	animation-direction: reverse;
+	filter: drop-shadow(0 0 14px #2f9dff);
+}
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+h1 {
+	font-family: var(--display);
+	font-weight: 700;
+	font-size: clamp(40px, 8vw, 74px);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	line-height: 0.92;
+	margin: 0;
+}
+h1 span {
+	display: block;
+	color: var(--muted);
+	font-size: 0.4em;
+	letter-spacing: 0.3em;
+	margin-top: 12px;
+}
+.card-panel {
+	background: var(--panel);
+	border: 1px solid var(--rule);
+	border-radius: 4px;
+	padding: 24px;
+	margin-bottom: 18px;
+}
+.card-panel h2 {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.2em;
+	font-size: 13px;
+	margin: 0 0 20px;
+	color: var(--muted);
+	font-weight: 600;
+}
+.field {
+	margin-bottom: 22px;
+}
+.field:last-child {
+	margin-bottom: 0;
+}
+.field label {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	margin-bottom: 10px;
+}
+.lname {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	font-size: 12px;
+}
+.lval {
+	font-family: var(--mono);
+	font-size: 19px;
+	color: var(--accent);
+}
+input[type="range"] {
+	width: 100%;
+	accent-color: var(--accent);
+	height: 22px;
+}
+.numbox {
+	width: 100%;
+	background: var(--panel2);
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	padding: 11px 13px;
+	color: var(--ink);
+	font-family: var(--mono);
+	font-size: 19px;
+	letter-spacing: 0.06em;
+}
+.numbox:focus {
+	border-color: var(--accent);
+	outline: none;
+}
+.seg {
+	display: flex;
+	gap: 8px;
+}
+.seg button {
+	flex: 1;
+	padding: 11px 0;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	font-family: var(--mono);
+	font-size: 15px;
+	color: var(--muted);
+}
+.seg button[aria-pressed="true"] {
+	border-color: var(--accent);
+	color: var(--accent);
+	background: #7ce0ff14;
+}
+.start {
+	width: 100%;
+	padding: 19px;
+	background: var(--hot);
+	color: var(--onhot);
+	border-radius: 3px;
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.24em;
+	font-size: 16px;
+	font-weight: 700;
+	box-shadow: 0 0 34px -8px var(--hot);
+}
+.start:hover {
+	filter: brightness(1.1);
+}
+.shoprow {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 15px 0;
+	border-top: 1px solid var(--rule);
+}
+.shoprow:first-of-type {
+	border-top: none;
+}
+.shopname {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.dot {
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	flex: none;
+}
+.shopname b {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	font-size: 14px;
+	font-weight: 600;
+}
+.shopname small {
+	display: block;
+	color: var(--muted);
+	font-size: 12px;
+	font-family: var(--body);
+}
+.buy {
+	padding: 9px 17px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	font-family: var(--mono);
+	font-size: 13px;
+}
+.buy:hover:not(:disabled) {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.buy:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+.owned {
+	font-family: var(--mono);
+	font-size: 12px;
+	color: #7dffb0;
+	letter-spacing: 0.1em;
+}
+.treasury {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	margin-bottom: 18px;
+}
+.chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 7px;
+}
+.chip {
+	padding: 7px 12px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.11em;
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--muted);
+	opacity: 0.5;
+}
+.chip[aria-pressed="true"] {
+	opacity: 1;
+	border-color: var(--cc);
+	color: var(--cc);
+	background: var(--cc) 14;
+}
+.chip:hover:not(.locked) {
+	opacity: 1;
+}
+.chip.locked {
+	opacity: 0.28;
+	cursor: not-allowed;
+	border-style: dashed;
+}
+.forwho {
+	font-family: var(--body);
+	text-transform: none;
+	letter-spacing: 0;
+	font-size: 11.5px;
+	color: var(--accent);
+	font-weight: 400;
+}
+.chip.whoc[aria-pressed="true"] {
+	border-width: 2px;
+}
+.chip.mvall {
+	border-color: var(--rule);
+	color: var(--muted);
+	opacity: 1;
+	font-weight: 600;
+}
+.chip.mvall:hover:not(:disabled) {
+	border-color: var(--ink);
+	color: var(--ink);
+}
+.chip.mvall:disabled {
+	opacity: 1;
+	cursor: default;
+	border-color: var(--go);
+	color: var(--go);
+	background: var(--go) 1f;
+}
+.linkish {
+	color: var(--accent);
+	text-decoration: underline;
+	padding: 0;
+	font-size: inherit;
+}
+.loadhint {
+	color: var(--muted);
+	font-size: 11.5px;
+	margin: 0 0 14px;
+	line-height: 1.55;
+}
+.shophead {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.2em;
+	font-size: 10px;
+	color: var(--muted);
+	margin-bottom: 6px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+.bulk {
+	border: 1px solid var(--go);
+	color: var(--go);
+	border-radius: 3px;
+	padding: 4px 9px;
+	font-family: var(--mono);
+	font-size: 10.5px;
+	letter-spacing: 0.04em;
+	text-transform: none;
+}
+.bulk:hover:not(:disabled) {
+	background: var(--go);
+	color: var(--onaccent);
+}
+.bulk:disabled {
+	opacity: 0.3;
+	cursor: not-allowed;
+}
+.bulkdone {
+	font-family: var(--mono);
+	font-size: 10px;
+	color: #7dffb0;
+	letter-spacing: 0.08em;
+	text-transform: none;
+}
+.treasury b {
+	font-family: var(--mono);
+	font-size: 26px;
+	color: #ffd24a;
+}

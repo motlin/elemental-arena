@@ -58,11 +58,33 @@ describe("saved progress", () => {
 });
 
 describe("script extraction", () => {
-	it("finds the top-level bindings", () => {
-		const names = topLevelNames(extractGameScript(readIndexHtml()));
-		expect(names).toContain("EL");
-		expect(names).toContain("W");
+	let names: string[];
+
+	beforeAll(() => {
+		names = topLevelNames(extractGameScript(readIndexHtml()));
+	});
+
+	it("finds the rules the script still declares itself", () => {
 		expect(names).toContain("S");
 		expect(names).toContain("startMatch");
+		expect(names).toContain("render");
+	});
+
+	it("leaves the data tables to the modules under src/game/data", () => {
+		expect(names).not.toContain("EL");
+		expect(names).not.toContain("W");
+	});
+
+	it("hands the imported tables to the tests all the same", async () => {
+		const h = await loadGame();
+
+		try {
+			expect({el: h.game.EL["fire"]?.n, weapon: h.game.W["dagger"]?.n}).toStrictEqual({
+				el: "Fire",
+				weapon: "Dagger",
+			});
+		} finally {
+			h.close();
+		}
 	});
 });

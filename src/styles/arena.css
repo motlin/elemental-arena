@@ -1,0 +1,311 @@
+/* The match screen chrome, the arena grid, tiles, and fighters. */
+#game {
+	padding: 14px;
+	min-height: 100%;
+	display: none;
+	flex-direction: column;
+	gap: 12px;
+}
+#game.on {
+	display: flex;
+}
+.topbar {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	flex-wrap: wrap;
+}
+.turnchip {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	padding: 8px 15px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	background: var(--panel);
+}
+.turnchip b {
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.17em;
+	font-size: 14px;
+}
+.roundchip {
+	font-family: var(--mono);
+	font-size: 12px;
+	color: var(--muted);
+	letter-spacing: 0.09em;
+}
+.topbar .sp {
+	flex: 1;
+}
+.ghost {
+	padding: 9px 15px;
+	border: 1px solid var(--rule);
+	border-radius: 3px;
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	font-size: 12px;
+}
+.ghost:hover:not(:disabled) {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.ghost:disabled {
+	opacity: 0.32;
+	cursor: not-allowed;
+}
+.arena {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	flex-wrap: nowrap;
+}
+.boardcol {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 11px;
+}
+/* A board can outgrow its column at narrow widths, where the 15px tile floor beats the room
+   available. Scrolling it here keeps it off the side panels. */
+.boardscroll {
+	max-width: 100%;
+}
+#board {
+	width: max-content;
+	margin-inline: auto;
+	display: grid;
+	gap: 2px;
+	padding: 8px;
+	background: var(--panel);
+	border: 1px solid var(--rule);
+	border-radius: 4px;
+}
+.tile {
+	width: var(--cell);
+	height: var(--cell);
+	border-radius: 3px;
+	background: var(--tile);
+	position: relative;
+	transition:
+		background 0.16s,
+		box-shadow 0.16s;
+}
+.tile.terr {
+	background: radial-gradient(circle at 50% 45%, var(--tcs), transparent 74%), var(--tile);
+	box-shadow: inset 0 0 12px -2px var(--tc);
+}
+.tile.void {
+	background: radial-gradient(circle at 50% 45%, #04020c 34%, var(--tcs) 100%), #04020c;
+	box-shadow:
+		inset 0 0 0 1px var(--tc),
+		0 0 12px -2px var(--tc);
+}
+.tile.solid {
+	box-shadow:
+		inset 0 0 0 1px var(--tc),
+		inset 0 0 14px -3px var(--tc);
+}
+.tile.step {
+	cursor: pointer;
+	box-shadow: inset 0 0 0 1px #7ce0ff66;
+}
+.tile.step:hover {
+	background: #7ce0ff1f;
+}
+.tile.aim {
+	cursor: crosshair;
+	box-shadow: inset 0 0 0 1px #ff6b3d99;
+}
+.tile.aim:hover {
+	background: #ff6b3d2b;
+}
+.tile.aimsure {
+	cursor: crosshair;
+	box-shadow:
+		inset 0 0 0 2px var(--hot),
+		0 0 12px -3px var(--hot);
+}
+.tile.aimsure:hover {
+	background: #ff6b3d3d;
+}
+.tile.warn {
+	box-shadow:
+		inset 0 0 0 2px #ff2f4a,
+		0 0 14px -3px #ff2f4a;
+	animation: warnpulse 1s ease-in-out infinite;
+}
+@keyframes warnpulse {
+	50% {
+		background: #ff2f4a3d;
+	}
+}
+.tile.gonezone {
+	background: #07040a;
+	box-shadow: inset 0 0 0 1px #4a1020;
+}
+.tile.reach {
+	box-shadow: inset 0 0 0 1px #ffffff22;
+}
+.tile.litsq {
+	box-shadow:
+		inset 0 0 0 1px #ffe9a8,
+		0 0 12px -3px #ffe9a8;
+}
+.mage.litp {
+	filter: drop-shadow(0 0 8px #ffe9a8) drop-shadow(0 0 3px var(--pc));
+}
+.tile.look {
+	box-shadow: inset 0 0 0 2px var(--accent);
+}
+#tileinfo {
+	font-size: 12px;
+	line-height: 1.6;
+	color: var(--muted);
+}
+#tileinfo b {
+	color: var(--ink);
+	font-family: var(--display);
+	text-transform: uppercase;
+	letter-spacing: 0.11em;
+	font-size: 12px;
+	font-weight: 600;
+}
+#tileinfo .k {
+	display: flex;
+	gap: 8px;
+	margin-top: 6px;
+}
+#tileinfo .k span:first-child {
+	color: var(--muted);
+	min-width: 74px;
+}
+#tileinfo .k span:last-child {
+	color: var(--ink);
+}
+.tile.bloom {
+	animation: bloom 0.4s ease-out;
+}
+@keyframes bloom {
+	0% {
+		transform: scale(0.55);
+		filter: brightness(2.6);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+.tile.struck {
+	animation: struck 0.35s ease-out;
+}
+@keyframes struck {
+	0%,
+	100% {
+	}
+	30% {
+		box-shadow: inset 0 0 0 2px #fff;
+	}
+}
+.stackn {
+	position: absolute;
+	right: 1px;
+	top: 0;
+	font-family: var(--mono);
+	font-size: 9px;
+	color: var(--ink);
+	font-weight: 700;
+	z-index: 3;
+}
+.wnum {
+	position: absolute;
+	right: 1px;
+	bottom: 0;
+	font-family: var(--mono);
+	font-size: 9px;
+	color: #0b0e1a;
+	font-weight: 700;
+	mix-blend-mode: multiply;
+}
+.mage {
+	position: absolute;
+	inset: 13%;
+	background: var(--pc);
+	filter: drop-shadow(0 0 7px var(--pc));
+}
+.mage.p0 {
+	clip-path: polygon(50% 3%, 97% 92%, 3% 92%);
+}
+.mage.p1 {
+	clip-path: polygon(50% 2%, 98% 50%, 50% 98%, 2% 50%);
+}
+.mage.p2 {
+	clip-path: polygon(50% 2%, 98% 38%, 80% 97%, 20% 97%, 2% 38%);
+}
+.mage.p3 {
+	clip-path: polygon(50% 2%, 95% 26%, 95% 74%, 50% 98%, 5% 74%, 5% 26%);
+}
+.mage.p4 {
+	clip-path: polygon(7% 7%, 93% 7%, 93% 93%, 7% 93%);
+}
+.mage.p5 {
+	clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
+}
+.mage.p6 {
+	clip-path: circle(46% at 50% 50%);
+}
+.mage.p7 {
+	clip-path: polygon(3% 8%, 97% 8%, 50% 97%);
+}
+.mage.active {
+	animation: pulse 1.7s ease-in-out infinite;
+}
+@keyframes pulse {
+	50% {
+		filter: drop-shadow(0 0 15px var(--pc)) brightness(1.35);
+	}
+}
+
+.side {
+	width: clamp(150px, 17vw, 212px);
+	flex: none;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+.side.left {
+	order: 0;
+}
+.boardcol {
+	order: 1;
+}
+.side.right {
+	order: 2;
+}
+.side.right .wep {
+	width: 100%;
+}
+@media (max-width: 560px) {
+	.arena {
+		flex-direction: column;
+		align-items: center;
+		flex-wrap: wrap;
+	}
+	.side {
+		width: 100%;
+		max-width: 640px;
+	}
+	.side.left {
+		order: 2;
+	}
+	.boardcol {
+		order: 0;
+		width: 100%;
+	}
+	.side.right {
+		order: 1;
+	}
+}

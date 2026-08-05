@@ -1,5 +1,5 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, readIndexHtml, type GameHarness} from "./harness.js";
+import {loadGame, readStylesheet, type GameHarness} from "./harness.js";
 
 /** The grid sizes the setup screen offers, plus the interesting sizes in between. */
 const DIMS = [5, 7, 9, 13, 17, 21, 25] as const;
@@ -99,7 +99,7 @@ describe("arena layout constants", () => {
 
 	beforeAll(async () => {
 		h = await loadGame();
-		css = readIndexHtml();
+		css = readStylesheet("arena.css");
 	});
 
 	afterAll(() => {
@@ -109,8 +109,8 @@ describe("arena layout constants", () => {
 	/** The sizing maths only works while these mirror the stylesheet, so pin both sides together. */
 	it("mirrors the stylesheet the board maths is derived from", () => {
 		expect({
-			gamePad: css.includes("#game {\n\t\t\t\tpadding: 14px;"),
-			arenaGap: css.includes(".arena {\n\t\t\t\tdisplay: flex;\n\t\t\t\tgap: 14px;"),
+			gamePad: css.includes("#game {\n\tpadding: 14px;"),
+			arenaGap: css.includes(".arena {\n\tdisplay: flex;\n\tgap: 14px;"),
 			sideWidth: css.includes("width: clamp(150px, 17vw, 212px);"),
 			stackAt: css.includes("@media (max-width: 560px) {"),
 			boardScroll: css.includes(".boardscroll {"),
@@ -128,7 +128,7 @@ describe("arena layout constants", () => {
 	 * told to fill the row -- and a .boardscroll capped at 100% of that never constrains anything.
 	 */
 	it("makes the board column fill the row once the arena stacks", () => {
-		const stacked = /@media \(max-width: 560px\) \{([\s\S]*?)\n\t\t\t\}\n/.exec(css)?.[1] ?? "";
+		const stacked = /@media \(max-width: 560px\) \{([\s\S]*?)\n\}\n/.exec(css)?.[1] ?? "";
 		const boardcol = /\.boardcol \{([^}]*)\}/.exec(stacked)?.[1] ?? "";
 
 		expect(boardcol).toContain("width: 100%;");

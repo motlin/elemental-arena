@@ -15,29 +15,41 @@ The game is served from `index.html` at <http://localhost:3000>.
 
 ## Shape of the code
 
-The game began as a single-file Claude artifact and still lives that way: `index.html` holds
-roughly 410 lines of CSS and 2,700 lines of vanilla JavaScript in one inline `<script>`.
-One global `S` object holds all state, one `render()` redraws everything, and actions mutate
-`S` then call `render()`. There is no framework and no virtual DOM.
+The game began as a single-file Claude artifact and is being pulled apart a seam at a time.
+The styles and the data tables now live under `src/`; the rules and the rendering are still one
+inline `<script type="module">` in `index.html`. One global `S` object holds all state, one
+`render()` redraws everything, and actions mutate `S` then call `render()`. There is no framework
+and no virtual DOM.
 
-Content is five data tables near the top of the script. Almost every feature is driven off
-flags in these, so new content is usually a table entry rather than new logic.
+| Where            | What                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| `src/styles/`    | every stylesheet, imported in cascade order by `index.css` |
+| `src/game/data/` | the static tables, re-exported by `index.ts`               |
+| `index.html`     | the static markup, plus the game rules and rendering       |
 
-| Table  | What it is                                              | Size |
-| ------ | ------------------------------------------------------- | ---- |
-| `EL`   | base elements, each with a terrain key and a shop price | 13   |
-| `T`    | every terrain, base and fused, with behaviour flags     | 105  |
-| `FUSE` | which pair of elements makes which terrain              | 91   |
-| `W`    | weapons: damage, energy, attack pattern, price          | 15   |
-| `MV`   | footwork, each with a unique power-of-two `bit`         | 16   |
+Content is the data tables. Almost every feature is driven off flags in these, so new content is
+usually a table entry rather than new logic.
+
+| Table  | What it is                                              | Size | File                        |
+| ------ | ------------------------------------------------------- | ---- | --------------------------- |
+| `EL`   | base elements, each with a terrain key and a shop price | 13   | `src/game/data/elements.ts` |
+| `T`    | every terrain, base and fused, with behaviour flags     | 105  | `src/game/data/terrain.ts`  |
+| `FUSE` | which pair of elements makes which terrain              | 91   | `src/game/data/fusion.ts`   |
+| `W`    | weapons: damage, energy, attack pattern, price          | 15   | `src/game/data/weapons.ts`  |
+| `MV`   | footwork, each with a unique power-of-two `bit`         | 16   | `src/game/data/footwork.ts` |
+
+`FORGE` holds the forge rider for each base element and `CFORGE` the one derived for each fusion,
+both in `src/game/data/forge.ts`; read them through `forgeOf()` rather than indexing either
+directly.
 
 Terrain flags are the vocabulary: `end` (damage for ending your turn there), `bite` (damage for
 entering), `aura`/`rad` (damage at a distance), `heal`, `gain`, `los` (blinds the occupant),
 `hide` (conceals the occupant), `reveal` (defeats nearby `hide`), `anchor`, `ward`, `root`,
 `gone` (lethal), `solid`, `flow`, `spread`, `melts`, `dead`.
 
-Attack shapes live in `PAT`, a map of pattern name to offset list. Adding a weapon shape means
-adding one entry there. `'any'` is special-cased in `attackTiles` to mean the whole board.
+Attack shapes live in `PAT` in `src/game/data/patterns.ts`, a map of pattern name to offset list.
+Adding a weapon shape means adding one entry there. `'any'` is special-cased in `attackTiles` to
+mean the whole board.
 
 Persistence goes through `window.storage` under key `arena:v3`: coins, unlocked items,
 discovered fusions, loadout preferences, theme, cheat attempts. Match state is never persisted.
