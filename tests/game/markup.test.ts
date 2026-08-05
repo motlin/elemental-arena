@@ -23,9 +23,6 @@ const REQUIRED = [
 	"names",
 	"whochips",
 	"whonote",
-	"matrix",
-	"mvpal",
-	"tdetail",
 ] as const;
 
 describe("static markup", () => {

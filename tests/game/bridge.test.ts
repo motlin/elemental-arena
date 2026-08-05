@@ -3,9 +3,11 @@ import {
 	handoffStore,
 	overStore,
 	simStore,
+	tableStore,
 	type HandoffView,
 	type OverView,
 	type SimView,
+	type TableView,
 } from "../../src/game/bridge.js";
 import type {LogEntry} from "../../src/game/types.js";
 
@@ -21,6 +23,7 @@ afterEach(() => {
 	handoffStore.set(null);
 	overStore.set(null);
 	simStore.set(null);
+	tableStore.set(null);
 });
 
 describe("handoffStore", () => {
@@ -167,5 +170,37 @@ describe("simStore", () => {
 		unsubscribe();
 
 		expect(calls).toBe(2);
+	});
+});
+
+function table(overrides: Partial<TableView> = {}): TableView {
+	return {owned: ["fire"], found: [], footwork: [], close: noop, ...overrides};
+}
+
+describe("tableStore", () => {
+	it("starts with the table shut", () => {
+		expect(tableStore.get()).toBeNull();
+	});
+
+	it("stays quiet when the same save is republished", () => {
+		let calls = 0;
+		const unsubscribe = tableStore.subscribe(() => calls++);
+
+		tableStore.set(table());
+		tableStore.set(table());
+		unsubscribe();
+
+		expect(calls).toBe(1);
+	});
+
+	it("counts a fusion turned up mid-match as news", () => {
+		const seen: (readonly string[] | undefined)[] = [];
+		const unsubscribe = tableStore.subscribe(() => seen.push(tableStore.get()?.found));
+
+		tableStore.set(table());
+		tableStore.set(table({found: ["steam"]}));
+		unsubscribe();
+
+		expect(seen).toStrictEqual([[], ["steam"]]);
 	});
 });

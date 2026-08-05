@@ -182,8 +182,6 @@ export interface GameState {
 	loadErr: string | null;
 	cheat: number;
 	tries: number;
-	/** Terrain key the tile inspector is showing. */
-	tsel: string | null;
 	/** `uid` of the card a mix started from. */
 	mixFrom: number | null;
 	/** Seat whose card is being stolen. */

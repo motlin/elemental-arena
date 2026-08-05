@@ -3,8 +3,8 @@
  * what mixes into what. Nothing here changes the game; it only reads it.
  */
 
-import {CFORGE, EL, FORGE, FUSE, MV, PAT, T, W} from "./data/index.js";
-import type {ForgeDef, TerrainDef, WeaponDef} from "./data/index.js";
+import {CFORGE, COST, EL, FORGE, FUSE, MV, PAT, T, W, fkey} from "./data/index.js";
+import type {ActionKey, ForgeDef, MoveDef, TerrainDef, WeaponDef} from "./data/index.js";
 import {S} from "./state.js";
 import type {WeaponSpec} from "./types.js";
 
@@ -69,8 +69,20 @@ export function wepDmg(c: WeaponSpec): number {
 	return Math.round(d * mult);
 }
 export const isComp = (e: string): boolean => !!CFORGE[e];
+/** Whether a key names one of the base elements rather than something fused out of them. */
+export const isEl = (e: string): boolean => !!EL[e];
+/** What a base element costs in the shop; the three starters are never bought, so they cost nothing. */
+export const elCost = (e: string): number => EL[e]!.cost || 0;
+/** What a pair of elements makes, which every pair of them does. */
+export const fusionOf = (a: string, b: string): string => FUSE[fkey(a, b)]!;
+/** One piece of footwork by key, for the screens that read it out by name. */
+export const moveOf = (k: string): MoveDef => MV[k]!;
+/** What one use of a piece of footwork costs in energy. */
+export const mvCost = (k: string): number => COST[k as ActionKey];
 // a tile is a gift only if it helps its occupant and costs them nothing
 export const terrOf = (e: string): TerrainDef | undefined => (EL[e] ? T[EL[e].t] : T[e]);
+/** The same ground, for the screens that only ever ask about an element the game already knows. */
+export const groundOf = (e: string): TerrainDef => terrOf(e)!;
 export const madeFrom = (e: string): string[] =>
 	Object.entries(FUSE)
 		.filter(([, v]) => v === e)
@@ -80,10 +92,6 @@ export const madeFrom = (e: string): string[] =>
 				.map((x) => EL[x]!.n)
 				.join(" + "),
 		);
-export const mixesInto = (e: string): string[] =>
-	Object.entries(FUSE)
-		.filter(([k]) => k.split("|").includes(e))
-		.map(([, v]) => T[v]!.n);
 export const parentsOf = (k: string): string[] => {
 	const hit = Object.entries(FUSE).find(([, v]) => v === k);
 	return hit ? hit[0].split("|") : [];

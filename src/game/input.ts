@@ -1,6 +1,6 @@
 /** Turning clicks and keys into moves. */
 
-import {simStore} from "./bridge.js";
+import {simStore, tableStore} from "./bridge.js";
 import {clickCard, doPlace} from "./cards.js";
 import {attackTiles, doAttack, startAttack} from "./combat.js";
 import {endTurn} from "./match.js";
@@ -117,7 +117,7 @@ addEventListener("keydown", (e) => {
 		closeSim();
 		return;
 	}
-	if (e.key === "Escape" && $("table").classList.contains("on")) {
+	if (e.key === "Escape" && tableStore.get() !== null) {
 		closeTable();
 		return;
 	}

@@ -261,42 +261,6 @@ describe("menu panels", () => {
 		h.game.S.np = 2;
 		h.game.drawNames();
 	});
-
-	it("renders the codex detail for every element, fusion, and move", () => {
-		h.game.buildTable();
-		const keys = [
-			...Object.keys(h.game.EL),
-			...Object.keys(h.game.CFORGE),
-			...Object.keys(h.game.MV).map((k) => `mv:${k}`),
-		];
-		const broken: string[] = [];
-
-		for (const key of keys) {
-			h.game.S.tsel = key;
-			h.game.drawDetail();
-			const text = h.document.getElementById("tdetail")?.textContent ?? "";
-			if (text === "") broken.push(`${key}: nothing rendered`);
-			if (/undefined|NaN/.test(text)) broken.push(`${key}: ${text.trim().slice(0, 120)}`);
-		}
-
-		expect(broken).toStrictEqual([]);
-	});
-
-	it("renders the codex detail for undiscovered entries too", () => {
-		h.game.S.unlocked = [...h.game.BASE];
-		h.game.S.codex = {};
-		h.game.buildTable();
-		const broken: string[] = [];
-
-		for (const key of [...Object.keys(h.game.EL), ...Object.keys(h.game.CFORGE)]) {
-			h.game.S.tsel = key;
-			h.game.drawDetail();
-			const text = h.document.getElementById("tdetail")?.textContent ?? "";
-			if (/undefined|NaN/.test(text)) broken.push(`${key}: ${text.trim().slice(0, 120)}`);
-		}
-
-		expect(broken).toStrictEqual([]);
-	});
 });
 
 /** Falls on the current player's sword, which the button only does on the second press. */
@@ -404,6 +368,61 @@ describe("the power simulator", () => {
 	});
 });
 
+describe("the mixing table", () => {
+	let h: GameHarness;
+
+	beforeAll(async () => {
+		h = await loadGame();
+	});
+
+	afterAll(() => {
+		h.close();
+	});
+
+	it("publishes nothing until something asks for it", () => {
+		expect(h.bridge.tableStore.get()).toBeNull();
+	});
+
+	it("hands over what the save has bought and what it has mixed", () => {
+		h.document.getElementById("tableopen")?.click();
+
+		const view = h.bridge.tableStore.get();
+		expect(view?.owned).toStrictEqual(h.game.S.unlocked);
+		expect(view?.found).toStrictEqual([]);
+		expect(view?.footwork).toStrictEqual(h.game.S.munlocked);
+	});
+
+	it("opens from inside the arena too", () => {
+		h.bridge.tableStore.get()?.close();
+
+		h.document.getElementById("tableopen2")?.click();
+
+		expect(h.bridge.tableStore.get()).not.toBeNull();
+	});
+
+	it("names a fusion only once it has been mixed in play", () => {
+		h.game.S.codex["steam"] = 1;
+		h.game.drawCodex();
+
+		expect(h.bridge.tableStore.get()?.found).toStrictEqual(["steam"]);
+	});
+
+	it("shuts through the view it published", () => {
+		h.bridge.tableStore.get()?.close();
+
+		expect(h.bridge.tableStore.get()).toBeNull();
+	});
+
+	it("shuts on Escape, the way every other overlay does", () => {
+		h.document.getElementById("tableopen")?.click();
+		expect(h.bridge.tableStore.get()).not.toBeNull();
+
+		h.window.dispatchEvent(new h.window.KeyboardEvent("keydown", {key: "Escape"}));
+
+		expect(h.bridge.tableStore.get()).toBeNull();
+	});
+});
+
 describe("ids the script reaches for", () => {
 	it("are all produced by the markup or by a panel", async () => {
 		const referenced = [
@@ -429,7 +448,6 @@ describe("ids the script reaches for", () => {
 				h.game.drawPalette,
 				h.game.drawSpawnPicker,
 				h.game.drawReplay,
-				h.game.buildTable,
 			]) {
 				draw();
 				collect();

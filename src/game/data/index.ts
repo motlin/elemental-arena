@@ -8,5 +8,5 @@ export {FUSE, fkey} from "./fusion.js";
 export {DIR8, PAT, type Offset} from "./patterns.js";
 export {W, WBASE, type WeaponDef} from "./weapons.js";
 export {COST, type ActionKey} from "./costs.js";
-export {MV} from "./footwork.js";
+export {MV, type MoveDef} from "./footwork.js";
 export {FORGE, CFORGE, ELBYT, boon, type ForgeDef} from "./forge.js";

@@ -121,3 +121,27 @@ function sameSim(a: SimView | null, b: SimView | null): boolean {
 }
 
 export const simStore = createStore<SimView | null>(null, sameSim);
+
+/** What the mixing table needs to know about how far the save has got. */
+export interface TableView {
+	/** Element keys the save has bought; the rest of the grid reads as a mystery. */
+	readonly owned: readonly string[];
+	/** Fused element keys already discovered in play. */
+	readonly found: readonly string[];
+	/** Footwork keys the save has bought. */
+	readonly footwork: readonly string[];
+	/** Shuts the table and goes back to whatever it was opened over. */
+	readonly close: () => void;
+}
+
+function sameTable(a: TableView | null, b: TableView | null): boolean {
+	if (a === null || b === null) return a === b;
+	return (
+		a.close === b.close &&
+		sameKeys(a.owned, b.owned) &&
+		sameKeys(a.found, b.found) &&
+		sameKeys(a.footwork, b.footwork)
+	);
+}
+
+export const tableStore = createStore<TableView | null>(null, sameTable);

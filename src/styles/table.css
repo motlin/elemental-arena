@@ -1,15 +1,12 @@
 /* The mixing table overlay, its detail pane, and the chat log beside the board. */
-#table {
+.table {
 	position: fixed;
 	inset: 0;
 	background: var(--scrim);
-	display: none;
+	display: block;
 	overflow-y: auto;
 	padding: 24px 20px;
 	z-index: 40;
-}
-#table.on {
-	display: block;
 }
 .tbox {
 	max-width: 880px;

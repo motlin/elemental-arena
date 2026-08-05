@@ -3,6 +3,7 @@ import {createRoot} from "react-dom/client";
 import {Agentation} from "agentation";
 import {GameOverScreen} from "./ui/GameOverScreen.js";
 import {HandoffCurtain} from "./ui/HandoffCurtain.js";
+import {MixingTable} from "./ui/MixingTable.js";
 import {PowerSimulator} from "./ui/PowerSimulator.js";
 
 const root = document.getElementById("app");
@@ -19,5 +20,6 @@ createRoot(root).render(
 		<HandoffCurtain />
 		<GameOverScreen />
 		<PowerSimulator />
+		<MixingTable />
 	</StrictMode>,
 );

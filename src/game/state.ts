@@ -44,7 +44,6 @@ export const S: GameState = {
 	loadErr: null,
 	cheat: 0,
 	tries: 0,
-	tsel: null,
 	mixFrom: null,
 	steal: null,
 	warn: null,

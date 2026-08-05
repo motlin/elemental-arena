@@ -90,10 +90,8 @@ export {
 export {startMatch} from "./match.js";
 export {attackTiles, leaveFoe, leaveSelf} from "./combat.js";
 export {
-	buildTable,
 	drawCheat,
 	drawCodex,
-	drawDetail,
 	drawLoadout,
 	drawMvChips,
 	drawNames,

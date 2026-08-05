@@ -1,28 +1,13 @@
 /**
- * The setup screen: the seats and their colours, the shop, the loadout, the board builder, the
- * replay, the fusion table, and the door to the power simulator React paints.
+ * The setup screen: the seats and their colours, the shop, the loadout, the board builder and the
+ * replay, plus the doors to the power simulator and the mixing table React paints.
  */
 
-import {simStore} from "./bridge.js";
-import {BASE, COST, EL, FUSE, MV, T, W, WBASE, fkey} from "./data/index.js";
+import {simStore, tableStore} from "./bridge.js";
+import type {TableView} from "./bridge.js";
+import {BASE, COST, EL, FUSE, MV, T, W, WBASE} from "./data/index.js";
 import type {ActionKey} from "./data/index.js";
-import {
-	elName,
-	elsOn,
-	forgeOf,
-	isComp,
-	known,
-	madeFrom,
-	mixesInto,
-	mixesIntoKeys,
-	mvOwnedMask,
-	offFor,
-	ownEl,
-	parentsOf,
-	terrOf,
-	wepDmg,
-	wsOn,
-} from "./lookups.js";
+import {elsOn, known, mvOwnedMask, offFor, terrOf, wsOn} from "./lookups.js";
 import {ringSpots, startMatch} from "./match.js";
 import {errText, save} from "./save.js";
 import {$, PC, PCN, PN, S, idx, nameOf, rgba, src, teamName} from "./state.js";
@@ -739,19 +724,32 @@ $("simopen").onclick = () => {
 export function closeSim(): void {
 	simStore.set(null);
 }
+/**
+ * The mixing table: every pair of elements crossed with every other, and the footwork palette
+ * below it. The grid itself is React's to paint, so all the menu hands over is how far the save
+ * has got -- what has been bought, and what has been mixed in play.
+ */
 function openTable(): void {
-	S.tsel = S.tsel || "fire";
-	buildTable();
-	$("table").classList.add("on");
+	tableStore.set(tableView());
 }
+
+function tableView(): TableView {
+	return {
+		owned: [...S.unlocked],
+		found: [...new Set(Object.values(FUSE).filter((k) => known(k)))],
+		footwork: [...S.munlocked],
+		close: closeTable,
+	};
+}
+
+/** Takes the table down; a stable reference, so republishing the same save is not news. */
 export function closeTable(): void {
-	$("table").classList.remove("on");
+	tableStore.set(null);
 }
 ["tableopen", "tableopen2", "tableopen3"].forEach((id) => {
 	const b = $(id);
 	if (b) b.onclick = openTable;
 });
-$("tclose").onclick = closeTable;
 let resetArmed = false,
 	resetT: ReturnType<typeof setTimeout> | null = null;
 $("reset").onclick = async () => {
@@ -815,126 +813,6 @@ export function drawCodex(): void {
 	const found = Object.keys(FUSE).filter((k) => known(FUSE[k]!)).length;
 	const line = $("codexline");
 	if (line) line.textContent = `${found} of ${total} fusions discovered`;
-	if ($("table").classList.contains("on")) buildTable();
-}
-export function buildTable(): void {
-	const els = Object.keys(EL),
-		m = $("matrix");
-	m.style.gridTemplateColumns = `68px repeat(${els.length},minmax(62px,1fr))`;
-	let h = '<div class="mc hdr"></div>';
-	const hcol = (e: string): string => (ownEl(e) ? EL[e]!.c : "var(--muted)");
-	const sel = S.tsel;
-	const par = sel && !EL[sel] && known(sel) ? parentsOf(sel) : sel && EL[sel] ? [sel] : [];
-	const lit = (e: string): string => (par.includes(e) ? " parent" : "");
-	els.forEach(
-		(e) => (h += `<div class="mc hdr elhdr${lit(e)}" data-k="${e}" style="color:${hcol(e)}">${EL[e]!.n}</div>`),
-	);
-	els.forEach((a) => {
-		h += `<div class="mc hdr elhdr${lit(a)}" data-k="${a}" style="color:${hcol(a)};align-items:flex-end;text-align:right">${EL[a]!.n}</div>`;
-		els.forEach((b) => {
-			const k = FUSE[fkey(a, b)]!,
-				vis = known(k);
-			const madeHere =
-				par.length === 2
-					? (a === par[0] && b === par[1]) || (a === par[1] && b === par[0])
-					: par.length === 1 && a === par[0] && b === par[0];
-			h += `<div class="mc${vis ? " found" : " unknown"}${a === b ? " self" : ""}${madeHere ? " parent" : ""}" data-k="${k}" aria-pressed="${S.tsel === k}">
-        <span class="d" style="background:${vis ? T[k]!.c : "var(--muted)"}"></span>
-        <span>${vis ? T[k]!.n : "? ? ?"}</span></div>`;
-		});
-	});
-	m.innerHTML = h;
-	m.querySelectorAll(".mc[data-k]").forEach(
-		(c) =>
-			(c.onclick = () => {
-				S.tsel = c.dataset["k"] ?? null;
-				buildTable();
-				drawDetail();
-			}),
-	);
-	$("mvpal").innerHTML = Object.entries(MV)
-		.sort((a, b) => a[1].price - b[1].price)
-		.map(([k, v]) => {
-			const own = S.munlocked.includes(k);
-			return `<button class="bp mvref${own ? "" : " unknown"}" data-k="mv:${k}" aria-pressed="${S.tsel === "mv:" + k}">
-      <span class="d" style="background:${own ? "var(--accent)" : "var(--muted)"}"></span>${v.n}</button>`;
-		})
-		.join("");
-	$("mvpal")
-		.querySelectorAll(".mvref")
-		.forEach(
-			(b) =>
-				(b.onclick = () => {
-					S.tsel = b.dataset["k"] ?? null;
-					buildTable();
-					drawDetail();
-				}),
-		);
-	drawDetail();
-}
-export function drawDetail(): void {
-	const e = S.tsel,
-		box = $("tdetail");
-	if (!e) {
-		box.innerHTML = '<p class="thint" style="margin:0">Pick any cell above, or a piece of footwork.</p>';
-		return;
-	}
-	if (e.startsWith("mv:")) {
-		const k = e.slice(3),
-			v = MV[k],
-			owned = S.munlocked.includes(k);
-		if (!owned) {
-			box.innerHTML = `<div class="dh"><span class="d" style="background:var(--muted)"></span>
-        <b>${v!.n}</b><span class="made">not bought yet</span></div>
-        <div class="drow"><span>What it does</span><span>? ? ?</span></div>
-        <div class="drow"><span>Price</span><span>Buy it for <em>${v!.price}</em> coin to find out.</span></div>`;
-			return;
-		}
-		box.innerHTML = `<div class="dh"><span class="d" style="background:var(--accent)"></span>
-      <b>${v!.n}</b><span class="made">in your arsenal</span></div>
-      <div class="drow"><span>What it does</span><span>${v!.d}</span></div>
-      <div class="drow"><span>Costs</span><span><em>${COST[k as ActionKey]}</em> energy a use</span></div>
-      <div class="drow"><span>Giving it out</span><span>Hand it to a fighter on the setup screen. Each one only gets what you assign.</span></div>`;
-		return;
-	}
-	if (!known(e)) {
-		const unowned = (EL[e] ? [e] : parentsOf(e)).filter((k) => !ownEl(k));
-		const head = EL[e] ? EL[e].n : "? ? ?";
-		box.innerHTML = `<div class="dh"><span class="d" style="background:var(--muted)"></span>
-      <b style="color:var(--muted)">${head}</b></div>
-      ${
-			unowned.length
-				? `<div class="drow"><span>Underfoot</span><span>? ? ?</span></div>
-           <div class="drow"><span>In the forge</span><span>? ? ?</span></div>
-           <div class="drow"><span>Not bought</span><span>Buy ${unowned
-				.map((k) => `<em>${EL[k]!.n}</em> for ${EL[k]!.cost} coin`)
-				.join(" and ")} to read this.</span></div>`
-				: `<div class="drow"><span>Undiscovered</span><span>Mix <em>${madeFrom(e).join("</em> or <em>")}</em>
-             in a match to find out what it makes.</span></div>`
-		}`;
-		return;
-	}
-	const t = terrOf(e)!,
-		f = forgeOf(e),
-		from = madeFrom(e),
-		into = mixesInto(e);
-	const plain = wepDmg({ids: ["sword"], els: []}),
-		forged = wepDmg({ids: ["sword"], els: [e]});
-	const cross = wepDmg({ids: ["crossbow"], els: []}),
-		fcross = wepDmg({ids: ["crossbow"], els: [e]});
-	box.innerHTML = `
-    <div class="dh"><span class="d" style="background:${t.c}"></span><b>${elName(e)}</b>
-      <span class="made">${from.length ? from.join("  or  ") : "base element"}</span></div>
-    <div class="drow"><span>Underfoot</span><span>Lays <em>${t.n}</em>: ${t.d.charAt(0).toLowerCase() + t.d.slice(1)}.</span></div>
-    <div class="drow"><span>In the forge</span><span>${f.fx.charAt(0).toUpperCase() + f.fx.slice(1)}.</span></div>
-    <div class="drow"><span>Sword</span><span><em>${plain}</em> becomes <em>${forged}</em></span></div>
-    <div class="drow"><span>Crossbow</span><span><em>${cross}</em> becomes <em>${fcross}</em></span></div>
-    ${
-		into.length
-			? `<div class="drow"><span>Mixes into</span><span>${mixesIntoKeys(e)
-					.map((k) => (known(k) ? T[k]!.n : "? ? ?"))
-					.join(", ")}</span></div>`
-			: ""
-	}
-    ${S.codex[e] || !isComp(e) ? "" : '<div class="drow"><span>Status</span><span>Not yet discovered in play</span></div>'}`;
+	// a fusion turned up mid-match reaches the table if it happens to be open over the board
+	if (tableStore.get() !== null) tableStore.set(tableView());
 }
