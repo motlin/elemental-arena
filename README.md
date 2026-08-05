@@ -25,6 +25,7 @@ and no virtual DOM.
 | ---------------- | ---------------------------------------------------------- |
 | `src/styles/`    | every stylesheet, imported in cascade order by `index.css` |
 | `src/game/data/` | the static tables, re-exported by `index.ts`               |
+| `src/ui/`        | the screens that have migrated into React                  |
 | `index.html`     | the static markup, plus the game rules and rendering       |
 
 Content is the data tables. Almost every feature is driven off flags in these, so new content is
@@ -56,8 +57,11 @@ discovered fusions, loadout preferences, theme, cheat attempts. Match state is n
 `window.storage` was supplied by the Claude artifact host; `public/storage-shim.js` reimplements
 it on `localStorage` so the page runs in a plain browser.
 
-`src/` holds the React and TypeScript scaffolding the game is migrating into. `src/main.tsx`
-mounts an empty root on `#app`; nothing has moved across yet.
+`src/main.tsx` mounts the React tree on `#app`, and the handoff curtain is the first screen to
+have moved across. A screen migrates by dropping its markup from `index.html` and gaining a store
+in `src/game/bridge.ts`, which the vanilla script publishes to, plus a component in `src/ui/` that
+subscribes. Each component splits into a view taking plain props and a container reading the
+store, so stories and tests can pose it without a match running. Run `just storybook` to see them.
 
 ## Things that will bite you
 

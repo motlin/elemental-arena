@@ -1,0 +1,37 @@
+import {Meta} from "@storybook/addon-docs/blocks";
+
+<Meta title="Elemental Arena" />
+
+# Elemental Arena
+
+A hot-seat tactical card game. Two to eight fighters on a grid you size from 5x5 to 25x25.
+Cards are elements and weapons; elements fuse both on the board and in your hand, weapons
+break after one swing, and the ground you build is the ground you fight on.
+
+## What is in here
+
+The game began as a single-file artifact: one inline `<script type="module">` in `index.html`,
+one global `S` object holding all state, one `render()` redrawing everything. It is being pulled
+into React a screen at a time, and this Storybook holds the screens that have made the crossing.
+
+A screen arrives here when it drops its markup and its `$("id").textContent = ...` writes from
+`index.html` and gains two things instead:
+
+- a store in `src/game/bridge.ts`, which the vanilla script publishes a plain description of the
+  screen to whenever it redraws
+- a component in `src/ui/`, which subscribes to that store and paints it
+
+## Why every screen comes in two pieces
+
+Each component is split into a view that takes plain props and a container that reads the store.
+`HandoffCurtain` is the pattern: `HandoffCurtainView` takes a seat, a name, and a colour, and
+`HandoffCurtain` feeds it from `handoffStore` through `useSyncExternalStore`.
+
+Stories and tests pose the view directly, so neither one needs a match running, a global `S`, or
+the script in `index.html`. Add a screen and its stories go against the view.
+
+## Styles
+
+Components wear the game's own class names and the stylesheets under `src/styles/`, imported in
+cascade order by `src/styles/index.css`. Stories import that same file, so what Storybook shows
+is what the board shows.

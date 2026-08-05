@@ -2,11 +2,14 @@
 	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
 	// src/**/*.mdx mirrors the Storybook stories glob in .storybook/main.ts;
 	// fallow's storybook plugin only detects *.stories.* files, not docs pages.
-	"entry": ["src/index.{ts,tsx,js,jsx}", "src/main.{ts,tsx,js,jsx}", "src/**/*.mdx"],
+	"entry": ["src/main.{ts,tsx,js,jsx}", "src/**/*.mdx"],
 	"ignorePatterns": [".storybook/**"],
-	// TEMPLATE-SPECIFIC: this template ships no application source, so fallow
-	// sees its scaffolding devDependencies as unused. Real projects should drop
-	// this ignoreDependencies block and let fallow flag genuinely unused deps.
+	// Tooling that never appears in an import: Storybook addons and the test
+	// runner are named as strings in .storybook/main.ts, eslint-plugin-storybook
+	// and jiti are loaded by vite.config.ts, and @storybook/addon-docs is only
+	// imported from .mdx docs pages, which fallow reads as production source.
+	// lucide-react and @tanstack/react-query-devtools are genuinely unused and
+	// should come off this list by being uninstalled, not ignored.
 	"ignoreDependencies": [
 		"@chromatic-com/storybook",
 		"@sentry/vite-plugin",
