@@ -1,6 +1,7 @@
 import {StrictMode} from "react";
 import {createRoot} from "react-dom/client";
 import {Agentation} from "agentation";
+import {GameOverScreen} from "./ui/GameOverScreen.js";
 import {HandoffCurtain} from "./ui/HandoffCurtain.js";
 
 const root = document.getElementById("app");
@@ -15,5 +16,6 @@ createRoot(root).render(
 	<StrictMode>
 		{import.meta.env.DEV && <Agentation />}
 		<HandoffCurtain />
+		<GameOverScreen />
 	</StrictMode>,
 );

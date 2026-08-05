@@ -826,13 +826,12 @@ function rvPlay(): void {
 		rvGo(S.rvi + 1);
 	}, 900);
 }
-function openReplay(): void {
+export function openReplay(): void {
 	rvStop();
 	S.rvi = 0;
 	drawReplay();
 	$("replay").classList.add("on");
 }
-$("rvopen").onclick = openReplay;
 $("rvclose").onclick = () => {
 	rvStop();
 	$("replay").classList.remove("on");

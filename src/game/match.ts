@@ -1,5 +1,6 @@
 /** A match from end to end: dealing it out, taking turns through it, and calling it. */
 
+import {overStore} from "./bridge.js";
 import {logit} from "./cards.js";
 import {anchored, hurt} from "./combat.js";
 import {EL, ELBYT, T} from "./data/index.js";
@@ -10,7 +11,7 @@ import {save, saveSoon} from "./save.js";
 import {readChaosRound, readMvUses, readOpenHand, readStartNrg} from "./settings.js";
 import {$, PC, S, cheb, cur, idx, nameOf, occupant, show, teamName, teamsAlive} from "./state.js";
 import type {Player} from "./types.js";
-import {redraw, redrawBoard, redrawCodex} from "./view.js";
+import {openReplay, redraw, redrawBoard, redrawCodex} from "./view.js";
 
 export function ringSpots(dim: number, n: number): Offset[] {
 	const m = 1,
@@ -331,41 +332,29 @@ export function checkAlive(): boolean {
 	}
 	return true;
 }
+/** Takes the game-over screen down on the way to the menu; a stable reference, so republishing
+ * the same screen compares equal. */
+function backToMenu(): void {
+	overStore.set(null);
+	show("menu");
+}
 function finish(t: number | null): void {
 	void save();
 	const won = S.players.filter((p) => p.alive);
-	$("obg").className = "bigglyph mage p" + (won[0] ? won[0].i : 0);
-	$("obg").style.setProperty("--pc", t === null ? "#6f7da8" : PC[t]!);
-	$("owho").textContent = won.length
-		? won.length === 1
-			? `${won[0]!.name} holds the arena`
-			: `${teamName(t)} holds the arena`
-		: "Nobody walks out";
-	$("oearn").textContent =
-		(won.length > 1 ? won.map((p) => p.name).join(" and ") + "  ·  " : "") + `+${S.matchCoins} coin banked`;
 	logit(t === null ? "nobody was left standing" : `${teamName(t)} took the arena`, null);
-	drawMatchLog();
-	$("over").classList.add("on");
-}
-export function drawMatchLog(): void {
-	const box = $("olog");
-	if (!box) return;
-	if (!S.log.length) {
-		box.innerHTML = '<div class="lg"><span class="txt">Nothing happened.</span></div>';
-		return;
-	}
-	let out = "",
-		round = 0;
-	S.log.forEach((e) => {
-		if (e.r !== round) {
-			round = e.r;
-			out += `<div class="lgnew">Round ${round}</div>`;
-		}
-		out += `<div class="lg${e.say ? " lgsay" : ""}"><span class="rd">${e.r}</span>
-      <span><span class="who" style="color:${e.c}">${e.who || "The arena"}</span>
-      <span class="txt"> ${e.say ? "says " : ""}${e.t}</span></span></div>`;
+	overStore.set({
+		seat: won[0] ? won[0].i : 0,
+		colour: t === null ? "#6f7da8" : PC[t]!,
+		headline: won.length
+			? won.length === 1
+				? `${won[0]!.name} holds the arena`
+				: `${teamName(t)} holds the arena`
+			: "Nobody walks out",
+		earn: (won.length > 1 ? won.map((p) => p.name).join(" and ") + "  ·  " : "") + `+${S.matchCoins} coin banked`,
+		log: [...S.log],
+		openReplay,
+		back: backToMenu,
 	});
-	box.innerHTML = out;
 }
 let quitArmed = false,
 	quitT: ReturnType<typeof setTimeout> | null = null;
@@ -399,14 +388,5 @@ $("quit").onclick = () => {
 };
 $("leave").onclick = () => {
 	void save();
-	show("menu");
-};
-$("ologbtn").onclick = () => {
-	const w = $("ologwrap"),
-		on = w.classList.toggle("on");
-	$("ologbtn").textContent = on ? "Hide the match log" : "Show the match log";
-};
-$("oback").onclick = () => {
-	$("over").classList.remove("on");
 	show("menu");
 };

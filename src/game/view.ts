@@ -17,6 +17,8 @@ export interface View {
 	redrawShop: () => void;
 	/** Repaints the fusion count, and the table behind it if it is open. */
 	redrawCodex: () => void;
+	/** Puts the replay up over whatever is on screen, wound back to the first frame. */
+	openReplay: () => void;
 }
 
 let view: View = {
@@ -25,6 +27,7 @@ let view: View = {
 	redrawMenu: () => {},
 	redrawShop: () => {},
 	redrawCodex: () => {},
+	openReplay: () => {},
 };
 
 /** Hands the rules the real drawing code. The entry module calls this once, before anything runs. */
@@ -46,4 +49,7 @@ export const redrawShop = (): void => {
 };
 export const redrawCodex = (): void => {
 	view.redrawCodex();
+};
+export const openReplay = (): void => {
+	view.openReplay();
 };

@@ -8,7 +8,7 @@
  * of that and loads this module for its side effects alone.
  */
 import {buildBoard} from "./board.js";
-import {drawCheat, drawCodex, drawLoadout, drawSeg, drawShop} from "./menu.js";
+import {drawCheat, drawCodex, drawLoadout, drawSeg, drawShop, openReplay} from "./menu.js";
 import {render} from "./render.js";
 import {load} from "./save.js";
 import {applyTheme, syncSettings} from "./settings.js";
@@ -19,6 +19,7 @@ setView({
 	redrawBoard: buildBoard,
 	redrawCodex: drawCodex,
 	redrawShop: drawShop,
+	openReplay,
 	// coming back to the menu only restates the seats and the shop; the rest of the setup screen
 	// is drawn once at boot and kept current by whatever changes it
 	redrawMenu: () => {
@@ -71,7 +72,7 @@ export {
 	boardCell,
 	boardWidth,
 } from "./board.js";
-export {drawMatchLog, startMatch} from "./match.js";
+export {startMatch} from "./match.js";
 export {attackTiles, leaveFoe, leaveSelf, wepDmg, wepName} from "./combat.js";
 export {
 	buildTable,

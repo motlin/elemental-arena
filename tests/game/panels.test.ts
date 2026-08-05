@@ -300,6 +300,63 @@ describe("menu panels", () => {
 	});
 });
 
+/** Falls on the current player's sword, which the button only does on the second press. */
+function forfeit(h: GameHarness): void {
+	const quit = h.document.getElementById("quit");
+	quit?.click();
+	quit?.click();
+}
+
+describe("the end of a match", () => {
+	let h: GameHarness;
+	let winner: Player;
+
+	beforeAll(async () => {
+		h = await loadGame();
+		h.game.S.np = 2;
+		h.game.startMatch();
+		winner = h.game.S.players.find((p) => p !== h.game.cur())!;
+	});
+
+	afterAll(() => {
+		h.close();
+	});
+
+	it("publishes nothing while the match is still on", () => {
+		expect(h.bridge.overStore.get()).toBeNull();
+	});
+
+	it("publishes who holds the arena, in their own colour, once one team is left", () => {
+		forfeit(h);
+
+		const view = h.bridge.overStore.get();
+		expect(view?.seat).toBe(winner.i);
+		expect(view?.colour).toBe(winner.c);
+		expect(view?.headline).toBe(`${winner.name} holds the arena`);
+		expect(view?.earn).toBe(`+${h.game.S.matchCoins} coin banked`);
+	});
+
+	it("publishes the whole log, with the closing line already in it", () => {
+		const log = h.bridge.overStore.get()?.log ?? [];
+
+		expect(log.map((e) => e.t)).toStrictEqual(h.game.S.log.map((e) => e.t));
+		expect(log.at(-1)?.t).toContain("took the arena");
+	});
+
+	it("opens the replay through the view it published", () => {
+		h.bridge.overStore.get()?.openReplay();
+
+		expect(h.document.getElementById("replay")?.classList.contains("on")).toBe(true);
+	});
+
+	it("goes back to the menu through the view it published", () => {
+		h.bridge.overStore.get()?.back();
+
+		expect(h.bridge.overStore.get()).toBeNull();
+		expect(h.game.S.screen).toBe("menu");
+	});
+});
+
 describe("ids the script reaches for", () => {
 	it("are all produced by the markup or by a panel", async () => {
 		const referenced = [
@@ -367,9 +424,6 @@ describe("ids the script reaches for", () => {
 			collect();
 
 			h.game.simAdd("w", "dagger");
-			collect();
-
-			h.game.drawMatchLog();
 			collect();
 
 			h.game.S.replyTo = 1;

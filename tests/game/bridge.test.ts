@@ -1,5 +1,6 @@
 import {describe, it, expect, afterEach} from "vitest";
-import {handoffStore, type HandoffView} from "../../src/game/bridge.js";
+import {handoffStore, overStore, type HandoffView, type OverView} from "../../src/game/bridge.js";
+import type {LogEntry} from "../../src/game/types.js";
 
 function view(overrides: Partial<HandoffView> = {}): HandoffView {
 	return {seat: 0, name: "Vermilion", colour: "#ff4d8d", dismiss: noop, ...overrides};
@@ -11,6 +12,7 @@ function noop(): void {
 
 afterEach(() => {
 	handoffStore.set(null);
+	overStore.set(null);
 });
 
 describe("handoffStore", () => {
@@ -59,5 +61,60 @@ describe("handoffStore", () => {
 		handoffStore.set(view());
 
 		expect(calls).toBe(0);
+	});
+});
+
+function over(overrides: Partial<OverView> = {}): OverView {
+	return {
+		seat: 0,
+		colour: "#ff4d8d",
+		headline: "Vermilion holds the arena",
+		earn: "+3 coin banked",
+		log: EMPTY_LOG,
+		openReplay: noop,
+		back: noop,
+		...overrides,
+	};
+}
+
+/** One stable empty log, so republishing an unchanged screen compares equal. */
+const EMPTY_LOG: readonly LogEntry[] = [];
+
+describe("overStore", () => {
+	it("starts with no match ended", () => {
+		expect(overStore.get()).toBeNull();
+	});
+
+	it("hands subscribers the screen it was last given", () => {
+		const seen: (OverView | null)[] = [];
+		const unsubscribe = overStore.subscribe(() => seen.push(overStore.get()));
+
+		overStore.set(over({headline: "Nobody walks out"}));
+		overStore.set(null);
+		unsubscribe();
+
+		expect(seen).toStrictEqual([over({headline: "Nobody walks out"}), null]);
+	});
+
+	it("stays quiet when the same screen is republished", () => {
+		let calls = 0;
+		const unsubscribe = overStore.subscribe(() => calls++);
+
+		overStore.set(over());
+		overStore.set(over());
+		unsubscribe();
+
+		expect(calls).toBe(1);
+	});
+
+	it("speaks up when another line lands in the log", () => {
+		let calls = 0;
+		const unsubscribe = overStore.subscribe(() => calls++);
+
+		overStore.set(over());
+		overStore.set(over({log: [{r: 1, who: "Cyan", c: "#4dd8ff", t: "took the arena", say: false}]}));
+		unsubscribe();
+
+		expect(calls).toBe(2);
 	});
 });

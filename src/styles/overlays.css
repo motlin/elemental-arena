@@ -310,17 +310,21 @@
 	padding: 22px;
 	z-index: 20;
 }
-#over {
+.over {
 	position: fixed;
 	inset: 0;
 	background: var(--scrim);
-	display: none;
+	display: grid;
 	place-items: center;
 	padding: 22px;
 	z-index: 9;
 }
-#over.on {
-	display: grid;
+.over .ghost {
+	width: 100%;
+	margin-bottom: 8px;
+}
+.over .logbtn {
+	margin-bottom: 12px;
 }
 .overbox {
 	background: var(--panel);
@@ -338,8 +342,7 @@
 	font-size: 30px;
 	margin: 16px 0 6px;
 }
-#ologwrap {
-	display: none;
+.matchlog {
 	max-height: 46vh;
 	overflow-y: auto;
 	text-align: left;
@@ -348,9 +351,6 @@
 	background: var(--panel2);
 	padding: 12px;
 	margin-bottom: 14px;
-}
-#ologwrap.on {
-	display: block;
 }
 .lg {
 	display: flex;
