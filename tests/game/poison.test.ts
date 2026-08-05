@@ -68,7 +68,7 @@ describe("poison in the forge", () => {
 	});
 
 	it("says in both blurbs what the formula actually does", () => {
-		const texts = [h.game.forgeOf("poison")?.fx, h.game.EL["poison"]?.blurb];
+		const texts = [h.game.forgeOf("poison").fx, h.game.EL["poison"]?.blurb];
 
 		expect(texts).toStrictEqual([
 			"doubles the weapon strength and adds 6 on top",

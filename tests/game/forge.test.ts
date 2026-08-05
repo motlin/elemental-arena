@@ -1,24 +1,11 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, type GameHarness, type Player, type WeaponCard} from "./harness.js";
+import {fighter, loadGame, type GameHarness, type Player, type WeaponSpec} from "./harness.js";
 
 /** Anything the game renders from a missing lookup surfaces as one of these in the output string. */
 const BROKEN = /undefined|NaN|\[object Object\]/;
 
 /** attackTiles only reads the position, so a fighter parked mid-board is enough to walk every pattern. */
-const MIDBOARD: Player = {
-	i: 0,
-	c: "#ff4d8d",
-	name: "Tester",
-	team: 0,
-	x: 4,
-	y: 4,
-	hp: 60,
-	nrg: 9,
-	cap: 5,
-	alive: true,
-	hand: [],
-	held: null,
-};
+const MIDBOARD: Player = fighter();
 
 describe("elements crossed with weapons", () => {
 	let h: GameHarness;
@@ -46,7 +33,7 @@ describe("elements crossed with weapons", () => {
 
 		for (const el of elementKeys) {
 			for (const w of weaponKeys) {
-				const card: WeaponCard = {ids: [w], els: [el]};
+				const card: WeaponSpec = {ids: [w], els: [el]};
 				const where = `${el} + ${w}`;
 				const dmg = wepDmg(card);
 				const cost = wCost(card);
@@ -74,7 +61,7 @@ describe("elements crossed with weapons", () => {
 		const broken: string[] = [];
 
 		for (const el of elementKeys) {
-			const card: WeaponCard = {ids: ["dagger"], els: [el]};
+			const card: WeaponSpec = {ids: ["dagger"], els: [el]};
 			for (const [label, pick] of [
 				["leaveSelf", leaveSelf(card)],
 				["leaveFoe", leaveFoe(card)],
@@ -94,9 +81,9 @@ describe("elements crossed with weapons", () => {
 		const broken: string[] = [];
 
 		for (const el of elementKeys) {
+			// forgeOf promises an entry for every element, so a miss throws here rather than reporting
 			const forge = forgeOf(el);
-			if (forge === undefined) broken.push(`${el}: no forge entry`);
-			else if (forge.fx === "" || BROKEN.test(forge.fx)) broken.push(`${el}: forge effect ${forge.fx}`);
+			if (forge.fx === "" || BROKEN.test(forge.fx)) broken.push(`${el}: forge effect ${forge.fx}`);
 			const terrain = terrOf(el);
 			if (terrain === undefined) broken.push(`${el}: no terrain`);
 			else if (!Number.isFinite(terrain.life)) broken.push(`${el}: terrain life ${terrain.life}`);

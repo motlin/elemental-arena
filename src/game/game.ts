@@ -1,0 +1,4426 @@
+import {handoffStore} from "./bridge.js";
+import {BASE, boon, CFORGE, COST, DIR8, EL, ELBYT, fkey, FORGE, FUSE, MV, PAT, T, W, WBASE} from "./data/index.js";
+import type {ActionKey, ForgeDef, Offset, TerrainDef} from "./data/index.js";
+
+/* ============ TYPES ============ */
+
+/** One square of ground. `t` is what it looks like; `el` is the element card that laid it. */
+interface Cell {
+	t: string | null;
+	el: string | null;
+	life: number;
+	/** Whirlpool group id, so twinned whirls know each other. */
+	wid: number;
+	/** Seat that laid the tile, which is who `seesTile` lets through concealing ground. */
+	by: number | null;
+}
+
+/** The weapon half of a card: the weapons fused into it and the elements forged onto them. */
+interface WeaponSpec {
+	ids: string[];
+	els: string[];
+	/** Terrain the swing drops under the wielder. */
+	leaveSelf?: string;
+	/** Terrain the swing drops under the target. */
+	leaveFoe?: string;
+}
+
+interface ElCard {
+	uid: number;
+	k: "el";
+	id: string;
+	/** Set when a rival has marked the card, which turns it face up to everyone but its owner. */
+	mark?: boolean;
+}
+
+interface WepCard extends WeaponSpec {
+	uid: number;
+	k: "w";
+	mark?: boolean;
+}
+
+type Card = ElCard | WepCard;
+
+/** A fighter in the match. One per seat, in seat order. */
+interface Player {
+	/** Seat number, which also picks the `p0`..`p7` glyph class. */
+	i: number;
+	name: string;
+	/** The seat's colour. */
+	c: string;
+	team: number;
+	/** Footwork bits this seat owns, as a mask over `MV[k]!.bit`. */
+	mv: number;
+	/** Times each piece of footwork has been used this match. */
+	used: Record<ActionKey, number>;
+	/** Terrain being laid behind the fighter as they walk, if trail is running. */
+	trail: string | null;
+	/** Set while float is up, which lets the fighter ignore the ground until the turn ends. */
+	float: boolean;
+	x: number;
+	y: number;
+	hp: number;
+	max: number;
+	nrg: number;
+	cap: number;
+	/** Energy siphoned off the next refill. */
+	drain: number;
+	/** Energy carried into the next turn. */
+	bank: number;
+	rootTurns: number;
+	darkTurns: number;
+	litTurns: number;
+	hand: Card[];
+	/** `uid` of the card in hand, or null. */
+	held: number | null;
+	alive: boolean;
+	/** Set while the fighter is glowing, which strips any cover they were under. */
+	lit?: boolean;
+}
+
+/** One line of the match log, which is also the head of the replay frame it snapshots. */
+interface LogEntry {
+	r: number;
+	who: string;
+	c: string;
+	t: string;
+	say: boolean;
+}
+
+/** A fighter as the replay remembers them: enough to redraw, nothing that can be acted on. */
+interface FrameFighter {
+	name: string;
+	c: string;
+	team: number;
+	x: number;
+	y: number;
+	hp: number;
+	max: number;
+	alive: boolean;
+	/** Card labels rather than cards, since a replay never plays them. */
+	hand: string[];
+	held: number | null;
+}
+
+/** The board and everyone on it at the moment one log line was written. */
+interface Frame extends LogEntry {
+	turn: number;
+	board: (string | null)[];
+	players: FrameFighter[];
+}
+
+interface ChatMsg {
+	id: number;
+	who: string;
+	c: string;
+	r: number;
+	t: string;
+	/** `id` of the message this one answers, or null. */
+	to: number | null;
+}
+
+/** A card being dragged along the hand bar. */
+interface Drag {
+	uid: number;
+	el: GameEl;
+	x0: number;
+	y0: number;
+	pid: number;
+	active: boolean;
+	/** Set for touch and pen, where a sideways swipe belongs to the scroller instead. */
+	touch: boolean;
+}
+
+/** A tile flash the next render paints, as `[board index, class]`. */
+type Fx = [number, string];
+
+/** What the shop rows need from an element, a weapon, or a piece of footwork. */
+interface ShopItem {
+	n: string;
+	c?: string;
+	d?: string;
+	cost?: number;
+	price?: number;
+}
+
+/** Cards a seat has switched off, so they never come up in that seat's hand. */
+interface Offs {
+	el: string[];
+	w: string[];
+}
+
+/** Everything the game knows, both between matches and during one. */
+interface GameState {
+	dim: number;
+	np: number;
+	hp: number;
+	startNrg: number;
+	openHand: number;
+	players: Player[];
+	board: Cell[];
+	turn: number;
+	round: number;
+	phase: string;
+	names: string[];
+	/** Colour index per seat, which is also the team a seat fights for. */
+	cols: number[];
+	/** Footwork mask per seat. */
+	mv: number[];
+	munlocked: string[];
+	mvShared: number;
+	priv: boolean;
+	smash: boolean;
+	mvUses: number;
+	paint: boolean;
+	chaos: boolean;
+	chaosRound: number;
+	handoff: boolean;
+	theme: string;
+	screen: string;
+	saveErr: string | null;
+	loadErr: string | null;
+	cheat: number;
+	tries: number;
+	/** Terrain key the tile inspector is showing. */
+	tsel: string | null;
+	/** `uid` of the card a mix started from. */
+	mixFrom: number | null;
+	/** Seat whose card is being stolen. */
+	steal: number | null;
+	/** Board index the chaos round has marked to fall away next round. */
+	warn: number | null;
+	toss: boolean;
+	tossPick: number | null;
+	chat: ChatMsg[];
+	cid: number;
+	replyTo: number | null;
+	log: LogEntry[];
+	frames: Frame[];
+	/** Index into `frames` the replay is parked on. */
+	rvi: number;
+	/** Terrain keys the board builder painted, one per tile, or null for a blank arena. */
+	preset: (string | null)[] | null;
+	presetDim: number;
+	/** Terrain key the board builder paints with. */
+	btool: string;
+	/** Board index the inspector is looking at. */
+	look: number | null;
+	imode: boolean;
+	/** Board indices the pending action reaches. */
+	reach: number[];
+	/** `uid` of the selected card. */
+	sel: number | null;
+	mode: string | null;
+	wid: number;
+	uid: number;
+	fx: Fx[];
+	coins: number;
+	unlocked: string[];
+	wunlocked: string[];
+	elOff: string[];
+	wOff: string[];
+	pOff: Record<string, Offs>;
+	/** Seat the loadout screen is editing, or "all". */
+	who: number | "all";
+	/** Fusions discovered in play. */
+	codex: Record<string, number>;
+	matchCoins: number;
+}
+
+/**
+ * Every element the game reaches for by id. The page owns all of them, so `$` hands back one of
+ * these rather than a nullable `HTMLElement`, and the form properties are widened to the union of
+ * what the tags behind those ids actually carry.
+ */
+interface GameEl extends HTMLElement {
+	value: string;
+	checked: boolean;
+	max: string;
+	min: string;
+	disabled: boolean;
+	/** Everything the game digs out of the page is one of its own elements, so default `E` to one. */
+	querySelector(selectors: string): GameEl | null;
+	querySelectorAll<E extends Element = GameEl>(selectors: string): NodeListOf<E>;
+	readonly children: HTMLCollectionOf<GameEl>;
+}
+
+/** The element an event came from, which the handlers read values and `data-` attributes off. */
+const src = (e: Event): GameEl => e.target as GameEl;
+
+/**
+ * The `window.storage` the game was authored against, provided by public/storage-shim.js here.
+ * The trailing flag is vestigial from the Claude artifact host, which used it to mark a cell secret.
+ */
+interface ArtifactStorage {
+	get: (key: string, secret?: boolean) => Promise<{key: string; value: string} | null>;
+	set: (key: string, value: string, secret?: boolean) => Promise<void>;
+	delete: (key: string, secret?: boolean) => Promise<void>;
+}
+
+declare global {
+	interface Window {
+		storage: ArtifactStorage;
+	}
+}
+
+/* ============ LOOKUPS ============ */
+const mvOwnedMask = (): number =>
+	Object.entries(MV).reduce((m, [k, v]) => m | (S.munlocked.includes(k) ? v.bit : 0), 0);
+let placedBy: number | null = null;
+function putTerrain(c: Cell, k: string): void {
+	c.t = k;
+	c.el = ELBYT[k] || null;
+	c.life = T[k]!.life;
+	c.by = placedBy;
+}
+const forgeOf = (e: string): ForgeDef => CFORGE[e] || FORGE[e]!;
+const offFor = (kind: "el" | "w", i: number | null): string[] =>
+	i != null && S.pOff[i] ? S.pOff[i][kind] : kind === "el" ? S.elOff : S.wOff;
+const elsOn = (i: number | null): string[] => S.unlocked.filter((k) => !offFor("el", i).includes(k));
+const wsOn = (i: number | null): string[] => S.wunlocked.filter((k) => !offFor("w", i).includes(k));
+const wCost = (c: WeaponSpec): number => Math.min(...c.ids.map((i) => W[i]!.cost)) + (c.ids.length - 1) + c.els.length;
+const wHits = (c: WeaponSpec): number =>
+	Math.max(...c.ids.map((i) => W[i]!.hits)) + c.els.reduce((s, e) => s + (forgeOf(e).hits || 0), 0);
+const wRing = (c: WeaponSpec): boolean => c.ids.some((i) => W[i]!.sweep);
+const wColor = (c: WeaponSpec): string => W[c.ids[0]!]!.c;
+const wStrip = (c: WeaponSpec): string => {
+	const cols = c.ids.map((i) => W[i]!.c);
+	if (cols.length === 1) return cols[0]!;
+	const seg = 100 / cols.length;
+	return (
+		"linear-gradient(90deg," + cols.map((col, i) => `${col} ${i * seg}%,${col} ${(i + 1) * seg}%`).join(",") + ")"
+	);
+};
+const wDesc = (c: WeaponSpec): string => [...new Set(c.ids.map((i) => W[i]!.d))].join(" ");
+const elName = (e: string): string => (EL[e] ? EL[e].n : T[e]!.n);
+const elColor = (e: string): string => (EL[e] ? EL[e].c : T[e]!.c);
+const isComp = (e: string): boolean => !!CFORGE[e];
+// a tile is a gift only if it helps its occupant and costs them nothing
+const terrOf = (e: string): TerrainDef | undefined => (EL[e] ? T[EL[e].t] : T[e]);
+const madeFrom = (e: string): string[] =>
+	Object.entries(FUSE)
+		.filter(([, v]) => v === e)
+		.map(([k]) =>
+			k
+				.split("|")
+				.map((x) => EL[x]!.n)
+				.join(" + "),
+		);
+const mixesInto = (e: string): string[] =>
+	Object.entries(FUSE)
+		.filter(([k]) => k.split("|").includes(e))
+		.map(([, v]) => T[v]!.n);
+const parentsOf = (k: string): string[] => {
+	const hit = Object.entries(FUSE).find(([, v]) => v === k);
+	return hit ? hit[0].split("|") : [];
+};
+const ownEl = (k: string): boolean => S.unlocked.includes(k);
+// you can only read something you own, or a fusion you have made from things you own
+const known = (k: string): boolean => (EL[k] ? ownEl(k) : !!S.codex[k] && parentsOf(k).every(ownEl));
+const mixesIntoKeys = (e: string): string[] =>
+	Object.entries(FUSE)
+		.filter(([k]) => k.split("|").includes(e))
+		.map(([, v]) => v);
+const PC = ["#ff4d8d", "#4dd8ff", "#b8ff4d", "#c98cff", "#ff9a4d", "#4dffb0", "#f2ecd8", "#6d7fff"];
+const PN = ["Vermilion", "Cyan", "Verdant", "Amethyst", "Amber", "Jade", "Bone", "Indigo"];
+const PCN = ["Rose", "Sky", "Lime", "Violet", "Amber", "Jade", "Bone", "Indigo"];
+
+/* ============ STATE ============ */
+const CHAOS = 1; // default only; the live value is S.chaosRound
+const MVUSES = 3; // default only; the live value is S.mvUses
+const S: GameState = {
+	dim: 9,
+	np: 2,
+	hp: 60,
+	startNrg: 2,
+	openHand: 3,
+	players: [],
+	board: [],
+	turn: 0,
+	round: 1,
+	phase: "act",
+	names: ["", "", "", "", "", "", "", ""],
+	cols: [0, 1, 2, 3, 4, 5, 6, 7],
+	mv: [0, 0, 0, 0, 0, 0, 0, 0],
+	munlocked: [],
+	mvShared: 0,
+	priv: true,
+	smash: false,
+	mvUses: MVUSES,
+	paint: false,
+	chaos: false,
+	chaosRound: CHAOS,
+	handoff: false,
+	theme: "night",
+	screen: "menu",
+	saveErr: null,
+	loadErr: null,
+	cheat: 0,
+	tries: 0,
+	tsel: null,
+	mixFrom: null,
+	steal: null,
+	warn: null,
+	toss: false,
+	tossPick: null,
+	chat: [],
+	cid: 1,
+	replyTo: null,
+	log: [],
+	frames: [],
+	rvi: 0,
+	preset: null,
+	presetDim: 0,
+	btool: "fire",
+	look: null,
+	imode: false,
+	reach: [],
+	sel: null,
+	mode: null,
+	wid: 1,
+	uid: 1,
+	fx: [],
+	coins: 0,
+	unlocked: [...BASE],
+	wunlocked: [...WBASE],
+	elOff: [],
+	wOff: [],
+	pOff: {},
+	who: "all",
+	codex: {},
+	matchCoins: 0,
+};
+const $ = (id: string): GameEl => document.getElementById(id) as GameEl;
+const idx = (x: number, y: number): number => y * S.dim + x;
+const inb = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < S.dim && y < S.dim;
+const cheb = (a: number, b: number, c: number, d: number): number => Math.max(Math.abs(a - c), Math.abs(b - d));
+const cur = (): Player => S.players[S.turn]!;
+const ally = (a: Player | null, b: Player | null): boolean => !!a && !!b && a.team === b.team;
+const teamsAlive = (): number[] => [...new Set(S.players.filter((p) => p.alive).map((p) => p.team))];
+// a team of nobody still needs a word for itself, which is what the very last match log line uses
+const teamName = (t: number | null): string => (t === null ? "Team" : (S.names[t]! || "").trim() || PN[t]! || "Team");
+const nameOf = (i: number): string => teamName(S.cols[i]!);
+function blind(p: Player): boolean {
+	const c = S.board[idx(p.x, p.y)]!;
+	return !!(p.darkTurns > 0 || (c.t && T[c.t]!.los));
+}
+function hidden(q: Player): boolean {
+	if (q.lit || q.litTurns > 0) return false; // a glare beats any cover
+	const c = S.board[idx(q.x, q.y)]!;
+	if (!(c.t && T[c.t]!.hide)) return false;
+	// shining ground nearby strips the concealment
+	for (let i = 0; i < S.board.length; i++) {
+		const b = S.board[i]!;
+		if (!b.t || !T[b.t]!.reveal) continue;
+		if (cheb(q.x, q.y, i % S.dim, (i / S.dim) | 0) <= T[b.t]!.reveal!) return false;
+	}
+	return true;
+}
+const isLit = (x: number, y: number): boolean => occupantsAt(x, y).some((q) => q.lit);
+// hiding ground conceals itself too: only the fighter who laid it, or one standing on it, sees it
+function seesTile(p: Player, x: number, y: number): boolean {
+	const c = S.board[idx(x, y)]!;
+	if (!c.t || !T[c.t]!.hide) return true;
+	if (isLit(x, y)) return true; // their ground is exposed with them
+	if (p.x === x && p.y === y) return true; // you are standing on it
+	// the moment it is concealing somebody it reads as empty ground, even to whoever laid it
+	if (occupantsAt(x, y).some((q) => hidden(q))) return false;
+	return c.by === p.i;
+}
+// only a weapon card is ever held, and only an element card is ever selected: see `clickCard`
+const held = (p: Player): WepCard | null => {
+	const c = p.hand.find((q) => q.uid === p.held);
+	return c?.k === "w" ? c : null;
+};
+const selCard = (p: Player): ElCard | null => {
+	const c = p.hand.find((q) => q.uid === S.sel);
+	return c?.k === "el" ? c : null;
+};
+function rgba(h: string, a: number): string {
+	const n = parseInt(h.slice(1), 16);
+	return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/* ============ SAVE ============ */
+/** The saved progress, as it comes back off `window.storage`. */
+interface SavedGame {
+	v?: number;
+	coins?: number;
+	unlocked?: string[];
+	wunlocked?: string[];
+	munlocked?: string[];
+	elOff?: string[];
+	wOff?: string[];
+	pOff?: Record<string, Offs>;
+	mvShared?: number;
+	theme?: string;
+	codex?: Record<string, number>;
+	cheat?: number;
+	tries?: number;
+}
+
+/** What went wrong, as the save and load banners word it. */
+function errText(e: unknown): string {
+	if (e instanceof Error && e.message) return e.message;
+	if (typeof e === "string" && e) return e;
+	return "unknown";
+}
+async function load(): Promise<void> {
+	try {
+		const r = await window.storage.get("arena:v3", false);
+		if (r?.value) {
+			const p = JSON.parse(r.value) as SavedGame;
+			S.coins = p.coins || 0;
+			S.unlocked = [...new Set([...BASE, ...(p.unlocked || [])])];
+			let w = p.wunlocked || [];
+			if ((p.v || 1) < 2) w = w.filter((k) => k !== "hammer"); // it used to be free; now it is bought
+			S.wunlocked = [...new Set([...WBASE, ...w])];
+			S.codex = p.codex || {};
+			S.cheat = p.cheat || 0;
+			S.tries = p.tries || 0;
+			S.elOff = p.elOff || [];
+			S.wOff = p.wOff || [];
+			S.pOff = p.pOff || {};
+			S.mvShared = p.mvShared || 0;
+			S.munlocked = p.munlocked || [];
+			S.theme = p.theme || "night";
+		}
+	} catch (e) {
+		S.loadErr = errText(e);
+	}
+}
+let saveQ = Promise.resolve(),
+	saveT: ReturnType<typeof setTimeout> | null = null;
+async function save(): Promise<void> {
+	saveQ = saveQ
+		.then(async () =>
+			window.storage.set(
+				"arena:v3",
+				JSON.stringify({
+					coins: S.coins,
+					unlocked: S.unlocked,
+					v: 2,
+					wunlocked: S.wunlocked,
+					munlocked: S.munlocked,
+					elOff: S.elOff,
+					wOff: S.wOff,
+					pOff: S.pOff,
+					mvShared: S.mvShared,
+					theme: S.theme,
+					codex: S.codex,
+					cheat: S.cheat,
+					tries: S.tries,
+				}),
+				false,
+			),
+		)
+		.then(() => {
+			S.saveErr = null;
+			if (S.screen === "menu") drawShop();
+		})
+		.catch((e: unknown) => {
+			S.saveErr = errText(e);
+			if (S.screen === "menu") drawShop();
+		});
+	return saveQ;
+}
+function saveSoon(): void {
+	if (saveT !== null) clearTimeout(saveT);
+	saveT = setTimeout(() => void save(), 300);
+}
+
+/* ============ MENU ============ */
+function drawSeg(): void {
+	$("np").value = String(S.np);
+	$("npval").textContent = String(S.np);
+	drawNames();
+}
+function drawNames(): void {
+	$("names").innerHTML = Array.from(
+		{length: S.np},
+		(_, i) =>
+			`<div class="nrow"><span class="glyph mage p${i}" style="--pc:${PC[S.cols[i]!]!}"></span>
+      <input id="nm${i}" maxlength="14" value="${(S.names[S.cols[i]!]! || "").replace(/"/g, "&quot;")}"
+        placeholder="${PN[S.cols[i]!]!}" aria-label="Name for the ${PCN[S.cols[i]!]!} side">
+      <span class="swatches">${PC.map(
+			(c, j) =>
+				`<button class="sw" data-p="${i}" data-c="${j}" style="background:${c}"
+          aria-pressed="${S.cols[i] === j}" title="${PCN[j]!}"></button>`,
+		).join("")}</span>
+      </div>`,
+	).join("");
+	for (let i = 0; i < S.np; i++)
+		$("nm" + i).oninput = (e) => {
+			const col = S.cols[i]!;
+			S.names[col] = src(e).value;
+			// everyone sharing this colour answers to the same name
+			for (let j = 0; j < S.np; j++) if (j !== i && S.cols[j] === col) $("nm" + j).value = src(e).value;
+			drawWho();
+			drawTeams();
+		};
+
+	$("names")
+		.querySelectorAll(".sw")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					S.cols[+b.dataset["p"]!] = +b.dataset["c"]!;
+					drawNames();
+					drawWho();
+				}),
+		);
+	drawTeams();
+}
+function drawTeams(): void {
+	const note = $("teamnote");
+	if (!note) return;
+	const groups: Record<number, number[]> = {};
+	for (let i = 0; i < S.np; i++) {
+		(groups[S.cols[i]!] = groups[S.cols[i]!] || []).push(i);
+	}
+	const teams = Object.entries(groups);
+	note.innerHTML =
+		teams
+			.map(
+				([c, seats]) =>
+					`<span class="tm"><span class="d" style="background:${PC[+c]!}"></span>${teamName(+c)}${
+						seats.length > 1 ? ` x${seats.length}` : ""
+					}</span>`,
+			)
+			.join("") +
+		(teams.length === S.np
+			? '<div style="margin-top:6px">Everyone is on their own. Give two fighters the same colour to put them on a side together.</div>'
+			: '<div style="margin-top:6px">A colour is a side. Everyone on it shares the name, cannot be hit by their own, and the match ends when one colour is left.</div>');
+}
+$("np").oninput = (e) => {
+	S.np = +src(e).value;
+	$("npval").textContent = String(S.np);
+	drawNames();
+	if (S.who !== "all" && S.who >= S.np) S.who = "all";
+	drawLoadout();
+};
+$("priv").onchange = (e) => {
+	S.priv = src(e).checked;
+};
+$("paint").onchange = (e) => {
+	S.paint = src(e).checked;
+};
+$("smash").onchange = (e) => {
+	S.smash = src(e).checked;
+};
+$("chaos").onchange = (e) => {
+	S.chaos = src(e).checked;
+};
+function readMvUses(): number {
+	const v = parseInt($("mvuses").value, 10);
+	S.mvUses = Number.isFinite(v) ? Math.max(0, Math.min(99, v)) : MVUSES;
+	return S.mvUses;
+}
+$("mvuses").oninput = readMvUses;
+$("mvuses").onblur = () => {
+	$("mvuses").value = String(readMvUses());
+};
+function readChaosRound(): number {
+	const v = parseInt($("chaosr").value, 10);
+	S.chaosRound = Number.isFinite(v) ? Math.max(1, Math.min(99, v)) : CHAOS;
+	return S.chaosRound;
+}
+$("chaosr").oninput = readChaosRound;
+$("chaosr").onblur = () => {
+	$("chaosr").value = String(readChaosRound());
+};
+/* One stable reference shared by the curtain's button and the Enter/Space shortcut, so the
+   view republished on every redraw compares equal and React stays put. */
+function dropCurtain(): void {
+	S.handoff = false;
+	render();
+}
+function ensureOverride(i: number): Offs {
+	if (!S.pOff[i]) S.pOff[i] = {el: [...S.elOff], w: [...S.wOff]};
+	return S.pOff[i];
+}
+function toggleChip(kind: "el" | "w", key: string): boolean {
+	const who = S.who;
+	const list = who === "all" ? (kind === "el" ? S.elOff : S.wOff) : ensureOverride(who)[kind];
+	const at = list.indexOf(key);
+	if (at >= 0) list.splice(at, 1);
+	else {
+		const scope = who === "all" ? null : who;
+		const onCount = (kind === "el" ? elsOn(scope) : wsOn(scope)).length;
+		if (onCount <= 1) return false; // never leave anyone with an empty pool
+		list.push(key);
+	}
+	void save();
+	drawLoadout();
+	return true;
+}
+function chipHTML(
+	k: string,
+	t: string,
+	name: string,
+	colour: string,
+	owned: boolean,
+	price: number | undefined,
+	off: string[],
+): string {
+	return owned
+		? `<button class="chip" data-t="${t}" data-k="${k}" style="--cc:${colour}"
+        aria-pressed="${!off.includes(k)}">${name}</button>`
+		: `<button class="chip locked" disabled title="Not bought yet. ${price} coin in the shop below."
+        >${name} · ${price}</button>`;
+}
+// footwork is per fighter, so it follows whichever scope you are editing
+const mvHas = (k: string): boolean => (S.who === "all" ? !!(S.mvShared & MV[k]!.bit) : !!(S.mv[S.who]! & MV[k]!.bit));
+const mvOwn = (i: number): number => S.mv[i]! & mvOwnedMask();
+const mvDiffers = (i: number): boolean => mvOwn(i) !== (S.mvShared & mvOwnedMask());
+function toggleMv(k: string): void {
+	const on = mvHas(k);
+	if (S.who === "all") {
+		if (on) S.mvShared &= ~MV[k]!.bit;
+		else S.mvShared |= MV[k]!.bit;
+		for (let i = 0; i < 8; i++) S.mv[i] = S.mvShared; // everyone falls back in line
+	} else {
+		if (on) S.mv[S.who]! &= ~MV[k]!.bit;
+		else S.mv[S.who]! |= MV[k]!.bit;
+	}
+	void save();
+	drawLoadout();
+}
+function setAllMv(on: boolean): void {
+	const m = mvOwnedMask();
+	if (S.who === "all") {
+		S.mvShared = on ? m : 0;
+		for (let i = 0; i < 8; i++) S.mv[i] = S.mvShared;
+	} else S.mv[S.who] = on ? m : 0;
+	void save();
+	drawLoadout();
+}
+function scopeName(): string {
+	return S.who === "all" ? "for everyone" : `for ${nameOf(S.who)} only`;
+}
+function drawMvChips(): void {
+	const host = $("mvchips");
+	if (!host) return;
+	const own = mvOwnedMask();
+	host.innerHTML =
+		Object.entries(MV)
+			.sort((a, b) => a[1].price - b[1].price)
+			.map(([k, v]) =>
+				S.munlocked.includes(k)
+					? `<button class="chip mvc" data-k="${k}" style="--cc:var(--accent)"
+          aria-pressed="${mvHas(k)}">${v.n}</button>`
+					: `<button class="chip locked" disabled title="Not bought yet.">${v.n} · ${v.price}</button>`,
+			)
+			.join("") +
+		(own
+			? (() => {
+					const cur = S.who === "all" ? S.mvShared & own : mvOwn(S.who);
+					return `<button class="chip mvall" data-set="1" ${cur === own ? "disabled" : ""}>All</button>
+        <button class="chip mvall" data-set="0" ${cur === 0 ? "disabled" : ""}>None</button>`;
+				})()
+			: "");
+	host.querySelectorAll(".mvc").forEach(
+		(b) =>
+			(b.onclick = () => {
+				toggleMv(b.dataset["k"]!);
+			}),
+	);
+	host.querySelectorAll(".mvall").forEach(
+		(b) =>
+			(b.onclick = () => {
+				setAllMv(b.dataset["set"] === "1");
+			}),
+	);
+	["fw1", "fw2", "fw3"].forEach((id) => {
+		const n = $(id);
+		if (n) n.textContent = scopeName();
+	});
+}
+function drawWho(): void {
+	const opts: [number | "all", string][] = [["all", "Everyone"]];
+	for (let i = 0; i < S.np; i++) opts.push([i, nameOf(i)]);
+	$("whochips").innerHTML = opts
+		.map(([v, label]) => {
+			const own = v !== "all" && (S.pOff[v] || mvDiffers(v));
+			return `<button class="chip whoc" data-w="${v}" style="--cc:${v === "all" ? "var(--accent)" : PC[S.cols[v]!]!}"
+      aria-pressed="${String(S.who) === String(v)}">${label}${own ? " *" : ""}</button>`;
+		})
+		.join("");
+	$("whochips")
+		.querySelectorAll(".whoc")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					const v = b.dataset["w"];
+					S.who = v === "all" ? "all" : +v!;
+					drawLoadout();
+				}),
+		);
+	const note = $("whonote");
+	if (S.who === "all") note.innerHTML = "Editing what everyone draws and the footwork they all carry.";
+	else
+		note.innerHTML =
+			S.pOff[S.who] || mvDiffers(S.who)
+				? `Editing ${opts.find((o) => String(o[0]) === String(S.who))![1]} only, marked with a star. <button class="linkish" id="whoreset">Put them back on the shared list</button>`
+				: "Editing the shared list. Change anything here and this fighter gets their own.";
+	const rb = $("whoreset");
+	if (rb)
+		rb.onclick = () => {
+			if (S.who !== "all") {
+				delete S.pOff[S.who];
+				S.mv[S.who] = S.mvShared;
+			}
+			void save();
+			drawLoadout();
+		};
+}
+function drawLoadout(): void {
+	drawWho();
+	const scope = S.who === "all" ? null : S.who;
+	const elOff = offFor("el", scope),
+		wOff = offFor("w", scope);
+	const byPrice = (a: [string, ShopItem], b: [string, ShopItem]): number =>
+		(a[1].cost || a[1].price || 0) - (b[1].cost || b[1].price || 0);
+	$("elchips").innerHTML = Object.entries(EL)
+		.sort(byPrice)
+		.map(([k, v]) => chipHTML(k, "el", v.n, v.c, S.unlocked.includes(k), v.cost, elOff))
+		.join("");
+	$("wchips").innerHTML = Object.entries(W)
+		.sort(byPrice)
+		.map(([k, v]) => chipHTML(k, "w", v.n, v.c, S.wunlocked.includes(k), v.price, wOff))
+		.join("");
+	["elchips", "wchips"].forEach((host) => {
+		$(host)
+			.querySelectorAll(".chip:not(.locked)")
+			.forEach((b) => (b.onclick = () => toggleChip(b.dataset["t"] as "el" | "w", b.dataset["k"]!)));
+	});
+	drawMvChips();
+}
+function drawShop(): void {
+	$("coins").textContent = S.coins.toLocaleString();
+	const warn = $("savewarn");
+	if (warn) {
+		const err = S.saveErr || S.loadErr;
+		warn.textContent = err ? `Progress is not saving: ${err}` : "";
+		warn.style.display = err ? "block" : "none";
+	}
+	const elRows = Object.entries(EL)
+		.filter(([, v]) => v.cost)
+		.sort((a, b) => a[1].cost! - b[1].cost!)
+		.map(([k, v]) => {
+			const own = S.unlocked.includes(k);
+			return `<div class="shoprow"><div class="shopname">
+      <span class="dot" style="background:${v.c};box-shadow:0 0 10px ${v.c}"></span>
+      <span><b>${v.n}</b><small>${own ? v.blurb : "? ? ? Buy it to find out what it does."}</small></span></div>
+      ${
+			own
+				? '<span class="owned">IN ARSENAL</span>'
+				: `<button class="buy" data-t="el" data-k="${k}" ${S.coins < v.cost! ? "disabled" : ""}>${v.cost} coin</button>`
+		}</div>`;
+		})
+		.join("");
+	const wRows = Object.entries(W)
+		.filter(([, v]) => v.price)
+		.sort((a, b) => a[1].price! - b[1].price!)
+		.map(([k, v]) => {
+			const own = S.wunlocked.includes(k);
+			return `<div class="shoprow"><div class="shopname">
+      <span class="dot" style="background:${v.c};box-shadow:0 0 10px ${v.c}"></span>
+      <span><b>${v.n}</b><small>${
+			own ? `${v.d} ${v.dmg} damage, ${v.cost} energy.` : "? ? ? Buy it to find out what it does."
+		}</small></span></div>
+      ${
+			own
+				? '<span class="owned">IN ARSENAL</span>'
+				: `<button class="buy" data-t="w" data-k="${k}" ${S.coins < v.price! ? "disabled" : ""}>${v.price} coin</button>`
+		}</div>`;
+		})
+		.join("");
+	const mRows = Object.entries(MV)
+		.sort((a, b) => a[1].price - b[1].price)
+		.map(([k, v]) => {
+			const own = S.munlocked.includes(k);
+			return `<div class="shoprow"><div class="shopname">
+      <span class="dot" style="background:${own ? "var(--accent)" : "var(--muted)"};box-shadow:${own ? "0 0 10px var(--accent)" : "none"}"></span>
+      <span><b>${v.n}</b><small>${
+			own ? `${v.d} ${COST[k as ActionKey]} energy each.` : "? ? ? Buy it to find out what it does."
+		}</small></span></div>
+      ${
+			own
+				? '<span class="owned">IN ARSENAL</span>'
+				: `<button class="buy" data-t="m" data-k="${k}" ${S.coins < v.price ? "disabled" : ""}>${v.price} coin</button>`
+		}</div>`;
+		})
+		.join("");
+	// a header button per section that sweeps up everything still unowned
+	const bulk = (
+		kind: string,
+		entries: [string, ShopItem][],
+		owned: string[],
+		priceOf: (v: ShopItem) => number,
+	): string => {
+		const left = entries.filter(([k]) => !owned.includes(k));
+		const due = left.reduce((a, [, v]) => a + priceOf(v), 0);
+		if (!left.length) return `<span class="bulkdone">all owned</span>`;
+		return `<button class="bulk" data-b="${kind}" ${S.coins < due ? "disabled" : ""}
+      title="${left.length} left">Buy all · ${due} coin</button>`;
+	};
+	const elAll = bulk(
+		"el",
+		Object.entries(EL).filter(([, v]) => v.cost),
+		S.unlocked,
+		(v) => v.cost ?? 0,
+	);
+	const wAll = bulk(
+		"w",
+		Object.entries(W).filter(([, v]) => v.price),
+		S.wunlocked,
+		(v) => v.price ?? 0,
+	);
+	const mAll = bulk("m", Object.entries(MV), S.munlocked, (v) => v.price ?? 0);
+	$("shop").innerHTML = `<div class="shophead">Elements${elAll}</div>${elRows}
+    <div class="shophead" style="margin-top:20px">Weapons${wAll}</div>${wRows}
+    <div class="shophead" style="margin-top:20px">Footwork${mAll}</div>${mRows}`;
+	$("shop")
+		.querySelectorAll(".bulk")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					const kind = b.dataset["b"];
+					const list =
+						kind === "el"
+							? Object.entries(EL).filter(([, v]) => v.cost)
+							: kind === "w"
+								? Object.entries(W).filter(([, v]) => v.price)
+								: Object.entries(MV);
+					const owned = kind === "el" ? S.unlocked : kind === "w" ? S.wunlocked : S.munlocked;
+					const priceOf = (v: ShopItem): number => (kind === "el" ? (v.cost ?? 0) : (v.price ?? 0));
+					const left = list.filter(([k]) => !owned.includes(k));
+					const due = left.reduce((a, [, v]) => a + priceOf(v), 0);
+					if (S.coins < due) return;
+					S.coins -= due;
+					left.forEach(([k]) => owned.push(k));
+					void save();
+					drawShop();
+					drawLoadout();
+				}),
+		);
+	$("shop")
+		.querySelectorAll(".buy")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					const k = b.dataset["k"]!;
+					if (b.dataset["t"] === "el") {
+						const cost = EL[k]?.cost ?? 0;
+						if (S.coins < cost) return;
+						S.coins -= cost;
+						S.unlocked.push(k);
+					} else if (b.dataset["t"] === "m") {
+						const price = MV[k]?.price ?? 0;
+						if (S.coins < price) return;
+						S.coins -= price;
+						S.munlocked.push(k);
+						drawNames();
+					} else {
+						const price = W[k]?.price ?? 0;
+						if (S.coins < price) return;
+						S.coins -= price;
+						S.wunlocked.push(k);
+					}
+					void save();
+					drawShop();
+					drawLoadout();
+				}),
+		);
+}
+const CHEAT = "APPLEYUMMY";
+const MAXTRIES = 5;
+const normCode = (v: string): string => (v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+function drawCheat(): void {
+	const box = $("cheatbox"),
+		msg = $("cheatmsg");
+	const left = MAXTRIES - S.tries;
+	if (S.cheat === 2) {
+		box.style.display = "none";
+		msg.textContent = "Code accepted. Treasury filled and the whole codex revealed.";
+		msg.style.color = "#7dffb0";
+	} else if (left <= 0) {
+		box.style.display = "none";
+		msg.textContent = `Out of guesses. All ${MAXTRIES} were wrong.`;
+		msg.style.color = "#ff8f6b";
+	} else {
+		box.style.display = "flex";
+		msg.textContent =
+			S.tries === 0
+				? `You get ${MAXTRIES} guesses. Spend them carefully.`
+				: `Wrong. ${left} guess${left === 1 ? "" : "es"} left.`;
+		msg.style.color = S.tries === 0 ? "var(--muted)" : "#ff8f6b";
+	}
+}
+function trySubmitCode(): void {
+	if (S.cheat === 2 || S.tries >= MAXTRIES) return;
+	const guess = normCode($("cheatin").value);
+	if (!guess) return;
+	if (guess === CHEAT) {
+		S.cheat = 2;
+		S.coins = 9999999999;
+		Object.values(FUSE).forEach((k) => {
+			S.codex[k] = 1;
+		});
+	} else {
+		S.tries++;
+	}
+	$("cheatin").value = "";
+	void save();
+	drawShop();
+	drawCheat();
+	drawCodex();
+}
+$("cheatgo").onclick = trySubmitCode;
+$("cheatin").onkeydown = (e) => {
+	if (e.key === "Enter") {
+		e.preventDefault();
+		trySubmitCode();
+	}
+};
+function presetReady(): void {
+	if (!S.preset || S.presetDim !== S.dim) {
+		S.preset = Array(S.dim * S.dim).fill(null);
+		S.presetDim = S.dim;
+	}
+}
+function paintedCount(): number {
+	return S.preset ? S.preset.filter(Boolean).length : 0;
+}
+function bLabel(k: string): string {
+	return k === "collapsed" ? "Break" : k === "erase" ? "Erase" : EL[k] ? EL[k].n : T[k]!.n;
+}
+function bColour(k: string): string {
+	return k === "erase" ? "var(--muted)" : EL[k] ? EL[k].c : T[k]!.c;
+}
+function drawSpawnPicker(): void {
+	$("bspawn").innerHTML =
+		[2, 3, 4, 5, 6, 7, 8]
+			.map((n) => `<button class="bp spw" data-n="${n}" aria-pressed="${S.np === n}">${n}</button>`)
+			.join("") + '<span class="hint" style="margin-left:8px">players</span>';
+	$("bspawn")
+		.querySelectorAll(".spw")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					S.np = +b.dataset["n"]!;
+					$("np").value = String(S.np);
+					$("npval").textContent = String(S.np);
+					drawNames();
+					if (S.who !== "all" && S.who >= S.np) S.who = "all";
+					drawLoadout();
+					drawSpawnPicker();
+					buildBBoard();
+				}),
+		);
+}
+function drawPalette(): void {
+	const row = (host: string, keys: string[]): void => {
+		const el = $(host);
+		el.innerHTML =
+			keys
+				.map(
+					(k) =>
+						`<button class="bp mat" data-k="${k}" aria-pressed="${S.btool === k}">
+        <span class="d" style="background:${bColour(k)}"></span>${bLabel(k)}</button>`,
+				)
+				.join("") || '<span class="hint">Nothing here yet.</span>';
+		el.querySelectorAll(".mat").forEach(
+			(b) =>
+				(b.onclick = () => {
+					S.btool = b.dataset["k"]!;
+					drawPalette();
+				}),
+		);
+	};
+	row(
+		"bpal",
+		[...S.unlocked].sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0)),
+	);
+	row(
+		"bpalf",
+		Object.values(FUSE).filter((k) => S.codex[k]),
+	);
+	row("bpalt", ["collapsed", "erase"]);
+}
+function paintCell(i: number): void {
+	if (!S.preset) return;
+	S.preset[i] = S.btool === "erase" ? null : S.btool;
+	paintTile(i);
+	drawSpawns();
+	$("bcount").textContent = `${paintedCount()} of ${S.dim * S.dim} squares set`;
+}
+function paintTile(i: number): void {
+	const n = $("bboard").children[i];
+	if (!n) return;
+	const k = S.preset?.[i];
+	n.className = "tile";
+	n.style.removeProperty("--tc");
+	n.title = "";
+	if (!k) return;
+	const t = terrOf(k)!;
+	n.classList.add("terr");
+	if (t.solid) n.classList.add("solid");
+	if (t.dead) n.classList.add("gonezone");
+	n.style.setProperty("--tc", t.c);
+	n.style.setProperty("--tcs", rgba(t.c, 0.44));
+	n.title = `${t.n}: ${t.d}`;
+}
+let painting = false;
+function buildBBoard(): void {
+	const b = $("bboard");
+	b.style.gridTemplateColumns = `repeat(${S.dim},var(--cell))`;
+	const avail = Math.min(window.innerWidth - 70, 720);
+	b.style.setProperty("--cell", Math.max(12, Math.min(40, Math.floor(avail / S.dim) - 2)) + "px");
+	b.innerHTML = "";
+	for (let i = 0; i < S.dim * S.dim; i++) {
+		const t = document.createElement("div");
+		t.className = "tile";
+		t.onpointerdown = (e) => {
+			e.preventDefault();
+			painting = true;
+			paintCell(i);
+		};
+		t.onpointerenter = () => {
+			if (painting) paintCell(i);
+		};
+		b.appendChild(t);
+	}
+	for (let i = 0; i < S.dim * S.dim; i++) paintTile(i);
+	drawSpawns();
+	$("bcount").textContent = `${paintedCount()} of ${S.dim * S.dim} squares set`;
+}
+function drawSpawns(): void {
+	const b = $("bboard");
+	b.querySelectorAll(".mage").forEach((m) => {
+		m.remove();
+	});
+	b.querySelectorAll(".tile").forEach((t) => {
+		t.classList.remove("willclear");
+	});
+	let sealed = 0;
+	ringSpots(S.dim, S.np).forEach(([x, y], n) => {
+		const i = idx(x, y),
+			node = b.children[i];
+		if (!node) return;
+		const m = document.createElement("i");
+		m.className = "mage p" + n;
+		m.style.setProperty("--pc", PC[n]!);
+		node.appendChild(m);
+		const k = S.preset?.[i];
+		const t = k ? terrOf(k) : null;
+		if (t && (t.solid || t.gone)) {
+			node.classList.add("willclear");
+			sealed++;
+		}
+		node.title = `${nameOf(n)} starts here`;
+	});
+	const note = $("bspawnnote");
+	if (note)
+		note.textContent = sealed
+			? `${sealed} spawn ${sealed === 1 ? "square has" : "squares have"} a wall or a hole on it. That is left exactly as you painted it: a hole there takes that player out on turn one.`
+			: "";
+}
+addEventListener("pointerup", () => {
+	painting = false;
+});
+function handScroll(dir: number): void {
+	const b = $("hand");
+	b.scrollLeft += dir * (b.clientWidth * 0.7);
+	setTimeout(updateHandArrows, 120);
+}
+function updateHandArrows(): void {
+	const b = $("hand"),
+		l = $("hleft"),
+		r = $("hright");
+	if (!b || !l || !r) return;
+	const room = b.scrollWidth - b.clientWidth;
+	l.disabled = b.scrollLeft <= 1;
+	r.disabled = b.scrollLeft >= room - 1;
+	drawHandBar();
+}
+function drawHandBar(): void {
+	const b = $("hand"),
+		bar = $("hbar"),
+		th = $("hthumb");
+	if (!b || !bar || !th) return;
+	const track = bar.clientWidth || 1;
+	const ratio = b.scrollWidth ? Math.min(1, b.clientWidth / b.scrollWidth) : 1;
+	const w = Math.max(40, Math.round(track * ratio));
+	const room = Math.max(0, b.scrollWidth - b.clientWidth);
+	const pos = room ? Math.round((b.scrollLeft / room) * (track - w)) : 0;
+	th.style.width = w + "px";
+	th.style.left = pos + "px";
+}
+let barDrag: {ox: number} | null = null;
+function barTo(clientX: number): void {
+	const b = $("hand"),
+		bar = $("hbar"),
+		th = $("hthumb");
+	const r = bar.getBoundingClientRect();
+	const w = th.offsetWidth;
+	const track = r.width - w;
+	const want = Math.max(0, Math.min(track, clientX - r.left - w / 2));
+	const room = Math.max(0, b.scrollWidth - b.clientWidth);
+	b.scrollLeft = track ? (want / track) * room : 0;
+	drawHandBar();
+}
+$("hleft").onclick = () => {
+	handScroll(-1);
+};
+$("hright").onclick = () => {
+	handScroll(1);
+};
+$("hand").addEventListener("scroll", updateHandArrows, {passive: true});
+$("hbar").addEventListener("pointerdown", (e) => {
+	barDrag = {ox: e.clientX};
+	try {
+		$("hbar").setPointerCapture(e.pointerId);
+	} catch {}
+	barTo(e.clientX);
+	e.preventDefault();
+});
+addEventListener("pointermove", (e) => {
+	if (barDrag) barTo(e.clientX);
+});
+addEventListener("pointerup", () => {
+	barDrag = null;
+});
+addEventListener("resize", drawHandBar);
+function openBuilder(): void {
+	presetReady();
+	drawPalette();
+	drawSpawnPicker();
+	buildBBoard();
+	$("builder").classList.add("on");
+}
+$("builderopen").onclick = openBuilder;
+$("bdone").onclick = () => {
+	$("builder").classList.remove("on");
+};
+$("bclear").onclick = () => {
+	S.preset = Array(S.dim * S.dim).fill(null);
+	buildBBoard();
+};
+const simCard: WeaponSpec = {ids: [], els: []};
+function simAdd(kind: string, k: string): void {
+	if (kind === "w") simCard.ids.push(k);
+	else simCard.els.push(k);
+	drawSim();
+}
+function simDrop(kind: string, k: string): void {
+	const list = kind === "w" ? simCard.ids : simCard.els;
+	const at = list.lastIndexOf(k);
+	if (at >= 0) list.splice(at, 1);
+	drawSim();
+}
+function drawSim(): void {
+	const w = $("simw"),
+		e = $("sime"),
+		f = $("simf"),
+		out = $("simout");
+	w.innerHTML =
+		[...S.wunlocked]
+			.sort((a, b) => (W[a]!.price || 0) - (W[b]!.price || 0))
+			.map(
+				(k) =>
+					`<button class="bp simadd" data-t="w" data-k="${k}">
+      <span class="d" style="background:${W[k]!.c}"></span>${W[k]!.n} · ${W[k]!.dmg}</button>`,
+			)
+			.join("") || '<span class="hint">No weapons yet.</span>';
+	e.innerHTML =
+		[...S.unlocked]
+			.sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0))
+			.map(
+				(k) =>
+					`<button class="bp simadd" data-t="el" data-k="${k}">
+      <span class="d" style="background:${EL[k]!.c}"></span>${EL[k]!.n}</button>`,
+			)
+			.join("") || '<span class="hint">No elements yet.</span>';
+	const found = Object.values(FUSE).filter((k) => known(k));
+	f.innerHTML = found.length
+		? [...new Set(found)]
+				.map(
+					(k) =>
+						`<button class="bp simadd" data-t="el" data-k="${k}">
+      <span class="d" style="background:${T[k]!.c}"></span>${T[k]!.n}</button>`,
+				)
+				.join("")
+		: '<span class="hint">None discovered yet. Mix some in a match.</span>';
+
+	if (simCard.ids.length) {
+		const dmg = wepDmg(simCard),
+			hits = wHits(simCard),
+			cost = wCost(simCard),
+			total = dmg * hits;
+		const fit = (v: number | string): string => {
+			const t = typeof v === "number" ? v.toLocaleString() : v;
+			return `<b class="${t.length > 9 ? "vlong" : t.length > 6 ? "long" : ""}" title="${t}">${t}</b>`;
+		};
+		const fx = [...new Set(simCard.els.map((x) => forgeOf(x).fx))];
+		const reach = new Set<string>();
+		simCard.ids.forEach((id) => {
+			PAT[W[id]!.pat]!().forEach(([dx, dy]) => reach.add(dx + "," + dy));
+		});
+		out.innerHTML = `<div class="simname">${wepName(simCard)}</div>
+      <div class="simempty">${[...new Set(simCard.ids.map((i) => W[i]!.d))].join(" ")}</div>
+      <div class="simnums">
+        <div class="sn">${fit(dmg)}<span>per strike</span></div>
+        <div class="sn">${fit(hits)}<span>strikes</span></div>
+        <div class="sn hot">${fit(total)}<span>total damage</span></div>
+        <div class="sn">${fit(cost)}<span>energy</span></div>
+        <div class="sn">${fit((total / cost).toFixed(1))}<span>per energy</span></div>
+        <div class="sn">${fit(reach.size)}<span>squares hit</span></div>
+        <div class="sn">${fit(Math.ceil(S.hp / total))}<span>swings to drop ${S.hp} hp</span></div>
+        <div class="sn">${fit(Math.max(1, cost - 1))}<span>earliest turn</span></div>
+      </div>
+      ${fx.length ? `<div class="simfx">On hit: ${fx.join(". ")}.</div>` : ""}
+      ${partsHTML()}`;
+	} else {
+		out.innerHTML =
+			'<div class="simempty">Add a weapon to begin. Elements on their own cannot be swung.</div>' + partsHTML();
+	}
+	$("sim")
+		.querySelectorAll(".simadd")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					simAdd(b.dataset["t"]!, b.dataset["k"]!);
+				}),
+		);
+	$("sim")
+		.querySelectorAll(".ptdrop")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					simDrop(b.dataset["t"]!, b.dataset["k"]!);
+				}),
+		);
+	if ($("simclear"))
+		$("simclear").onclick = () => {
+			simCard.ids = [];
+			simCard.els = [];
+			drawSim();
+		};
+}
+// duplicates collapse into one tag with a count; the cross removes one at a time
+function tallyList(list: string[]): [string, number][] {
+	const order: string[] = [],
+		n: Record<string, number> = {};
+	list.forEach((k) => {
+		if (!(k in n)) {
+			order.push(k);
+			n[k] = 0;
+		}
+		n[k]!++;
+	});
+	return order.map((k) => [k, n[k]!]);
+}
+function partsHTML(): string {
+	if (!simCard.ids.length && !simCard.els.length) return "";
+	const tag = (k: string, count: number, kind: string, colour: string, label: string): string =>
+		`<span class="pt"><span class="d" style="background:${colour}"></span>${label}${
+			count > 1 ? ` <b class="ptn">x${count}</b>` : ""
+		}
+      <button class="ptdrop" data-t="${kind}" data-k="${k}" title="Remove one">&times;</button></span>`;
+	const bits = tallyList(simCard.ids)
+		.map(([k, c]) => tag(k, c, "w", W[k]!.c, W[k]!.n))
+		.concat(tallyList(simCard.els).map(([k, c]) => tag(k, c, "el", EL[k] ? EL[k].c : T[k]!.c, elName(k))));
+	return `<div class="simparts">${bits.join("")}
+    <button class="bp" id="simclear" style="border-color:var(--hot);color:var(--hot)">Clear</button></div>`;
+}
+let rvTimer: ReturnType<typeof setInterval> | null = null;
+function drawReplay(): void {
+	const f = S.frames[S.rvi];
+	const bar = $("rvbar"),
+		cnt = $("rvcount"),
+		note = $("rvnote");
+	bar.max = String(Math.max(0, S.frames.length - 1));
+	bar.value = String(S.rvi);
+	cnt.textContent = `${S.frames.length ? S.rvi + 1 : 0} / ${S.frames.length}`;
+	if (!f) {
+		note.textContent = "Nothing was recorded.";
+		$("rvboard").innerHTML = "";
+		$("rvside").innerHTML = "";
+		return;
+	}
+	note.innerHTML = `<b style="color:${f.c}">${f.who || "The arena"}</b>
+    <span style="color:var(--muted)"> · round ${f.r}</span><br>
+    <span${f.say ? ' style="font-style:italic"' : ""}>${f.say ? "says " : ""}${f.t}</span>`;
+
+	const b = $("rvboard");
+	b.style.gridTemplateColumns = `repeat(${S.dim},var(--cell))`;
+	const avail = Math.min(window.innerWidth - 360, 560);
+	b.style.setProperty("--cell", Math.max(11, Math.min(34, Math.floor(avail / S.dim) - 2)) + "px");
+	let html = "";
+	for (let i = 0; i < S.dim * S.dim; i++) {
+		const k = f.board[i];
+		const d = k ? T[k] : null;
+		const who = f.players.find((q) => q.alive && q.y * S.dim + q.x === i);
+		const cls = "tile" + (d ? " terr" : "") + (d?.solid ? " solid" : "") + (d?.dead ? " gonezone" : "");
+		const style = d ? `--tc:${d.c};--tcs:${rgba(d.c, 0.44)}` : "";
+		const mage = who ? `<i class="mage p${f.players.indexOf(who)}" style="--pc:${who.c}"></i>` : "";
+		html += `<div class="${cls}" style="${style}" title="${d ? d.n : ""}">${mage}</div>`;
+	}
+	b.innerHTML = html;
+
+	$("rvside").innerHTML = f.players
+		.map(
+			(q) => `
+    <div class="rvp ${q.alive ? "" : "out"}" style="--pc:${q.c}">
+      <div class="rvh"><span class="glyph mage p${f.players.indexOf(q)}"></span>
+        <span class="rvn">${q.name}</span>
+        <span class="rvhp">${q.alive ? q.hp + " hp" : "out"}</span></div>
+      <div class="bar"><i style="width:${(q.hp / q.max) * 100}%;background:${q.c}"></i></div>
+      <div class="rvcards" style="margin-top:7px">${
+			q.hand.length
+				? q.hand.map((n) => `<span class="rvc">${n}</span>`).join("")
+				: '<span class="rvnone">empty hand</span>'
+		}</div>
+    </div>`,
+		)
+		.join("");
+}
+function rvGo(i: number): void {
+	S.rvi = Math.max(0, Math.min(S.frames.length - 1, i));
+	drawReplay();
+}
+function rvStop(): void {
+	if (rvTimer !== null) clearInterval(rvTimer);
+	rvTimer = null;
+	$("rvplay").textContent = "Play";
+}
+function rvPlay(): void {
+	if (rvTimer) {
+		rvStop();
+		return;
+	}
+	if (S.rvi >= S.frames.length - 1) S.rvi = 0;
+	$("rvplay").textContent = "Pause";
+	rvTimer = setInterval(() => {
+		if (S.rvi >= S.frames.length - 1) {
+			rvStop();
+			return;
+		}
+		rvGo(S.rvi + 1);
+	}, 900);
+}
+function openReplay(): void {
+	rvStop();
+	S.rvi = 0;
+	drawReplay();
+	$("replay").classList.add("on");
+}
+$("rvopen").onclick = openReplay;
+$("rvclose").onclick = () => {
+	rvStop();
+	$("replay").classList.remove("on");
+};
+$("rvprev").onclick = () => {
+	rvStop();
+	rvGo(S.rvi - 1);
+};
+$("rvnext").onclick = () => {
+	rvStop();
+	rvGo(S.rvi + 1);
+};
+$("rvplay").onclick = rvPlay;
+$("rvbar").oninput = (e) => {
+	rvStop();
+	rvGo(+src(e).value);
+};
+function openSim(): void {
+	drawSim();
+	$("sim").classList.add("on");
+}
+$("simopen").onclick = openSim;
+$("simclose").onclick = () => {
+	$("sim").classList.remove("on");
+};
+function openTable(): void {
+	S.tsel = S.tsel || "fire";
+	buildTable();
+	$("table").classList.add("on");
+}
+function closeTable(): void {
+	$("table").classList.remove("on");
+}
+["tableopen", "tableopen2", "tableopen3"].forEach((id) => {
+	const b = $(id);
+	if (b) b.onclick = openTable;
+});
+$("tclose").onclick = closeTable;
+let resetArmed = false,
+	resetT: ReturnType<typeof setTimeout> | null = null;
+$("reset").onclick = async () => {
+	const b = $("reset");
+	if (!resetArmed) {
+		resetArmed = true;
+		b.textContent = "Tap again to wipe the treasury";
+		b.style.borderColor = "#ff8f6b";
+		b.style.color = "#ff8f6b";
+		resetT = setTimeout(() => {
+			resetArmed = false;
+			b.textContent = "Reset all progress";
+			b.style.borderColor = "";
+			b.style.color = "";
+		}, 3500);
+		return;
+	}
+	if (resetT !== null) clearTimeout(resetT);
+	resetArmed = false;
+	b.style.borderColor = "";
+	b.style.color = "";
+	b.textContent = "Reset all progress";
+	S.coins = 0;
+	S.unlocked = [...BASE];
+	S.wunlocked = [...WBASE];
+	S.munlocked = [];
+	S.mv = [0, 0, 0, 0, 0, 0, 0, 0];
+	S.elOff = [];
+	S.wOff = [];
+	S.pOff = {};
+	S.codex = {};
+	S.saveErr = null;
+	S.cheat = 0;
+	S.tries = 0;
+	try {
+		await window.storage.delete("arena:v3", false);
+	} catch (e) {
+		S.saveErr = "delete failed: " + errText(e);
+	}
+	await save();
+	drawShop();
+	drawLoadout();
+	drawCodex();
+	drawCheat();
+};
+$("dim").oninput = (e) => {
+	S.dim = +src(e).value;
+	$("dimval").textContent = `${S.dim} x ${S.dim}`;
+	if (S.preset && S.presetDim !== S.dim) {
+		S.preset = null;
+		S.presetDim = 0;
+	}
+};
+$("hp").oninput = (e) => {
+	S.hp = +src(e).value;
+	$("hpval").textContent = String(S.hp);
+};
+function readStartNrg(): number {
+	const v = parseInt($("nrg0").value, 10);
+	S.startNrg = Number.isFinite(v) ? Math.max(0, Math.min(99, v)) : 2;
+	return S.startNrg;
+}
+$("nrg0").oninput = readStartNrg;
+$("nrg0").onblur = () => {
+	$("nrg0").value = String(readStartNrg());
+};
+function readOpenHand(): number {
+	const v = parseInt($("hand0").value, 10);
+	S.openHand = Number.isFinite(v) ? Math.max(0, Math.min(30, v)) : 3;
+	return S.openHand;
+}
+$("hand0").oninput = readOpenHand;
+$("hand0").onblur = () => {
+	$("hand0").value = String(readOpenHand());
+};
+$("start").onclick = startMatch;
+function applyTheme(): void {
+	document.documentElement.dataset["theme"] = S.theme;
+	const label = S.theme === "day" ? "Night mode" : "Day mode";
+	["theme", "theme2"].forEach((id) => {
+		const b = $(id);
+		if (b) b.textContent = label;
+	});
+}
+function flipTheme(): void {
+	S.theme = S.theme === "day" ? "night" : "day";
+	applyTheme();
+	void save();
+}
+["theme", "theme2"].forEach((id) => {
+	const b = $(id);
+	if (b) b.onclick = flipTheme;
+});
+let quitArmed = false,
+	quitT: ReturnType<typeof setTimeout> | null = null;
+function resetQuitBtn(): void {
+	const b = $("quit");
+	quitArmed = false;
+	b.textContent = "Forfeit";
+	b.style.borderColor = "";
+	b.style.color = "";
+}
+$("quit").onclick = () => {
+	const b = $("quit"),
+		p = cur();
+	if (!quitArmed) {
+		quitArmed = true;
+		b.textContent = "Tap again to fall";
+		b.style.borderColor = "#ff8f6b";
+		b.style.color = "#ff8f6b";
+		quitT = setTimeout(resetQuitBtn, 3500);
+		return;
+	}
+	if (quitT !== null) clearTimeout(quitT);
+	resetQuitBtn();
+	p.hp = 0;
+	p.alive = false;
+	p.held = null;
+	logit("gave up");
+	void save();
+	if (checkAlive()) nextTurn();
+	else render();
+};
+$("leave").onclick = () => {
+	void save();
+	show("menu");
+};
+$("ologbtn").onclick = () => {
+	const w = $("ologwrap"),
+		on = w.classList.toggle("on");
+	$("ologbtn").textContent = on ? "Hide the match log" : "Show the match log";
+};
+$("oback").onclick = () => {
+	$("over").classList.remove("on");
+	show("menu");
+};
+function show(s: string): void {
+	S.screen = s;
+	$("menu").classList.toggle("on", s === "menu");
+	$("game").classList.toggle("on", s === "game");
+	if (s === "menu") {
+		drawSeg();
+		drawShop();
+	}
+}
+
+/* ============ MATCH ============ */
+function ringSpots(dim: number, n: number): Offset[] {
+	const m = 1,
+		M = dim - 2,
+		ring: Offset[] = [];
+	for (let x = m; x <= M; x++) ring.push([x, m]);
+	for (let y = m + 1; y <= M; y++) ring.push([M, y]);
+	for (let x = M - 1; x >= m; x--) ring.push([x, M]);
+	for (let y = M - 1; y > m; y--) ring.push([m, y]);
+	const out: Offset[] = [],
+		used = new Set<number>();
+	for (let i = 0; i < n; i++) {
+		let k = Math.round((i * ring.length) / n) % ring.length;
+		while (used.has(k)) k = (k + 1) % ring.length;
+		used.add(k);
+		out.push(ring[k]!);
+	}
+	return out;
+}
+
+function dealOpening(p: Player): number {
+	const n = S.openHand;
+	const nEl = Math.random() < 0.5 ? Math.ceil(n / 2) : Math.floor(n / 2),
+		wk = wsOn(p.i),
+		ek = elsOn(p.i);
+	for (let i = 0; i < nEl; i++) p.hand.push({uid: S.uid++, k: "el", id: ek[(Math.random() * ek.length) | 0]!});
+	for (let i = 0; i < n - nEl; i++)
+		p.hand.push({uid: S.uid++, k: "w", ids: [wk[(Math.random() * wk.length) | 0]!], els: []});
+	for (let i = p.hand.length - 1; i > 0; i--) {
+		const j = (Math.random() * (i + 1)) | 0;
+		[p.hand[i], p.hand[j]] = [p.hand[j]!, p.hand[i]!];
+	}
+	return nEl;
+}
+function startMatch(): void {
+	readStartNrg();
+	readOpenHand();
+	readChaosRound();
+	readMvUses();
+	S.board = Array.from({length: S.dim * S.dim}, () => ({t: null, el: null, life: 0, wid: 0, by: null}));
+	S.wid = 1;
+	S.uid = 1;
+	if (S.preset && S.presetDim === S.dim) {
+		S.preset.forEach((k, i) => {
+			if (!k) return;
+			const c = S.board[i]!;
+			if (EL[k]) {
+				c.el = k;
+				c.t = EL[k].t;
+			} else {
+				c.el = null;
+				c.t = k;
+			}
+			c.life = T[c.t]!.life;
+			if (c.t === "whirl") c.wid = S.wid++;
+		});
+	}
+	const spots = ringSpots(S.dim, S.np);
+	S.players = Array.from({length: S.np}, (_, i) => ({
+		i,
+		name: nameOf(i),
+		c: PC[S.cols[i]!]!,
+		team: S.cols[i]!,
+		mv: S.mv[i]! & mvOwnedMask(),
+		used: {
+			place: 0,
+			merge: 0,
+			jump: 0,
+			dash: 0,
+			leap: 0,
+			float: 0,
+			spin: 0,
+			wipe: 0,
+			warp: 0,
+			ultra: 0,
+			spread: 0,
+			trail: 0,
+			shift: 0,
+			smash: 0,
+			theft: 0,
+			swap: 0,
+			mark: 0,
+			light: 0,
+		},
+		trail: null,
+		float: false,
+		x: spots[i]![0],
+		y: spots[i]![1],
+		hp: S.hp,
+		max: S.hp,
+		nrg: 0,
+		cap: 5,
+		drain: 0,
+		bank: 0,
+		rootTurns: 0,
+		darkTurns: 0,
+		litTurns: 0,
+		hand: [],
+		held: null,
+		alive: true,
+	}));
+	S.players.forEach((p) => {
+		const c = S.board[idx(p.x, p.y)]!;
+		if (c.t && T[c.t]!.gone) {
+			p.hp = 0;
+			p.alive = false;
+		}
+	});
+	S.turn = 0;
+	S.round = 1;
+	S.sel = null;
+	S.mode = null;
+	S.matchCoins = 0;
+	S.warn = null;
+	S.toss = false;
+	S.tossPick = null;
+	S.chat = [];
+	S.cid = 1;
+	S.replyTo = null;
+	S.log = [];
+	S.frames = [];
+	S.rvi = 0;
+
+	S.players.forEach(dealOpening);
+	while (!S.players[S.turn]!.alive && S.turn < S.players.length - 1) S.turn++;
+	show("game");
+	buildBoard();
+	drawCodex();
+	if (teamsAlive().length <= 1) finish(teamsAlive()[0] ?? null);
+	else beginTurn();
+}
+/* Board geometry. These mirror the stylesheet: #board draws a BOARD_GAP gap between tiles
+   inside 8px of padding and a 1px border, and the arena lays the board column out between
+   two .side columns of clamp(SIDE_MIN, SIDE_VW, SIDE_MAX), all inside #game's padding. */
+const BOARD_GAP = 2;
+const BOARD_CHROME = 18;
+const GAME_PAD = 14;
+const ARENA_GAP = 14;
+const SIDE_MIN = 150;
+const SIDE_MAX = 212;
+const SIDE_VW = 0.17;
+const ARENA_STACK_AT = 560;
+const ARENA_BOARD_MAX = 640;
+const ARENA_CELL_MIN = 15;
+const ARENA_CELL_MAX = 46;
+
+/** Outer width a dim x dim board occupies when drawn at `cell` pixels per tile. */
+function boardWidth(dim: number, cell: number): number {
+	return dim * cell + (dim - 1) * BOARD_GAP + BOARD_CHROME;
+}
+/** Largest tile size whose whole board fits `avail`, clamped so tiles stay legible.
+    A board of zero-size tiles is exactly the width that is not tile, so subtracting it
+    leaves the room the tiles themselves get. */
+function boardCell(dim: number, avail: number, min: number, max: number): number {
+	return Math.max(min, Math.min(max, Math.floor((avail - boardWidth(dim, 0)) / dim)));
+}
+/** Width the arena leaves the board column at viewport width `w`. Below the stacking
+    breakpoint the side panels sit above and below, so the board gets the full width. */
+function arenaBoardRoom(w: number): number {
+	if (w <= ARENA_STACK_AT) return w - GAME_PAD * 2;
+	const side = Math.max(SIDE_MIN, Math.min(SIDE_MAX, w * SIDE_VW));
+	return w - GAME_PAD * 2 - (side * 2 + ARENA_GAP * 2);
+}
+/** Excludes the scrollbar, matching what the layout actually gets and what media queries see. */
+function viewportWidth(): number {
+	return document.documentElement.clientWidth || window.innerWidth;
+}
+function buildBoard(): void {
+	const b = $("board");
+	b.style.gridTemplateColumns = `repeat(${S.dim},var(--cell))`;
+	const room = Math.min(arenaBoardRoom(viewportWidth()), ARENA_BOARD_MAX);
+	b.style.setProperty("--cell", boardCell(S.dim, room, ARENA_CELL_MIN, ARENA_CELL_MAX) + "px");
+	b.innerHTML = "";
+	for (let y = 0; y < S.dim; y++)
+		for (let x = 0; x < S.dim; x++) {
+			const t = document.createElement("div");
+			t.className = "tile";
+			t.onclick = () => {
+				onTile(x, y);
+			};
+			b.appendChild(t);
+		}
+}
+const REFILL = 5;
+function drawCards(p: Player, n: number): void {
+	const wk = wsOn(p.i),
+		ek = elsOn(p.i);
+	const nEl = Math.random() < 0.5 ? Math.ceil(n / 2) : Math.floor(n / 2);
+	for (let i = 0; i < nEl; i++) p.hand.push({uid: S.uid++, k: "el", id: ek[(Math.random() * ek.length) | 0]!});
+	for (let i = 0; i < n - nEl; i++)
+		p.hand.push({uid: S.uid++, k: "w", ids: [wk[(Math.random() * wk.length) | 0]!], els: []});
+}
+// an empty hand is refilled at once, whoever is playing
+function checkRefill(): void {
+	S.players.forEach((p) => {
+		if (!p.alive || p.hand.length) return;
+		drawCards(p, REFILL);
+		logit(`ran out of cards and drew ${REFILL} more`, p);
+	});
+}
+function beginTurn(): void {
+	const p = cur();
+	const gain = S.startNrg + (S.round - 1);
+	p.cap = Math.max(0, p.bank + gain - p.drain);
+	p.nrg = p.cap;
+	p.drain = 0;
+	S.sel = null;
+	S.mode = null;
+	S.phase = "act";
+	p.trail = null;
+	resetQuitBtn();
+	const wk = wsOn(p.i),
+		ek = elsOn(p.i);
+	const e = ek[(Math.random() * ek.length) | 0]!;
+	const w = wk[(Math.random() * wk.length) | 0]!;
+	p.hand.push({uid: S.uid++, k: "el", id: e});
+	p.hand.push({uid: S.uid++, k: "w", ids: [w], els: []});
+	S.toss = S.chaos && S.round >= S.chaosRound && p.hand.length > 0;
+	S.tossPick = null;
+	S.handoff = S.priv;
+	render();
+}
+function chaosTick(): void {
+	if (!S.chaos) {
+		S.warn = null;
+		return;
+	}
+	// whatever was warned last round falls away now
+	if (S.warn != null) {
+		const j = S.warn,
+			c = S.board[j]!;
+		c.t = "collapsed";
+		c.el = null;
+		c.life = 999;
+		c.wid = 0;
+		S.fx.push([j, "bloom"]);
+		const v = occupant(j % S.dim, (j / S.dim) | 0);
+		logit(`the square at ${(j % S.dim) + 1},${((j / S.dim) | 0) + 1} fell away`, null);
+		if (v?.alive) {
+			v.hp = 0;
+			v.alive = false;
+			v.held = null;
+			logit(`${v.name} went down with it`, v);
+		}
+		S.warn = null;
+	}
+	if (S.round >= S.chaosRound) {
+		const free: number[] = [];
+		S.board.forEach((c, j) => {
+			if (c.t !== "collapsed") free.push(j);
+		});
+		if (free.length > 1) S.warn = free[(Math.random() * free.length) | 0]!;
+	}
+}
+function nextTurn(): void {
+	let g = 0;
+	do {
+		S.turn = (S.turn + 1) % S.players.length;
+		if (S.turn === 0) {
+			S.round++;
+			decay();
+			chaosTick();
+			if (!checkAlive()) return;
+		}
+	} while (!S.players[S.turn]!.alive && ++g < 24);
+	beginTurn();
+}
+function endTurn(): void {
+	if (S.toss) return;
+	const p = cur();
+	if (p.float) {
+		p.float = false;
+		afterMove(p);
+	} // you come down where you stopped
+	if (p.alive) resolveStanding(p);
+	p.bank = p.nrg;
+	p.rootTurns = 0;
+	if (p.darkTurns > 0) p.darkTurns--;
+	if (p.litTurns > 0) p.litTurns--;
+	saveSoon();
+	if (!checkAlive()) return;
+	nextTurn();
+}
+function resolveStanding(p: Player): void {
+	let best: Offset | null = null,
+		bd = 99;
+	S.board.forEach((c, j) => {
+		if (!c.t || !T[c.t]!.pull) return;
+		const x = j % S.dim,
+			y = (j / S.dim) | 0,
+			d = cheb(p.x, p.y, x, y);
+		if (d > 0 && d <= T[c.t]!.pull! && d < bd) {
+			bd = d;
+			best = [x, y];
+		}
+	});
+	if (best && !anchored(p)) {
+		const sx = Math.sign(best[0] - p.x),
+			sy = Math.sign(best[1] - p.y);
+		if (canStand(p.x + sx, p.y + sy)) {
+			p.x += sx;
+			p.y += sy;
+			afterMove(p);
+			if (!p.alive) return;
+		}
+	}
+	const here = S.board[idx(p.x, p.y)]!;
+	if (here.t && T[here.t]!.gone) {
+		voidOut(p);
+		return;
+	}
+	if (here.t && T[here.t]!.ward) return;
+	S.board.forEach((q, j) => {
+		if (!q.t) return;
+		const a = T[q.t]!;
+		if (!a.aura && !a.auraHeal) return;
+		const x = j % S.dim,
+			y = (j / S.dim) | 0,
+			dist = cheb(p.x, p.y, x, y);
+		if (dist > (a.rad || 2)) return;
+		if (a.aura) hurt(p, a.aura, null);
+		if (a.auraHeal) p.hp = Math.min(p.max, p.hp + a.auraHeal);
+	});
+	if (!p.alive) return;
+	const c = S.board[idx(p.x, p.y)]!;
+	if (!c.t) return;
+	const d = T[c.t]!;
+	if (d.end > 0) {
+		hurt(p, d.end, null);
+	}
+	if (d.heal) p.hp = Math.min(p.max, p.hp + d.heal);
+	if (d.gain) p.drain = (p.drain || 0) - d.gain;
+	if (d.sap) p.drain = (p.drain || 0) + d.sap;
+	if (d.shove && p.alive) {
+		const dirs: Offset[] = [
+				[1, 0],
+				[-1, 0],
+				[0, 1],
+				[0, -1],
+			],
+			r = dirs[(Math.random() * 4) | 0]!;
+		if (canStand(p.x + r[0], p.y + r[1])) {
+			p.x += r[0];
+			p.y += r[1];
+		}
+	}
+}
+function decay(): void {
+	S.board.forEach((c) => {
+		if (!c.t || c.life >= 900) return;
+		if (--c.life > 0) return;
+		const into = T[c.t]!.melts;
+		if (into) {
+			c.t = into;
+			c.el = ELBYT[into] || null;
+			c.life = T[into]!.life;
+		} else {
+			c.t = null;
+			c.el = null;
+			c.wid = 0;
+			c.by = null;
+		}
+	});
+}
+function checkAlive(): boolean {
+	const teams = teamsAlive();
+	if (teams.length <= 1) {
+		finish(teams[0] ?? null);
+		return false;
+	}
+	return true;
+}
+function finish(t: number | null): void {
+	void save();
+	const won = S.players.filter((p) => p.alive);
+	$("obg").className = "bigglyph mage p" + (won[0] ? won[0].i : 0);
+	$("obg").style.setProperty("--pc", t === null ? "#6f7da8" : PC[t]!);
+	$("owho").textContent = won.length
+		? won.length === 1
+			? `${won[0]!.name} holds the arena`
+			: `${teamName(t)} holds the arena`
+		: "Nobody walks out";
+	$("oearn").textContent =
+		(won.length > 1 ? won.map((p) => p.name).join(" and ") + "  ·  " : "") + `+${S.matchCoins} coin banked`;
+	logit(t === null ? "nobody was left standing" : `${teamName(t)} took the arena`, null);
+	drawMatchLog();
+	$("over").classList.add("on");
+}
+function drawMatchLog(): void {
+	const box = $("olog");
+	if (!box) return;
+	if (!S.log.length) {
+		box.innerHTML = '<div class="lg"><span class="txt">Nothing happened.</span></div>';
+		return;
+	}
+	let out = "",
+		round = 0;
+	S.log.forEach((e) => {
+		if (e.r !== round) {
+			round = e.r;
+			out += `<div class="lgnew">Round ${round}</div>`;
+		}
+		out += `<div class="lg${e.say ? " lgsay" : ""}"><span class="rd">${e.r}</span>
+      <span><span class="who" style="color:${e.c}">${e.who || "The arena"}</span>
+      <span class="txt"> ${e.say ? "says " : ""}${e.t}</span></span></div>`;
+	});
+	box.innerHTML = out;
+}
+
+/* ============ MOVEMENT ============ */
+const occupantsAt = (x: number, y: number): Player[] => S.players.filter((q) => q.alive && q.x === x && q.y === y);
+// a concealed fighter blocks nothing and can be walked on top of
+function occupant(x: number, y: number): Player | null {
+	return occupantsAt(x, y).find((q) => !hidden(q)) || null;
+}
+function canStand(x: number, y: number): boolean {
+	if (!inb(x, y)) return false;
+	const c = S.board[idx(x, y)]!;
+	return !(c.t && T[c.t]!.solid); // fighters share squares, walls do not
+}
+const emptySquare = (x: number, y: number): boolean => canStand(x, y) && !occupantsAt(x, y).length;
+function canEnter(x: number, y: number, p: Player | null): boolean {
+	if (!inb(x, y) || occupant(x, y)) return false;
+	if (p?.float) return true; // drifting over the top of everything
+	const c = S.board[idx(x, y)]!;
+	return !(c.t && T[c.t]!.solid);
+}
+function shiftAll(dx: number, dy: number): void {
+	const list = S.players.filter((p) => p.alive);
+	// whoever is nearest the destination edge settles first, so nobody jumps the queue
+	list.sort((a, b) => b.x * dx + b.y * dy - (a.x * dx + a.y * dy));
+	list.forEach((p) => {
+		if (!p.alive || anchored(p)) return;
+		let n = 0,
+			fell = false;
+		while (canStand(p.x + dx, p.y + dy) && n < S.dim) {
+			p.x += dx;
+			p.y += dy;
+			n++;
+			const c = S.board[idx(p.x, p.y)]!;
+			if (c.t && T[c.t]!.gone) {
+				afterMove(p);
+				fell = true;
+				break;
+			} // you slide into it, not over it
+		}
+		if (n && !fell) afterMove(p);
+	});
+}
+function doShift(dx: number, dy: number): void {
+	const p = cur();
+	if (!(p.mv & 1024) || p.used.shift >= S.mvUses) return;
+	if (!spend(COST.shift)) return;
+	p.used.shift++;
+	const dir = dx > 0 ? "right" : dx < 0 ? "left" : dy > 0 ? "down" : "up";
+	shiftAll(dx, dy);
+	logit(`shifted everyone ${dir}`);
+	S.mode = null;
+	render();
+	checkAlive();
+}
+function hopTargets(p: Player, dist: number): Offset[] {
+	const out: Offset[] = [];
+	for (let dy = -dist; dy <= dist; dy++)
+		for (let dx = -dist; dx <= dist; dx++) {
+			if (Math.max(Math.abs(dx), Math.abs(dy)) !== dist) continue;
+			const x = p.x + dx,
+				y = p.y + dy;
+			if (inb(x, y) && canStand(x, y)) out.push([x, y]);
+		}
+	return out;
+}
+const jumpTargets = (p: Player): Offset[] => hopTargets(p, 2);
+const leapTargets = (p: Player): Offset[] => hopTargets(p, 4);
+function dashTargets(p: Player): Offset[] {
+	const out: Offset[] = [];
+	DIR8.forEach(([dx, dy]) => {
+		for (let r = 1; r <= 3; r++) {
+			const x = p.x + dx * r,
+				y = p.y + dy * r;
+			if (!inb(x, y)) break;
+			if (!canStand(x, y)) break; // a wall or a body stops the run
+			if (r >= 2) out.push([x, y]);
+		}
+	});
+	return out;
+}
+function doJump(x: number, y: number): void {
+	const p = cur();
+	if (p.rootTurns > 0) return;
+	if (!(p.mv & 1) || p.used.jump >= S.mvUses) return;
+	if (!jumpTargets(p).some(([a, b]) => a === x && b === y)) return;
+	if (!spend(COST.jump)) return;
+	p.used.jump++;
+	const ox = p.x,
+		oy = p.y;
+	p.x = x;
+	p.y = y;
+	S.mode = null;
+	layTrail(p, ox, oy);
+	afterMove(p);
+	logit(`jumped from ${ox + 1},${oy + 1} to ${p.x + 1},${p.y + 1}`);
+	render();
+	if (!p.alive && checkAlive()) nextTurn();
+}
+function sweepTiles(p: Player, r: number): Offset[] {
+	const out: Offset[] = [];
+	for (let dy = -r; dy <= r; dy++)
+		for (let dx = -r; dx <= r; dx++) {
+			if (!dx && !dy) continue;
+			const x = p.x + dx,
+				y = p.y + dy;
+			if (inb(x, y) && !sealed(x, y) && S.board[idx(x, y)]!.t) out.push([x, y]);
+		}
+	return out;
+}
+const spinTiles = (p: Player): Offset[] => sweepTiles(p, 1);
+const wipeTiles = (p: Player): Offset[] => sweepTiles(p, 3);
+function doSweep(bit: number, key: ActionKey, r: number, cost: number): void {
+	const p = cur();
+	if (!(p.mv & bit) || p.used[key] >= S.mvUses) return;
+	const hit = sweepTiles(p, r);
+	if (!hit.length || !spend(cost)) return;
+	p.used[key]++;
+	hit.forEach(([x, y]) => {
+		const c = S.board[idx(x, y)]!;
+		c.t = null;
+		c.el = null;
+		c.life = 0;
+		c.wid = 0;
+		c.by = null;
+		S.fx.push([idx(x, y), "bloom"]);
+	});
+	S.mode = null;
+	render();
+}
+const doSpin = (): void => {
+	doSweep(16, "spin", 1, COST.spin);
+};
+const doWipe = (): void => {
+	doSweep(32, "wipe", 3, COST.wipe);
+};
+function spreadTargets(): Offset[] {
+	const out: Offset[] = [];
+	S.board.forEach((c, i) => {
+		if (c.t && !T[c.t]!.dead) out.push([i % S.dim, (i / S.dim) | 0]);
+	});
+	return out;
+}
+function doTrail(): void {
+	const p = cur();
+	if (!(p.mv & 512) || p.used.trail >= S.mvUses || p.trail) return;
+	const c = S.board[idx(p.x, p.y)]!;
+	if (!c.t || T[c.t]!.dead) return;
+	if (!spend(COST.trail)) return;
+	p.used.trail++;
+	p.trail = c.t;
+	render();
+}
+function layTrail(p: Player, x: number, y: number): void {
+	if (!p.trail || !inb(x, y) || sealed(x, y)) return;
+	const c = S.board[idx(x, y)]!;
+	placedBy = p.i;
+	putTerrain(c, p.trail);
+	placedBy = null;
+	if (p.trail === "whirl") c.wid = S.wid++;
+	S.fx.push([idx(x, y), "bloom"]);
+	claim(x, y);
+}
+function doSpread(x: number, y: number): void {
+	const p = cur();
+	if (!(p.mv & 256) || p.used.spread >= S.mvUses) return;
+	if (!spreadTargets().some(([a, b]) => a === x && b === y)) return;
+	const k = S.board[idx(x, y)]!.t;
+	if (!k || !spend(COST.spread)) return;
+	p.used.spread++;
+	placedBy = p.i;
+	for (let dy = -2; dy <= 2; dy++)
+		for (let dx = -2; dx <= 2; dx++) {
+			const nx = x + dx,
+				ny = y + dy;
+			if (!inb(nx, ny) || sealed(nx, ny)) continue;
+			const c = S.board[idx(nx, ny)]!;
+			putTerrain(c, k);
+			if (k === "whirl") c.wid = S.wid++;
+			S.fx.push([idx(nx, ny), "bloom"]);
+			claim(nx, ny);
+		}
+	placedBy = null;
+	S.mode = null;
+	render();
+	checkAlive();
+}
+function smashable(p: Player): boolean {
+	return p.hand.length > 1 && p.hand.some((c) => c.k === "w");
+}
+function doSmash(): void {
+	const p = cur();
+	if (!(p.mv & 2048) || p.used.smash >= S.mvUses) return;
+	if (!smashable(p) || !spend(COST.smash)) return;
+	p.used.smash++;
+	const ids: string[] = [],
+		els: string[] = [];
+	p.hand.forEach((c) => {
+		if (c.k === "w") {
+			ids.push(...c.ids);
+			els.push(...c.els);
+		} else els.push(c.id);
+	});
+	const made: WepCard = {uid: S.uid++, k: "w", ids, els};
+	p.hand = [made];
+	p.held = made.uid;
+	S.sel = null;
+	S.mode = null;
+	render();
+}
+function doUltra(): void {
+	const p = cur();
+	if (!(p.mv & 128) || p.used.ultra >= S.mvUses) return;
+	const dirty: number[] = [];
+	S.board.forEach((c, i) => {
+		if (c.t) dirty.push(i);
+	});
+	if (!dirty.length || !spend(COST.ultra)) return;
+	p.used.ultra++;
+	dirty.forEach((i) => {
+		const c = S.board[i]!;
+		c.t = null;
+		c.el = null;
+		c.life = 0;
+		c.wid = 0;
+		c.by = null;
+		S.fx.push([i, "bloom"]);
+	});
+	S.mode = null;
+	render();
+}
+function warpTargets(p: Player): Offset[] {
+	const out: Offset[] = [];
+	for (let y = 0; y < S.dim; y++)
+		for (let x = 0; x < S.dim; x++) {
+			if (x === p.x && y === p.y) continue;
+			if (S.board[idx(x, y)]!.t) continue; // bare ground only
+			if (occupantsAt(x, y).length) continue;
+			out.push([x, y]);
+		}
+	return out;
+}
+const seenBy = (c: Card): boolean => !!c.mark; // a marked card is face up to every rival, never to its owner
+function lightTargets(): Offset[] {
+	const p = cur();
+	return S.players.filter((q) => q.alive && q !== p && !q.lit && !hidden(q)).map((q) => [q.x, q.y]);
+}
+function doLight(x: number, y: number): void {
+	const p = cur();
+	if (!(p.mv & 32768) || p.used.light >= S.mvUses) return;
+	const v = occupantsAt(x, y).find((q) => q !== p && !q.lit && !hidden(q));
+	if (!v || !spend(COST.light)) return;
+	p.used.light++;
+	v.lit = true;
+	logit(`lit up ${v.name}. They cannot hide again`);
+	S.mode = null;
+	render();
+}
+function markTargets(): Offset[] {
+	const p = cur();
+	return S.players
+		.filter((q) => q.alive && q !== p && !hidden(q) && q.hand.some((c) => !seenBy(c)))
+		.map((q) => [q.x, q.y]);
+}
+function doMark(x: number, y: number): void {
+	const p = cur();
+	if (!(p.mv & 16384) || p.used.mark >= S.mvUses) return;
+	const v = occupant(x, y);
+	if (!v || v === p || hidden(v)) return;
+	const blind = v.hand.filter((c) => !seenBy(c));
+	if (!blind.length || !spend(COST.mark)) return;
+	p.used.mark++;
+	const card = blind[(Math.random() * blind.length) | 0]!;
+	card.mark = true;
+	logit(`marked ${cardLabel(card)} in ${v.name}'s hand`);
+	S.mode = null;
+	render();
+}
+function theftTargets(): Offset[] {
+	const p = cur();
+	return S.players.filter((q) => q.alive && q !== p && q.hand.length > 0 && !hidden(q)).map((q) => [q.x, q.y]);
+}
+function swapTargets(): Offset[] {
+	const p = cur();
+	return S.players.filter((q) => q.alive && q !== p && !hidden(q)).map((q) => [q.x, q.y]);
+}
+function doSwap(x: number, y: number): void {
+	const p = cur();
+	if (p.rootTurns > 0) return;
+	if (!(p.mv & 8192) || p.used.swap >= S.mvUses) return;
+	const v = occupant(x, y);
+	if (!v || v === p) return;
+	if (!spend(COST.swap)) return;
+	p.used.swap++;
+	const ox = p.x,
+		oy = p.y;
+	p.x = v.x;
+	p.y = v.y;
+	v.x = ox;
+	v.y = oy;
+	S.fx.push([idx(p.x, p.y), "bloom"]);
+	S.fx.push([idx(v.x, v.y), "bloom"]);
+	logit(`swapped places with ${v.name}`);
+	layTrail(p, ox, oy);
+	afterMove(p);
+	if (v.alive) afterMove(v);
+	S.mode = null;
+	render();
+	if (!checkAlive()) return;
+	if (!p.alive) nextTurn();
+}
+function doTheft(x: number, y: number): void {
+	const p = cur();
+	if (!(p.mv & 4096) || p.used.theft >= S.mvUses) return;
+	const v = occupant(x, y);
+	if (!v || v === p || !v.hand.length) return;
+	S.steal = v.i;
+	S.mode = null;
+	render();
+}
+function takeCard(v: Player, uid: number): void {
+	const p = cur();
+	if (!spend(COST.theft)) return;
+	p.used.theft++;
+	const at = v.hand.findIndex((c) => c.uid === uid);
+	if (at < 0) {
+		p.nrg += COST.theft;
+		p.used.theft--;
+		return;
+	}
+	const wasSeen = seenBy(v.hand[at]!);
+	const [card] = v.hand.splice(at, 1);
+	if (card === undefined) return;
+	if (v.held === card.uid) v.held = null;
+	card.mark = false;
+	p.hand.push(card);
+	logit(`stole ${cardLabel(card)} from ${v.name}${wasSeen ? ", a card they had marked" : ", taken face down"}`);
+	S.fx.push([idx(v.x, v.y), "struck"]);
+	S.steal = null;
+	S.mode = null;
+	render();
+}
+function doWarp(x: number, y: number): void {
+	const p = cur();
+	if (p.rootTurns > 0) return;
+	if (!(p.mv & 64) || p.used.warp >= S.mvUses) return;
+	if (!warpTargets(p).some(([a, b]) => a === x && b === y)) return;
+	if (!spend(COST.warp)) return;
+	p.used.warp++;
+	const ox = p.x,
+		oy = p.y;
+	S.fx.push([idx(p.x, p.y), "bloom"]);
+	p.x = x;
+	p.y = y;
+	S.mode = null;
+	layTrail(p, ox, oy);
+	S.fx.push([idx(x, y), "bloom"]);
+	afterMove(p);
+	logit(`warped from ${ox + 1},${oy + 1} to ${p.x + 1},${p.y + 1}`);
+	render();
+	if (!p.alive && checkAlive()) nextTurn();
+}
+function doFloat(): void {
+	const p = cur();
+	if (!(p.mv & 8) || p.used.float >= S.mvUses || p.float) return;
+	if (!spend(COST.float)) return;
+	p.used.float++;
+	p.float = true;
+	S.mode = null;
+	render();
+}
+function doLeap(x: number, y: number): void {
+	const p = cur();
+	if (p.rootTurns > 0) return;
+	if (!(p.mv & 4) || p.used.leap >= S.mvUses) return;
+	if (!leapTargets(p).some(([a, b]) => a === x && b === y)) return;
+	if (!spend(COST.leap)) return;
+	p.used.leap++;
+	const ox = p.x,
+		oy = p.y;
+	p.x = x;
+	p.y = y;
+	S.mode = null;
+	layTrail(p, ox, oy);
+	afterMove(p);
+	logit(`leapt from ${ox + 1},${oy + 1} to ${p.x + 1},${p.y + 1}`);
+	render();
+	if (!p.alive && checkAlive()) nextTurn();
+}
+function doDash(x: number, y: number): void {
+	const p = cur();
+	if (p.rootTurns > 0) return;
+	if (!(p.mv & 2) || p.used.dash >= S.mvUses) return;
+	if (!dashTargets(p).some(([a, b]) => a === x && b === y)) return;
+	if (!spend(COST.dash)) return;
+	p.used.dash++;
+	const dx = Math.sign(x - p.x),
+		dy = Math.sign(y - p.y),
+		ox = p.x,
+		oy = p.y;
+	p.x = x;
+	p.y = y;
+	S.mode = null;
+	layTrail(p, ox, oy);
+	afterMove(p);
+	if (p.alive) settle(p, dx, dy, 0);
+	if (p.alive) afterMove(p);
+	logit(`dashed from ${ox + 1},${oy + 1} to ${p.x + 1},${p.y + 1}`);
+	render();
+	if (!p.alive && checkAlive()) nextTurn();
+}
+function tryStep(x: number, y: number): void {
+	if (S.phase !== "act") return;
+	const p = cur();
+	if (p.rootTurns > 0) return;
+	if (!canEnter(x, y, p)) return;
+	const c = S.board[idx(x, y)]!;
+	const cost = p.float ? 1 : c.t ? T[c.t]!.enter : 1;
+	if (cost > 50 || p.nrg < cost) return;
+	const dx = x - p.x,
+		dy = y - p.y,
+		ox = p.x,
+		oy = p.y;
+	p.x = x;
+	p.y = y;
+	p.nrg -= cost;
+	layTrail(p, ox, oy);
+	if (!p.float) {
+		settle(p, dx, dy, 0);
+		afterMove(p);
+	}
+	logit(
+		p.x !== x || p.y !== y
+			? `moved from ${ox + 1},${oy + 1} and was carried on to ${p.x + 1},${p.y + 1}`
+			: `moved from ${ox + 1},${oy + 1} to ${x + 1},${y + 1}`,
+	);
+	render();
+	if (!p.alive && checkAlive()) nextTurn();
+}
+function voidOut(p: Player): void {
+	if (!p.alive) return;
+	S.matchCoins += 40;
+	S.coins += 40;
+	saveSoon();
+	S.fx.push([idx(p.x, p.y), "bloom"]);
+	if (S.paint) {
+		const cell = S.board[idx(p.x, p.y)]!;
+		const owner = cell.by == null ? null : S.players[cell.by]!;
+		const flip = owner && owner !== p && owner.alive && !ally(owner, p);
+		respawn(p, flip ? owner.team : null);
+		logit(
+			flip ? `${p.name} was swallowed and now fights for ${owner.name}` : `${p.name} was swallowed and respawned`,
+			owner || p,
+		);
+		return;
+	}
+	p.hp = 0;
+	p.alive = false;
+	logit(`${p.name} was swallowed by the ground`, p);
+}
+function afterMove(p: Player): void {
+	if (!p.alive) return;
+	const c = S.board[idx(p.x, p.y)]!;
+	if (!c.t) return;
+	const d = T[c.t]!;
+	if (d.gone) {
+		voidOut(p);
+		return;
+	}
+	if (d.root) p.rootTurns = 1;
+	if (d.bite) hurt(p, d.bite, null);
+	if (d.brittle) {
+		c.t = null;
+		c.el = null;
+		c.life = 0;
+		c.by = null;
+		S.fx.push([idx(p.x, p.y), "bloom"]);
+	}
+}
+function openTiles(): Offset[] {
+	const out: Offset[] = [];
+	for (let y = 0; y < S.dim; y++) for (let x = 0; x < S.dim; x++) if (emptySquare(x, y)) out.push([x, y]);
+	return out;
+}
+function settle(p: Player, dx: number, dy: number, depth: number): void {
+	if (depth > 14 || !p.alive) return;
+	const c = S.board[idx(p.x, p.y)]!;
+	if (!c.t) return;
+	const d = T[c.t]!;
+	if (d.gone) {
+		voidOut(p);
+		return;
+	}
+	if (d.scatter) {
+		const open = openTiles();
+		if (open.length) {
+			const [nx, ny] = open[(Math.random() * open.length) | 0]!;
+			p.x = nx;
+			p.y = ny;
+			afterMove(p);
+		}
+		return;
+	}
+	if (d.warp) {
+		const twin = whirlTwin(idx(p.x, p.y));
+		if (twin >= 0) {
+			const tx = twin % S.dim,
+				ty = (twin / S.dim) | 0;
+			if (!occupant(tx, ty)) {
+				p.x = tx;
+				p.y = ty;
+				afterMove(p);
+			}
+		}
+		return;
+	}
+	if (d.flow && (dx || dy)) {
+		const nx = p.x + dx,
+			ny = p.y + dy;
+		if (!canStand(nx, ny)) return;
+		p.x = nx;
+		p.y = ny;
+		settle(p, dx, dy, depth + 1);
+	}
+}
+function whirlList(): Offset[] {
+	const all: Offset[] = [];
+	S.board.forEach((c, j) => {
+		if (c.t === "whirl") all.push([c.wid, j]);
+	});
+	all.sort((a, b) => a[0] - b[0]);
+	return all;
+}
+function whirlTwin(i: number): number {
+	const all = whirlList(),
+		pos = all.findIndex((a) => a[1] === i);
+	if (pos < 0) return -1;
+	const partner = pos % 2 === 0 ? pos + 1 : pos - 1;
+	return all[partner] ? all[partner][1] : -1;
+}
+
+/* ============ CARDS ============ */
+const cardLabel = (c: Card): string => (c.k === "el" ? elName(c.id) : wepName(c));
+function snapshot(entry: LogEntry): void {
+	S.frames.push({
+		...entry,
+		turn: S.turn,
+		board: S.board.map((c) => c.t),
+		players: S.players.map((q) => ({
+			name: q.name,
+			c: q.c,
+			team: q.team,
+			x: q.x,
+			y: q.y,
+			hp: q.hp,
+			max: q.max,
+			alive: q.alive,
+			hand: q.hand.map(cardLabel),
+			held: q.held,
+		})),
+	});
+}
+function logit(t: string, who?: Player | null, say?: boolean): void {
+	const p = who === undefined ? S.players[S.turn]! || null : who;
+	const entry = {r: S.round, who: p ? p.name : "", c: p ? p.c : "var(--muted)", t, say: !!say};
+	S.log.push(entry);
+	snapshot(entry);
+}
+function spend(n: number): boolean {
+	const p = cur();
+	if (p.nrg < n) return false;
+	p.nrg -= n;
+	return true;
+}
+function mixable(c: Card | null): boolean {
+	return !!c && c.k === "el" && !isComp(c.id);
+}
+function mixSource(p: Player): Card | null {
+	return p.hand.find((q) => q.uid === S.mixFrom) || null;
+}
+function canPair(a: Card | null, b: Card | null): boolean {
+	if (!a || !b || a.uid === b.uid) return false;
+	if (a.k === "w" || b.k === "w") return true;
+	return mixable(a) && mixable(b) && !!FUSE[fkey(a.id, b.id)];
+}
+function mixPartners(p: Player, a?: Card | null): Card[] {
+	a = a || mixSource(p) || selCard(p) || held(p);
+	if (!a) return [];
+	return p.hand.filter((q) => canPair(a, q));
+}
+function startMix(uid: number): void {
+	S.mixFrom = uid;
+	S.mode = "mix";
+	render();
+}
+function doMix(u2: number): void {
+	const p = cur(),
+		a = mixSource(p),
+		b = p.hand.find((q) => q.uid === u2);
+	if (!a || !b || a.uid === b.uid) return;
+	// the result takes the slot the mix started from, so the hand keeps its order
+	const ia = p.hand.indexOf(a),
+		ib = p.hand.indexOf(b);
+	const slot = ib < ia ? ia - 1 : ia;
+	if (!canPair(a, b)) return;
+	let made: Card | null = null;
+	if (a.k === "el" && b.k === "el") {
+		const res = FUSE[fkey(a.id, b.id)];
+		if (!res || !spend(COST.merge)) return;
+		made = {uid: S.uid++, k: "el", id: res};
+		if (!S.codex[res]) {
+			S.codex[res] = 1;
+			void save();
+			drawCodex();
+		}
+	} else if (a.k === "w" && b.k === "w") {
+		if (!spend(COST.merge)) return;
+		made = {uid: S.uid++, k: "w", ids: [...a.ids, ...b.ids], els: [...a.els, ...b.els]};
+	} else {
+		const el = a.k === "el" ? a : b.k === "el" ? b : null,
+			w = a.k === "w" ? a : b.k === "w" ? b : null;
+		if (!el || !w) return;
+		if (!spend(COST.merge)) return;
+		made = {uid: S.uid++, k: "w", ids: [...w.ids], els: [...w.els, el.id]};
+	}
+	const cardName = (c: Card): string => (c.k === "el" ? elName(c.id) : wepName(c));
+	if (!made) return;
+	logit(`merged ${cardName(a)} with ${cardName(b)} into ${cardName(made)}`);
+	p.hand = p.hand.filter((q) => q.uid !== a.uid && q.uid !== b.uid);
+	p.hand.splice(Math.max(0, Math.min(slot, p.hand.length)), 0, made);
+	if (made.k === "w") p.held = made.uid;
+	S.sel = null;
+	S.mixFrom = null;
+	S.mode = null;
+	render();
+}
+function doToss(uid: number): void {
+	const p = cur();
+	const c = p.hand.find((q) => q.uid === uid);
+	if (c) logit(`threw away ${c.k === "el" ? elName(c.id) : wepName(c)}`);
+	p.hand = p.hand.filter((q) => q.uid !== uid);
+	if (p.held === uid) p.held = null;
+	if (S.sel === uid) S.sel = null;
+	S.toss = false;
+	S.tossPick = null;
+	S.mode = null;
+	render();
+}
+function clickCard(uid: number): void {
+	if (S.phase !== "act") return;
+	const p = cur(),
+		c = p.hand.find((q) => q.uid === uid);
+	if (!c) return;
+	if (S.toss) {
+		if (S.tossPick !== uid) {
+			S.tossPick = uid;
+			render();
+			return;
+		} // first tap picks, second confirms
+		doToss(uid);
+		return;
+	}
+	if (S.mode === "mix" && mixPartners(p).some((q) => q.uid === uid)) {
+		doMix(uid);
+		return;
+	}
+	if (c.k === "w") {
+		p.held = p.held === uid ? null : uid;
+		S.sel = null;
+		S.mode = null;
+	} else {
+		S.sel = S.sel === uid ? null : uid;
+		S.mode = null;
+	}
+	render();
+}
+function doPlace(x: number, y: number): void {
+	const p = cur(),
+		c = selCard(p);
+	if (!c) return;
+	const d = cheb(p.x, p.y, x, y);
+	if (d === 0 || d > 4 || sealed(x, y) || badPlace(c.id, x, y)) return;
+	if (!spend(COST.place)) return;
+	const before = S.board[idx(x, y)]!.t;
+	placedBy = p.i;
+	place(x, y, c.id);
+	placedBy = null;
+	const after = S.board[idx(x, y)]!.t;
+	logit(
+		before && after !== before
+			? `laid ${elName(c.id)} on ${T[before]!.n} at ${x + 1},${y + 1}, making ${T[after!]!.n}`
+			: `laid ${elName(c.id)} at ${x + 1},${y + 1}`,
+	);
+	p.hand = p.hand.filter((q) => q.uid !== c.uid);
+	S.sel = null;
+	S.mode = null;
+	render();
+	checkAlive();
+}
+// a raw element that kills on contact cannot be dropped straight onto somebody
+const lethalRaw = (k: string): boolean => !!(EL[k] && T[EL[k].t]?.gone);
+function badPlace(el: string, x: number, y: number): boolean {
+	return lethalRaw(el) && !!occupant(x, y);
+}
+function sealed(x: number, y: number): boolean {
+	const c = S.board[idx(x, y)]!;
+	return !!(c.t && T[c.t]!.dead);
+}
+// the ground opening under you throws you clear; walking in is what kills
+function evict(v: Player): boolean {
+	for (let r = 1; r <= Math.max(S.dim, 4); r++) {
+		const ring: Offset[] = [];
+		for (let dy = -r; dy <= r; dy++)
+			for (let dx = -r; dx <= r; dx++) {
+				if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+				const nx = v.x + dx,
+					ny = v.y + dy;
+				if (!inb(nx, ny) || occupantsAt(nx, ny).length) continue;
+				const c = S.board[idx(nx, ny)]!;
+				if (c.t && (T[c.t]!.gone || T[c.t]!.solid)) continue;
+				ring.push([nx, ny]);
+			}
+		if (ring.length) {
+			const [nx, ny] = ring[(Math.random() * ring.length) | 0]!;
+			const ox = v.x,
+				oy = v.y;
+			v.x = nx;
+			v.y = ny;
+			S.fx.push([idx(nx, ny), "bloom"]);
+			logit(`${v.name} scrambled clear of the hole at ${ox + 1},${oy + 1}`, v);
+			afterMove(v);
+			return true;
+		}
+	}
+	return false; // nowhere left to stand
+}
+function claim(x: number, y: number): void {
+	const c = S.board[idx(x, y)]!;
+	if (!c.t || !T[c.t]!.gone) return;
+	occupantsAt(x, y).forEach((v) => {
+		if (v.alive && !evict(v)) voidOut(v);
+	});
+}
+function setTerrain(x: number, y: number, k: string): void {
+	const r = T[k]!.spread || 0;
+	for (let dy = -r; dy <= r; dy++)
+		for (let dx = -r; dx <= r; dx++) {
+			const nx = x + dx,
+				ny = y + dy;
+			if (!inb(nx, ny) || sealed(nx, ny)) continue;
+			const c = S.board[idx(nx, ny)]!;
+			putTerrain(c, k);
+			if (k === "whirl") c.wid = S.wid++;
+			S.fx.push([idx(nx, ny), "bloom"]);
+			claim(nx, ny);
+		}
+	if (!S.codex[k] && CFORGE[k]) {
+		S.codex[k] = 1;
+		void save();
+		drawCodex();
+	}
+}
+function place(x: number, y: number, el: string): void {
+	if (sealed(x, y)) return;
+	if (isComp(el)) {
+		setTerrain(x, y, el);
+		return;
+	}
+	const c = S.board[idx(x, y)]!;
+	if (c.el) {
+		const nk = FUSE[fkey(c.el, el)];
+		if (nk) {
+			setTerrain(x, y, nk);
+			return;
+		}
+		c.el = el;
+		c.t = EL[el]!.t;
+		c.life = T[c.t]!.life;
+		c.by = placedBy;
+	} else {
+		c.el = el;
+		c.t = EL[el]!.t;
+		c.life = T[c.t]!.life;
+		c.by = placedBy;
+	}
+	S.fx.push([idx(x, y), "bloom"]);
+	claim(x, y);
+}
+
+/* ============ COMBAT ============ */
+function tally(list: string[], label: (k: string) => string): string {
+	const order: string[] = [],
+		count = new Map<string, number>();
+	list.forEach((x) => {
+		const n = label(x);
+		if (!count.has(n)) {
+			order.push(n);
+			count.set(n, 0);
+		}
+		count.set(n, count.get(n)! + 1);
+	});
+	return order.map((n) => (count.get(n)! > 1 ? `${n} x${count.get(n)}` : n)).join(" ");
+}
+function wepName(c: WeaponSpec): string {
+	return (tally(c.els, elName) + " " + tally(c.ids, (i) => W[i]!.n)).trim();
+}
+function wepDmg(c: WeaponSpec): number {
+	const forges = c.els.map(forgeOf);
+	let d = c.ids.reduce((s, i) => s + W[i]!.dmg, 0) + forges.reduce((s, f) => s + (f.dmg || 0), 0);
+	// poison doubles once regardless of stack count: extra stacks add a flat kicker instead of compounding
+	const venom = forges.reduce((s, f) => s + (f.pow || 0), 0);
+	if (venom) d = d * 2 + 6 * venom;
+	const mult = forges.reduce((m, f) => m * (f.mult || 1), 1);
+	return Math.round(d * mult);
+}
+function attackTiles(p: Player, c: WeaponSpec): Offset[] {
+	const out = new Set<string>();
+	if (c.ids.some((id) => W[id]!.pat === "any")) {
+		// a cannon reaches the whole arena
+		for (let y = 0; y < S.dim; y++)
+			for (let x = 0; x < S.dim; x++) if (x !== p.x || y !== p.y) out.add(x + "," + y);
+	}
+	c.ids.forEach((id) => {
+		(W[id]!.pat === "any" ? [] : PAT[W[id]!.pat]!()).forEach(([dx, dy]) => {
+			const x = p.x + dx,
+				y = p.y + dy;
+			if (inb(x, y)) out.add(x + "," + y);
+		});
+	});
+	return [...out].map((k) => k.split(",").map(Number) as Offset);
+}
+function liveTargets(p: Player, c: WeaponSpec): Offset[] {
+	return attackTiles(p, c).filter(([x, y]) => occupantsAt(x, y).some((v) => v !== p && !ally(v, p) && !hidden(v)));
+}
+function doAttack(tx: number, ty: number): void {
+	const p = cur(),
+		c = held(p);
+	if (!c) return;
+	const ring = wRing(c),
+		hits = wHits(c);
+	if (!ring && !attackTiles(p, c).some(([a, b]) => a === tx && b === ty)) return;
+	if (!spend(wCost(c))) return;
+	const tiles: Offset[] = ring ? attackTiles(p, c) : [[tx, ty]];
+	const dmg = wepDmg(c);
+	const struck: string[] = [];
+	tiles.forEach(([x, y]) => {
+		S.fx.push([idx(x, y), "struck"]);
+		occupantsAt(x, y).forEach((v) => {
+			if (v === p || ally(v, p)) return;
+			struck.push(v.name);
+			for (let h = 0; h < hits; h++) if (v.alive) hurt(v, dmg, p);
+			applyOnHit(p, c, v, x, y);
+		});
+	});
+	logit(
+		`swung the ${wepName(c)} for ${dmg}${hits > 1 ? ` x${hits}` : ""}${
+			struck.length ? `, hitting ${struck.join(" and ")}` : ", hitting nothing"
+		}`,
+	);
+	p.hand = p.hand.filter((q) => q.uid !== c.uid);
+	p.held = null;
+	S.mode = null;
+	render();
+	checkAlive();
+}
+// which forged elements would leave ground behind, and which one you have chosen
+const groundEls = (c: WeaponSpec): string[] => [...new Set(c.els.filter((e) => isComp(e) || e === "fire"))];
+// ground under you and ground under them are separate squares, so each gets its own pick
+const selfEls = (c: WeaponSpec): string[] => groundEls(c).filter((e) => boon(e));
+const foeEls = (c: WeaponSpec): string[] => groundEls(c).filter((e) => !boon(e));
+const pickFrom = (opts: string[], chosen: string | undefined): string | undefined =>
+	chosen && opts.includes(chosen) ? chosen : opts[0];
+const leaveSelf = (c: WeaponSpec): string | undefined => pickFrom(selfEls(c), c.leaveSelf);
+const leaveFoe = (c: WeaponSpec): string | undefined => pickFrom(foeEls(c), c.leaveFoe);
+function applyOnHit(p: Player, c: WeaponSpec, v: Player, x: number, y: number): void {
+	placedBy = p.i;
+	const bite = wepDmg(c);
+	const mine = leaveSelf(c),
+		theirs = leaveFoe(c);
+	c.els.forEach((e) => {
+		if (forgeOf(e).steal) p.hp = Math.min(p.max, p.hp + Math.round(bite / 2));
+		if (isComp(e)) {
+			const wanted = boon(e) ? e === mine : e === theirs;
+			if (wanted) {
+				const sp = T[e]!.spread;
+				T[e]!.spread = 0;
+				// a gift belongs under your own feet, never under the person you just hit
+				if (boon(e)) setTerrain(p.x, p.y, e);
+				else setTerrain(x, y, e);
+				if (sp === undefined) delete T[e]!.spread;
+				else T[e]!.spread = sp;
+			}
+			return;
+		}
+		if (e === "fire" && e === theirs) place(x, y, "fire");
+		if (forgeOf(e).dark) v.darkTurns = 2;
+		if (forgeOf(e).freeze) v.rootTurns = 1;
+		if (forgeOf(e).glow) v.litTurns = 2;
+		if (forgeOf(e).drag && !anchored(v)) {
+			const dx = Math.sign(p.x - v.x),
+				dy = Math.sign(p.y - v.y);
+			if ((dx || dy) && canStand(v.x + dx, v.y + dy)) {
+				v.x += dx;
+				v.y += dy;
+				afterMove(v);
+			}
+		}
+		if (e === "water") shove(v, p, 1);
+		if (e === "air") shove(v, p, 3);
+		if (e === "earth") v.drain = (v.drain || 0) + 2;
+		if (e === "bolt") {
+			const near = S.players.find(
+				(q) => q.alive && q !== p && q !== v && !ally(q, p) && cheb(q.x, q.y, v.x, v.y) <= 2,
+			);
+			if (near) {
+				hurt(near, Math.round(wepDmg(c) / 2), p);
+			}
+		}
+	});
+	placedBy = null;
+}
+function anchored(v: Player): boolean {
+	const c = S.board[idx(v.x, v.y)]!;
+	return !!(c.t && T[c.t]!.anchor);
+}
+function shove(v: Player, from: Player, n: number): void {
+	if (anchored(v)) return;
+	const sx = Math.sign(v.x - from.x) || 0,
+		sy = Math.sign(v.y - from.y) || 0;
+	if (!sx && !sy) return;
+	for (let i = 0; i < n; i++) {
+		if (!canStand(v.x + sx, v.y + sy)) break;
+		v.x += sx;
+		v.y += sy;
+	}
+	settle(v, sx, sy, 0);
+	afterMove(v);
+}
+function safeSpot(): Offset | null {
+	const bare: Offset[] = [],
+		any: Offset[] = [];
+	for (let y = 0; y < S.dim; y++)
+		for (let x = 0; x < S.dim; x++) {
+			if (!canStand(x, y)) continue;
+			const c = S.board[idx(x, y)]!;
+			if (c.t && T[c.t]!.gone) continue;
+			(c.t ? any : bare).push([x, y]);
+		}
+	const pool = bare.length ? bare : any;
+	return pool.length ? pool[(Math.random() * pool.length) | 0]! : null;
+}
+function respawn(v: Player, team: number | null): void {
+	v.hp = v.max;
+	if (team != null) {
+		v.team = team;
+		v.c = PC[team]!;
+	}
+	const spot = safeSpot();
+	if (spot) {
+		v.x = spot[0];
+		v.y = spot[1];
+	}
+	S.fx.push([idx(v.x, v.y), "bloom"]);
+}
+const smashMult = () => (S.smash ? Math.pow(2, Math.floor(S.round / 5)) : 1);
+function hurt(v: Player, n: number, src: Player | null): void {
+	n = Math.round(n * smashMult());
+	if (!v.alive) return;
+	v.hp -= n;
+	S.matchCoins += n;
+	S.coins += n;
+	saveSoon();
+	if (v.hp <= 0) {
+		S.matchCoins += 40;
+		S.coins += 40;
+		if (S.paint) {
+			const cell = S.board[idx(v.x, v.y)]!;
+			const owner = src || (cell.by == null ? null : S.players[cell.by]!);
+			const flip = owner && owner !== v && owner.alive && !ally(owner, v);
+			respawn(v, flip ? owner.team : null);
+			logit(
+				flip
+					? `${v.name} was splattered and now fights for ${owner.name}`
+					: `${v.name} was splattered and respawned`,
+				owner || v,
+			);
+			return;
+		}
+		v.hp = 0;
+		v.alive = false;
+		logit(`${v.name} fell`, src || v);
+	}
+}
+
+/* ============ INPUT ============ */
+function moveBudget(p: Player): number {
+	return p === cur() ? p.nrg : p.bank + S.startNrg + S.round;
+}
+function reachable(p: Player, budget: number): Map<number, number> {
+	const dist = new Map<number, number>([[idx(p.x, p.y), 0]]);
+	let frontier: [number, number, number][] = [[p.x, p.y, 0]];
+	while (frontier.length) {
+		frontier.sort((a, b) => a[2] - b[2]);
+		const [x, y, d] = frontier.shift()!;
+		if (d > (dist.get(idx(x, y)) ?? Infinity)) continue;
+		for (const [dx, dy] of DIR8) {
+			const nx = x + dx,
+				ny = y + dy;
+			if (!inb(nx, ny)) continue;
+			const c = S.board[idx(nx, ny)]!;
+			if (c.t && T[c.t]!.solid) continue;
+			const step = c.t ? T[c.t]!.enter : 1;
+			if (step > 50) continue;
+			const nd = d + step;
+			if (nd > budget) continue;
+			const key = idx(nx, ny);
+			if ((dist.get(key) ?? Infinity) <= nd) continue;
+			dist.set(key, nd);
+			frontier.push([nx, ny, nd]);
+		}
+	}
+	dist.delete(idx(p.x, p.y));
+	return dist;
+}
+function reachMap(): Map<number, Player[]> {
+	const out = new Map<number, Player[]>();
+	S.players.forEach((p) => {
+		if (!p.alive || !S.reach.includes(p.i)) return;
+		reachable(p, moveBudget(p)).forEach((_cost, key) => {
+			if (!out.has(key)) out.set(key, []);
+			out.get(key)!.push(p);
+		});
+	});
+	return out;
+}
+function inspect(x: number, y: number): void {
+	const i = idx(x, y);
+	S.look = S.look === i ? null : i;
+	render();
+}
+function onTile(x: number, y: number): void {
+	if (S.phase !== "act" || S.toss) return;
+	const p = cur();
+	if (S.imode) {
+		inspect(x, y);
+		return;
+	}
+	if (S.mode === "place") {
+		doPlace(x, y);
+		return;
+	}
+	if (S.mode === "jump") {
+		doJump(x, y);
+		return;
+	}
+	if (S.mode === "dash") {
+		doDash(x, y);
+		return;
+	}
+	if (S.mode === "leap") {
+		doLeap(x, y);
+		return;
+	}
+	if (S.mode === "light") {
+		doLight(x, y);
+		return;
+	}
+	if (S.mode === "mark") {
+		doMark(x, y);
+		return;
+	}
+	if (S.mode === "swap") {
+		doSwap(x, y);
+		return;
+	}
+	if (S.mode === "theft") {
+		doTheft(x, y);
+		return;
+	}
+	if (S.mode === "warp") {
+		doWarp(x, y);
+		return;
+	}
+	if (S.mode === "spread") {
+		doSpread(x, y);
+		return;
+	}
+	if (S.mode === "attack") {
+		const c = held(p);
+		if (c && attackTiles(p, c).some(([a, b]) => a === x && b === y)) doAttack(x, y);
+		return;
+	}
+	if (!S.sel && cheb(p.x, p.y, x, y) === 1) tryStep(x, y);
+}
+function startAttack(): void {
+	const p = cur(),
+		c = held(p);
+	if (!c || p.nrg < wCost(c)) return;
+	if (S.mode === "attack") {
+		S.mode = null;
+		render();
+		return;
+	}
+	S.sel = null;
+	if (wRing(c)) {
+		doAttack(p.x, p.y);
+		return;
+	}
+	S.mode = "attack";
+	render();
+}
+function toggleInspect(): void {
+	S.imode = !S.imode;
+	if (!S.imode) S.look = null;
+	render();
+}
+$("inspectbtn").onclick = toggleInspect;
+$("chatgo").onclick = saySomething;
+$("chatin").onkeydown = (e) => {
+	if (e.key === "Enter") {
+		e.preventDefault();
+		saySomething();
+	}
+};
+$("endbtn").onclick = endTurn;
+const typing = (e: Event): boolean => {
+	const el: GameEl | null = e.target as GameEl | null;
+	if (!el) return false;
+	const tag = (el.tagName || "").toUpperCase();
+	return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+};
+addEventListener("keydown", (e) => {
+	if (typing(e)) return; // let people write without moving their fighter
+	if (e.key === "Escape" && $("replay").classList.contains("on")) {
+		rvStop();
+		$("replay").classList.remove("on");
+		return;
+	}
+	if (e.key === "Escape" && $("sim").classList.contains("on")) {
+		$("sim").classList.remove("on");
+		return;
+	}
+	if (e.key === "Escape" && $("table").classList.contains("on")) {
+		closeTable();
+		return;
+	}
+	if (!$("game").classList.contains("on")) return;
+	if (S.handoff) {
+		if (e.key === "Enter" || e.key === " ") {
+			e.preventDefault();
+			dropCurtain();
+		}
+		return;
+	}
+	const k = e.key.toLowerCase(),
+		p = cur();
+	if (k === "escape") {
+		S.sel = null;
+		S.mode = null;
+		S.imode = false;
+		S.look = null;
+		S.tossPick = null;
+		render();
+		return;
+	}
+	if (k === "e") {
+		endTurn();
+		return;
+	}
+	if (k === "f") {
+		startAttack();
+		return;
+	}
+	if (k === "q") {
+		doSpin();
+		return;
+	}
+	if (k === "z") {
+		doWipe();
+		return;
+	}
+	if (k === "c") {
+		doUltra();
+		return;
+	}
+	if (k === "h") {
+		doSmash();
+		return;
+	}
+	if (k === "t") {
+		doTrail();
+		return;
+	}
+	if (k === "v") {
+		if (p.mv & 256 && p.used.spread < S.mvUses) {
+			S.mode = S.mode === "spread" ? null : "spread";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "x") {
+		if (p.mv & 64 && p.used.warp < S.mvUses) {
+			S.mode = S.mode === "warp" ? null : "warp";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "g") {
+		if (p.mv & 4096 && p.used.theft < S.mvUses) {
+			S.mode = S.mode === "theft" ? null : "theft";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "b") {
+		if (p.mv & 8192 && p.used.swap < S.mvUses) {
+			S.mode = S.mode === "swap" ? null : "swap";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "m") {
+		if (p.mv & 16384 && p.used.mark < S.mvUses) {
+			S.mode = S.mode === "mark" ? null : "mark";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "n") {
+		if (p.mv & 32768 && p.used.light < S.mvUses) {
+			S.mode = S.mode === "light" ? null : "light";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "i") {
+		toggleInspect();
+		return;
+	}
+	if (k === "j") {
+		if (p.mv & 1 && p.used.jump < S.mvUses) {
+			S.mode = S.mode === "jump" ? null : "jump";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "k") {
+		if (p.mv & 2 && p.used.dash < S.mvUses) {
+			S.mode = S.mode === "dash" ? null : "dash";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === "l") {
+		if (p.mv & 4 && p.used.leap < S.mvUses) {
+			S.mode = S.mode === "leap" ? null : "leap";
+			S.sel = null;
+			render();
+		}
+		return;
+	}
+	if (k === ";") {
+		doFloat();
+		return;
+	}
+	if (k >= "1" && k <= "9") {
+		const c = p.hand[+k - 1];
+		if (c) clickCard(c.uid);
+		return;
+	}
+	const mv = {
+		arrowup: [0, -1],
+		w: [0, -1],
+		arrowdown: [0, 1],
+		s: [0, 1],
+		arrowleft: [-1, 0],
+		a: [-1, 0],
+		arrowright: [1, 0],
+		d: [1, 0],
+	}[k];
+	if (mv && !S.mode) {
+		e.preventDefault();
+		tryStep(p.x + mv[0]!, p.y + mv[1]!);
+	}
+});
+addEventListener("resize", () => {
+	if ($("game").classList.contains("on")) {
+		buildBoard();
+		render();
+	}
+});
+
+/* ============ RENDER ============ */
+function render(): void {
+	if (S.players.length) checkRefill();
+	const p = cur();
+	const dark = blind(p);
+	handoffStore.set(S.handoff ? {seat: p.i, name: p.name, colour: p.c, dismiss: dropCurtain} : null);
+	$("endbtn").disabled = S.toss;
+	$("tglyph").className = "glyph mage p" + p.i;
+	$("tglyph").style.setProperty("--pc", p.c);
+	$("tname").textContent = p.name;
+	const paint = S.paint ? "  ·  PAINTBALL" : "";
+	const smash = S.smash ? `  ·  SMASH MODE x${smashMult()}` : "";
+	const chaos = S.chaos
+		? S.round >= S.chaosRound
+			? "  ·  CHAOS MODE"
+			: S.round >= S.chaosRound - 3
+				? `  ·  CHAOS IN ${S.chaosRound - S.round}`
+				: ""
+		: "";
+	$("tround").textContent =
+		`ROUND ${S.round}  ·  ${p.nrg}/${p.cap} ENERGY${p.bank ? `  ·  ${p.bank} CARRIED` : ""}${smash}${paint}${chaos}`;
+
+	const aim = new Set(),
+		sure = new Set();
+	if (S.phase === "act") {
+		if (S.mode === "place") {
+			const sc = selCard(p);
+			for (let y = 0; y < S.dim; y++)
+				for (let x = 0; x < S.dim; x++) {
+					const d = cheb(p.x, p.y, x, y);
+					if (d > 0 && d <= 4 && !sealed(x, y) && !badPlace(sc ? sc.id : "", x, y)) aim.add(x + "," + y);
+				}
+		} else if (S.mode === "jump") {
+			jumpTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "dash") {
+			dashTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "leap") {
+			leapTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "light") {
+			lightTargets().forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "mark") {
+			markTargets().forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "swap") {
+			swapTargets().forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "theft") {
+			theftTargets().forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "warp") {
+			warpTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "spread") {
+			spreadTargets().forEach(([x, y]) => aim.add(x + "," + y));
+		} else if (S.mode === "attack") {
+			const c = held(p);
+			if (c) {
+				attackTiles(p, c).forEach(([x, y]) => aim.add(x + "," + y));
+				liveTargets(p, c).forEach(([x, y]) => {
+					if (!dark || occupantsAt(x, y).some((q) => q.lit && q !== p && !ally(q, p))) sure.add(x + "," + y);
+				});
+			}
+		}
+	}
+
+	const rmap = S.imode && S.reach.length ? reachMap() : null;
+	const wl = whirlList(),
+		tiles = $("board").children;
+	for (let y = 0; y < S.dim; y++)
+		for (let x = 0; x < S.dim; x++) {
+			const n = tiles[idx(x, y)]!,
+				c = S.board[idx(x, y)]!;
+			n.className = "tile";
+			n.innerHTML = "";
+			n.title = "";
+			if (c.t && seesTile(p, x, y)) {
+				const d = T[c.t]!;
+				n.classList.add("terr");
+				if (d.solid) n.classList.add("solid");
+				if (d.dead) n.classList.add("gonezone");
+				if (d.gone) n.classList.add("void");
+				n.style.setProperty("--tc", d.c);
+				n.style.setProperty("--tcs", rgba(d.c, 0.44));
+				n.title = `${d.n}: ${d.d}`;
+				if (c.t === "whirl") {
+					const pos = wl.findIndex((a) => a[1] === idx(x, y));
+					const s = document.createElement("span");
+					s.className = "wnum";
+					s.textContent = String.fromCharCode(65 + (pos >> 1));
+					n.appendChild(s);
+				}
+			} else n.style.removeProperty("--tc");
+			if (aim.size) {
+				if (aim.has(x + "," + y)) n.classList.add(sure.has(x + "," + y) ? "aimsure" : "aim");
+			} else if (
+				S.phase === "act" &&
+				!S.mode &&
+				!S.sel &&
+				!p.rootTurns &&
+				cheb(p.x, p.y, x, y) === 1 &&
+				canEnter(x, y, p)
+			) {
+				const cost = p.float ? 1 : c.t ? T[c.t]!.enter : 1;
+				if (cost <= p.nrg && cost < 50) n.classList.add("step");
+			}
+			if (S.warn === idx(x, y)) n.classList.add("warn");
+			if (isLit(x, y)) n.classList.add("litsq");
+			if (S.look === idx(x, y)) n.classList.add("look");
+			if (rmap) {
+				const who = rmap.get(idx(x, y));
+				if (who?.length) {
+					n.style.backgroundImage =
+						who.length === 1
+							? `linear-gradient(${rgba(who[0]!.c, 0.34)},${rgba(who[0]!.c, 0.34)})`
+							: `repeating-linear-gradient(135deg,${who
+									.map(
+										(q: Player, z: number) =>
+											`${rgba(q.c, 0.4)} ${z * 7}px,${rgba(q.c, 0.4)} ${(z + 1) * 7}px`,
+									)
+									.join(",")})`;
+					n.classList.add("reach");
+				} else n.style.removeProperty("background-image");
+			} else n.style.removeProperty("background-image");
+			const here = occupantsAt(x, y).filter((o) => o === p || o.lit || (!dark && !hidden(o)));
+			here.forEach((o, k) => {
+				const m = document.createElement("i");
+				m.className = "mage p" + o.i + (o === p ? " active" : "");
+				m.style.setProperty("--pc", o.c);
+				if (o.lit && o !== p) m.classList.add("litp"); // the lit fighter is never shown their own glow
+				if (here.length > 1) {
+					// shoulder to shoulder
+					m.style.inset = k ? "34% 8% 8% 34%" : "8% 34% 34% 8%";
+					m.style.zIndex = o === p ? "2" : "1";
+				}
+				n.appendChild(m);
+			});
+			if (here.length) n.title = here.map((o) => `${o.name}: ${o.hp} HP`).join("  ·  ");
+			if (here.length > 2) {
+				const b = document.createElement("span");
+				b.className = "stackn";
+				b.textContent = String(here.length);
+				n.appendChild(b);
+			}
+		}
+
+	drawMoves();
+	drawWep();
+	drawActions();
+	drawRoster();
+	drawHand();
+	drawChat();
+	drawTileInfo(dark);
+	$("tileinfo")
+		.querySelectorAll(".rch")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					const i = +b.dataset["i"]!,
+						at = S.reach.indexOf(i);
+					if (at >= 0) S.reach.splice(at, 1);
+					else S.reach.push(i);
+					render();
+				}),
+		);
+	runFx();
+}
+function runFx(): void {
+	S.fx.forEach(([i, cls]) => {
+		const n = $("board").children[i];
+		if (n) {
+			n.classList.remove(cls);
+			void n.offsetWidth;
+			n.classList.add(cls);
+		}
+	});
+	S.fx = [];
+}
+function drawTileInfo(dark: boolean): void {
+	const box = $("tileinfo"),
+		btn = $("inspectbtn");
+	btn.innerHTML = S.imode
+		? 'Stop inspecting <span style="color:var(--onaccent)">I</span>'
+		: 'Inspect <span style="color:var(--muted)">I</span>';
+	btn.style.borderColor = S.imode ? "var(--accent)" : "";
+	btn.style.background = S.imode ? "var(--accent)" : "";
+	btn.style.color = S.imode ? "var(--onaccent)" : "";
+	if (!S.imode) S.reach = [];
+	const chooser = S.imode ? reachChooser(dark) : "";
+	if (S.look == null) {
+		box.innerHTML =
+			(S.imode
+				? "<span>Click any square to read it. Press I or Escape to go back to playing.</span>"
+				: "<span>Turn on Inspect to read any square without moving.</span>") + chooser;
+		return;
+	}
+	const i = S.look,
+		x = i % S.dim,
+		y = (i / S.dim) | 0,
+		c = S.board[i]!,
+		p = cur();
+	const t = c.t && seesTile(p, x, y) ? T[c.t] : null;
+	const bits: [string, string][] = [];
+	if (t) {
+		if (t.enter > 50) bits.push(["Entering", "impossible"]);
+		else bits.push(["Entering", t.enter + " energy"]);
+		if (t.end) bits.push(["Ending here", t.end + " damage"]);
+		if (t.bite) bits.push(["Crossing it", t.bite + " damage"]);
+		if (t.heal) bits.push(["Ending here", "heals " + t.heal]);
+		if (t.aura) bits.push(["Within " + (t.rad || 2), t.aura + " damage"]);
+		if (t.auraHeal) bits.push(["Within " + (t.rad || 2), "heals " + t.auraHeal]);
+		if (t.gain) bits.push(["Ending here", "+" + t.gain + " energy"]);
+		if (t.los) bits.push(["Standing here", "you are blind"]);
+		if (t.anchor) bits.push(["Shoves", "cannot move you"]);
+		if (t.ward) bits.push(["Ground effects", "cannot touch you"]);
+		if (t.gone) bits.push(["Touching it", "you are gone"]);
+		bits.push(["Lasts", t.life > 900 ? "permanent" : t.life + " more rounds"]);
+	}
+	const shown = occupantsAt(x, y).filter((q) => q === p || q.lit || !dark);
+	const who = occupantsAt(x, y).length
+		? shown.length
+			? shown.map((q) => `${q.name}, ${q.hp} HP`).join(" and ") +
+				(shown.length < occupantsAt(x, y).length ? " and someone you cannot see" : "")
+			: "someone you cannot see"
+		: null;
+	box.innerHTML = `<b style="color:${t ? t.c : "var(--muted)"}">${t ? t.n : "Bare ground"}</b>
+    <div style="margin-top:5px">${t ? t.d + "." : "Nothing has been laid here."}</div>
+    ${bits.map(([a, b]) => `<div class="k"><span>${a}</span><span>${b}</span></div>`).join("")}
+    ${who ? `<div class="k"><span>Standing on it</span><span>${who}</span></div>` : ""}
+    <div class="k"><span>Square</span><span>${x + 1}, ${y + 1}</span></div>
+    ${reachHere(i, dark)}${chooser}`;
+}
+function reachHere(i: number, dark: boolean): string {
+	if (!S.imode || !S.reach.length) return "";
+	const who = reachMap().get(i);
+	if (!who?.length) return '<div class="k"><span>In reach of</span><span>nobody selected</span></div>';
+	const names = who.map((q: Player) => (q === cur() || !dark ? q.name : "someone hidden")).join(", ");
+	return `<div class="k"><span>In reach of</span><span>${names}</span></div>`;
+}
+function reachChooser(dark: boolean): string {
+	const list = S.players.filter((p) => p.alive && (p === cur() || p.lit || (!dark && !hidden(p))));
+	return `<div class="bhead" style="margin:14px 0 7px">Show who can reach where</div>
+    <div class="bpal">${list
+		.map(
+			(p) =>
+				`<button class="bp rch" data-i="${p.i}" aria-pressed="${S.reach.includes(p.i)}">
+        <span class="d" style="background:${p.c}"></span>${p.name} · ${moveBudget(p)}</button>`,
+		)
+		.join("")}</div>
+    ${dark ? '<span class="hint">You are blinded, so only your own reach is available.</span>' : ""}`;
+}
+const mvTip = (label: string): string => {
+	const e = Object.values(MV).find((v) => v.n === label);
+	return e ? e.d.replace(/"/g, "&quot;") : "";
+};
+function drawMoves(): void {
+	const p = cur(),
+		box = $("moves");
+	if (!p.mv) {
+		box.innerHTML =
+			'<div class="wtop"><span class="wn" style="color:var(--muted)">No footwork</span></div>' +
+			'<div class="wsub">This fighter was given no special movement.</div>';
+		return;
+	}
+	const rooted = p.rootTurns > 0;
+	const hasJ = p.mv & 1,
+		hasD = p.mv & 2,
+		hasL = p.mv & 4,
+		hasF = p.mv & 8,
+		hasS = p.mv & 16,
+		hasW = p.mv & 32,
+		hasR = p.mv & 64,
+		hasU = p.mv & 128,
+		hasG = p.mv & 256,
+		hasT = p.mv & 512;
+	const j = jumpTargets(p).length,
+		d = dashTargets(p).length,
+		l = leapTargets(p).length,
+		sp = spinTiles(p).length,
+		wp = wipeTiles(p).length,
+		rp = warpTargets(p).length,
+		up = S.board.filter((c) => c.t).length,
+		gp = spreadTargets().length;
+	const left = (n: number): number => S.mvUses - n;
+	const btn = (
+		id: string,
+		label: string,
+		has: boolean,
+		used: number,
+		targets: number,
+		mode: string,
+		cost: number,
+	): string => {
+		if (!has) return "";
+		if (used >= S.mvUses) return `<button class="act" disabled>${label} · spent</button>`;
+		return `<button class="act" id="${id}" aria-pressed="${S.mode === mode}" title="${mvTip(label)}"
+      ${rooted || p.nrg < cost || !targets ? "disabled" : ""}>${label} · ${cost} <span style="opacity:.6">x${left(used)}</span></button>`;
+	};
+	box.innerHTML = `
+    <div class="wtop"><span class="wn">Footwork</span>
+      <span class="wd" style="font-size:11px">footwork</span></div>
+${p.float ? '<div class="wsub"><span class="fx">You are in the air.</span></div>' : ""}
+    <div class="wrow">
+      ${btn("jmp", "Jump", !!hasJ, p.used.jump, j, "jump", COST.jump)}
+      ${btn("dsh", "Dash", !!hasD, p.used.dash, d, "dash", COST.dash)}
+      ${btn("lep", "Leap", !!hasL, p.used.leap, l, "leap", COST.leap)}
+      ${
+			hasF
+				? p.float
+					? '<button class="act" aria-pressed="true" disabled>Floating</button>'
+					: p.used.float >= S.mvUses
+						? '<button class="act" disabled>Float · spent</button>'
+						: `<button class="act" id="flt" ${p.nrg < COST.float ? "disabled" : ""}>Float · ${COST.float} <span style="opacity:.6">x${left(p.used.float)}</span></button>`
+				: ""
+		}
+      ${
+			hasS
+				? p.used.spin >= S.mvUses
+					? '<button class="act" disabled>Spin · spent</button>'
+					: `<button class="act" id="spn" ${p.nrg < COST.spin || !sp ? "disabled" : ""}>Spin · ${COST.spin} <span style="opacity:.6">x${left(p.used.spin)}</span></button>`
+				: ""
+		}
+      ${
+			hasW
+				? p.used.wipe >= S.mvUses
+					? '<button class="act" disabled>Wipe · spent</button>'
+					: `<button class="act" id="wpe" ${p.nrg < COST.wipe || !wp ? "disabled" : ""}>Wipe · ${COST.wipe} <span style="opacity:.6">x${left(p.used.wipe)}</span></button>`
+				: ""
+		}
+      ${
+			hasR
+				? p.used.warp >= S.mvUses
+					? '<button class="act" disabled>Warp · spent</button>'
+					: `<button class="act" id="wrp" aria-pressed="${S.mode === "warp"}"
+          ${rooted || p.nrg < COST.warp || !rp ? "disabled" : ""}>Warp · ${COST.warp} <span style="opacity:.6">x${left(p.used.warp)}</span></button>`
+				: ""
+		}
+      ${
+			hasT
+				? p.trail
+					? `<button class="act" aria-pressed="true" disabled>Trailing ${T[p.trail]!.n}</button>`
+					: p.used.trail >= S.mvUses
+						? '<button class="act" disabled>Trail · spent</button>'
+						: `<button class="act" id="trl" ${p.nrg < COST.trail || !S.board[idx(p.x, p.y)]!.t ? "disabled" : ""}>Trail · ${COST.trail} <span style="opacity:.6">x${left(p.used.trail)}</span></button>`
+				: ""
+		}
+      ${
+			hasU
+				? p.used.ultra >= S.mvUses
+					? '<button class="act" disabled>Ultraclear · spent</button>'
+					: `<button class="act" id="ult" ${p.nrg < COST.ultra || !up ? "disabled" : ""}>Ultraclear · ${COST.ultra} <span style="opacity:.6">x${left(p.used.ultra)}</span></button>`
+				: ""
+		}
+      ${
+			hasG
+				? p.used.spread >= S.mvUses
+					? '<button class="act" disabled>Spread · spent</button>'
+					: `<button class="act" id="spr" aria-pressed="${S.mode === "spread"}"
+          ${p.nrg < COST.spread || !gp ? "disabled" : ""}>Spread · ${COST.spread} <span style="opacity:.6">x${left(p.used.spread)}</span></button>`
+				: ""
+		}
+      ${
+			p.mv & 32768
+				? p.used.light >= S.mvUses
+					? '<button class="act" disabled>Spotlight · spent</button>'
+					: `<button class="act" id="lgt" aria-pressed="${S.mode === "light"}"
+          ${p.nrg < COST.light || !lightTargets().length ? "disabled" : ""}>Spotlight · ${COST.light} <span style="opacity:.6">x${left(p.used.light)}</span></button>`
+				: ""
+		}
+      ${
+			p.mv & 16384
+				? p.used.mark >= S.mvUses
+					? '<button class="act" disabled>Mark · spent</button>'
+					: `<button class="act" id="mrk" aria-pressed="${S.mode === "mark"}"
+          ${p.nrg < COST.mark || !markTargets().length ? "disabled" : ""}>Mark · ${COST.mark} <span style="opacity:.6">x${left(p.used.mark)}</span></button>`
+				: ""
+		}
+      ${
+			p.mv & 8192
+				? p.used.swap >= S.mvUses
+					? '<button class="act" disabled>Swap · spent</button>'
+					: `<button class="act" id="swp" aria-pressed="${S.mode === "swap"}"
+          ${rooted || p.nrg < COST.swap || !swapTargets().length ? "disabled" : ""}>Swap · ${COST.swap} <span style="opacity:.6">x${left(p.used.swap)}</span></button>`
+				: ""
+		}
+      ${
+			p.mv & 4096
+				? p.used.theft >= S.mvUses
+					? '<button class="act" disabled>Theft · spent</button>'
+					: `<button class="act" id="thf" aria-pressed="${S.mode === "theft"}"
+          ${p.nrg < COST.theft || !theftTargets().length ? "disabled" : ""}>Theft · ${COST.theft} <span style="opacity:.6">x${left(p.used.theft)}</span></button>`
+				: ""
+		}
+      ${
+			p.mv & 2048
+				? p.used.smash >= S.mvUses
+					? '<button class="act" disabled>Handsmash · spent</button>'
+					: `<button class="act" id="smh" ${p.nrg < COST.smash || !smashable(p) ? "disabled" : ""}
+          >Handsmash · ${COST.smash} <span style="opacity:.6">x${left(p.used.smash)}</span></button>`
+				: ""
+		}
+      ${
+			p.mv & 1024
+				? p.used.shift >= S.mvUses
+					? '<button class="act" disabled>Shift · spent</button>'
+					: `<button class="act" id="shf" aria-pressed="${S.mode === "shift"}"
+          ${p.nrg < COST.shift ? "disabled" : ""}>Shift · ${COST.shift} <span style="opacity:.6">x${left(p.used.shift)}</span></button>`
+				: ""
+		}
+      ${rooted ? '<span class="hint">Stuck in the mud this turn.</span>' : ""}
+    </div>`;
+	if ($("shf"))
+		$("shf").onclick = () => {
+			S.mode = S.mode === "shift" ? null : "shift";
+			S.sel = null;
+			render();
+		};
+	if ($("smh")) $("smh").onclick = doSmash;
+	if ($("thf"))
+		$("thf").onclick = () => {
+			S.mode = S.mode === "theft" ? null : "theft";
+			S.sel = null;
+			render();
+		};
+	if ($("swp"))
+		$("swp").onclick = () => {
+			S.mode = S.mode === "swap" ? null : "swap";
+			S.sel = null;
+			render();
+		};
+	if ($("mrk"))
+		$("mrk").onclick = () => {
+			S.mode = S.mode === "mark" ? null : "mark";
+			S.sel = null;
+			render();
+		};
+	if ($("lgt"))
+		$("lgt").onclick = () => {
+			S.mode = S.mode === "light" ? null : "light";
+			S.sel = null;
+			render();
+		};
+	if ($("jmp"))
+		$("jmp").onclick = () => {
+			S.mode = S.mode === "jump" ? null : "jump";
+			S.sel = null;
+			render();
+		};
+	if ($("dsh"))
+		$("dsh").onclick = () => {
+			S.mode = S.mode === "dash" ? null : "dash";
+			S.sel = null;
+			render();
+		};
+	if ($("lep"))
+		$("lep").onclick = () => {
+			S.mode = S.mode === "leap" ? null : "leap";
+			S.sel = null;
+			render();
+		};
+	if ($("flt")) $("flt").onclick = doFloat;
+	if ($("spn")) $("spn").onclick = doSpin;
+	if ($("wpe")) $("wpe").onclick = doWipe;
+	if ($("wrp"))
+		$("wrp").onclick = () => {
+			S.mode = S.mode === "warp" ? null : "warp";
+			S.sel = null;
+			render();
+		};
+	if ($("ult")) $("ult").onclick = doUltra;
+	if ($("spr"))
+		$("spr").onclick = () => {
+			S.mode = S.mode === "spread" ? null : "spread";
+			S.sel = null;
+			render();
+		};
+	if ($("trl")) $("trl").onclick = doTrail;
+}
+function drawWep(): void {
+	const p = cur(),
+		c = held(p);
+	if (!c) {
+		$("wep").innerHTML = `<div class="wtop"><span class="wn" style="color:var(--muted)">Empty hands</span></div>
+      <div class="wsub">Pick a weapon card from your hand. Holding one is free, and you can put it back.</div>`;
+		return;
+	}
+	const dmg = wepDmg(c),
+		cost = wCost(c),
+		hits = wHits(c);
+	const uniq = [...new Set(c.els.map((e: string) => forgeOf(e).fx))];
+	const dark = blind(p);
+	const tg = liveTargets(p, c).filter(
+		([x, y]) => !dark || occupantsAt(x, y).some((q) => q.lit && q !== p && !ally(q, p)),
+	).length;
+	const poor = p.nrg < cost;
+	$("wep").innerHTML = `
+    <div class="wtop"><span class="wn" style="color:${wColor(c)}">${wepName(c)}</span>
+      <span class="wd">${dmg}${hits > 1 ? ` x ${hits}` : ""} damage</span></div>
+    <div class="wsub">${wDesc(c)} Breaks the moment you swing it.${uniq.length ? ` <span class="fx">On hit: ${uniq.join(", ")}.</span>` : ""}</div>
+    <div class="wstrip" style="background:${wStrip(c)}"></div>
+    ${(() => {
+		const row = (label: string, opts: string[], pick: string | undefined, key: "leaveSelf" | "leaveFoe"): string =>
+			opts.length < 2
+				? ""
+				: `<div class="wsub" style="margin-top:8px">${label}
+          ${opts
+				.map(
+					(e: string) => `<button class="lv${e === pick ? " on" : ""}" data-k="${key}" data-e="${e}"
+            style="--lc:${EL[e] ? EL[e].c : T[e]!.c}">${elName(e)}</button>`,
+				)
+				.join("")}</div>`;
+		return (
+			row("Leaves under them:", foeEls(c), leaveFoe(c), "leaveFoe") +
+			row("Lays under you:", selfEls(c), leaveSelf(c), "leaveSelf")
+		);
+	})()}
+    <div class="wrow"><button class="atk" id="atkbtn" aria-pressed="${S.mode === "attack"}"
+      ${poor ? "disabled" : ""}>Swing · ${cost} energy <span style="opacity:.6">F</span></button>
+      ${
+			poor
+				? '<span class="hint">Not enough energy this turn.</span>'
+				: dark
+					? '<span class="hint">Blinded. Swing where you think they are.</span>'
+					: tg
+						? `<span class="hint">${tg} square${tg === 1 ? "" : "s"} you can see someone on. You may swing anywhere in reach.</span>`
+						: '<span class="hint">Nobody visible in reach. Swing anyway to sweep for someone hidden.</span>'
+		}</div>`;
+	const b = $("atkbtn");
+	if (b) b.onclick = startAttack;
+	$("wep")
+		.querySelectorAll(".lv")
+		.forEach(
+			(el) =>
+				(el.onclick = () => {
+					if (el.dataset["k"] === "leaveSelf") c.leaveSelf = el.dataset["e"]!;
+					else c.leaveFoe = el.dataset["e"]!;
+					render();
+				}),
+		);
+}
+const MODEHINT: Record<string, string | undefined> = {
+	jump: "Pick a square exactly two away to land on.",
+	dash: "Pick a square along a clear straight line.",
+	leap: "Pick a square exactly four away to land on.",
+	theft: "Pick a fighter to take a card from. You do not choose which one.",
+	swap: "Pick a fighter to trade places with.",
+	mark: "Pick a fighter to peek at one of their cards.",
+	light: "Pick a fighter to fix a glare on for good.",
+	warp: "Pick any bare, empty square on the board.",
+	spread: "Pick a square with something on it to grow into a 5x5.",
+};
+function drawActions(): void {
+	const p = cur(),
+		bar = $("actbar");
+	if (MODEHINT[S.mode!]) {
+		bar.innerHTML = `<span class="hint">${MODEHINT[S.mode!]} Esc to cancel.</span>`;
+		return;
+	}
+	if (S.mode === "attack") {
+		bar.innerHTML = '<span class="hint">Pick a tile to strike. Esc to cancel.</span>';
+		return;
+	}
+	if (S.mode === "place") {
+		const sc = selCard(p);
+		bar.innerHTML = `<span class="hint">Pick a tile within 4.${
+			sc && lethalRaw(sc.id) ? ` ${elName(sc.id)} cannot be laid on a square someone is standing on.` : ""
+		} Esc to cancel.</span>`;
+		return;
+	}
+	if (S.steal != null) {
+		const v = S.players[S.steal]!;
+		bar.innerHTML =
+			`<span class="hint">Take a card from ${v ? v.name : "them"}:</span>` +
+			(v
+				? v.hand
+						.map((c, i) =>
+							seenBy(c)
+								? `<button class="act stl" data-u="${c.uid}">${cardLabel(c)}</button>`
+								: `<button class="act stl facedown" data-u="${c.uid}">Card ${i + 1}</button>`,
+						)
+						.join("")
+				: "") +
+			`<button class="act" id="stlno">Cancel</button>`;
+		bar.querySelectorAll(".stl").forEach(
+			(b) =>
+				(b.onclick = () => {
+					takeCard(v, +b.dataset["u"]!);
+				}),
+		);
+		$("stlno").onclick = () => {
+			S.steal = null;
+			render();
+		};
+		return;
+	}
+	if (S.toss) {
+		const pick = p.hand.find((q) => q.uid === S.tossPick);
+		if (!pick) {
+			bar.innerHTML =
+				'<span class="hint" style="color:#ff8f6b">Chaos mode. Pick a card from your hand to throw away before you do anything else.</span>';
+			return;
+		}
+		const label = pick.k === "el" ? elName(pick.id) : wepName(pick);
+		bar.innerHTML = `<span class="hint" style="color:#ff8f6b">Throw away <b style="color:var(--ink)">${label}</b>?</span>
+      <button class="act" id="tossyes">Yes, bin it</button>
+      <button class="act" id="tossno">Pick another</button>`;
+		$("tossyes").onclick = () => {
+			doToss(pick.uid);
+		};
+		$("tossno").onclick = () => {
+			S.tossPick = null;
+			render();
+		};
+		return;
+	}
+	if (S.mode === "shift") {
+		bar.innerHTML = `<span class="hint">Slide everyone:</span>
+      <button class="act" id="shL">&#8592; Left</button>
+      <button class="act" id="shR">Right &#8594;</button>
+      <button class="act" id="shU">&#8593; Up</button>
+      <button class="act" id="shD">&#8595; Down</button>
+      <span class="hint">Esc to cancel.</span>`;
+		$("shL").onclick = () => {
+			doShift(-1, 0);
+		};
+		$("shR").onclick = () => {
+			doShift(1, 0);
+		};
+		$("shU").onclick = () => {
+			doShift(0, -1);
+		};
+		$("shD").onclick = () => {
+			doShift(0, 1);
+		};
+		return;
+	}
+	if (S.mode === "mix") {
+		bar.innerHTML = '<span class="hint">Click any highlighted card to merge with. Esc to cancel.</span>';
+		return;
+	}
+	const c = selCard(p),
+		h = held(p),
+		active = c || h;
+	if (!active) {
+		bar.innerHTML =
+			p.rootTurns > 0
+				? '<span class="hint">Stuck in the mud. You cannot move until this turn ends.</span>'
+				: '<span class="hint">Click a card, or step onto a highlighted tile.</span>';
+		return;
+	}
+	const parts = mixPartners(p, active).length;
+	bar.innerHTML = `${c ? `<button class="act" id="a1" ${p.nrg < COST.place ? "disabled" : ""}>Lay on a tile · ${COST.place}</button>` : ""}
+    <button class="act" id="a3" ${p.nrg < COST.merge || !parts ? "disabled" : ""}>Merge · ${COST.merge}</button>
+    ${
+		parts
+			? '<span class="hint">Two elements fuse, two weapons combine, an element goes into a weapon.</span>'
+			: '<span class="hint">Nothing in hand merges with this.</span>'
+	}`;
+	if ($("a1"))
+		$("a1").onclick = () => {
+			S.mode = "place";
+			render();
+		};
+	$("a3").onclick = () => {
+		startMix(active.uid);
+	};
+}
+function drawRoster(): void {
+	$("roster").innerHTML = S.players
+		.map((p) => {
+			const c = held(p),
+				mine = p === cur(),
+				open = !S.priv;
+			const wp =
+				mine || open
+					? `${c ? `${wepName(c)} · ${wepDmg(c)} dmg` : "unarmed"} · ${p.hand.length} in hand`
+					: `${p.hand.length} in hand`;
+			const mates = S.players.filter((q) => q !== p && q.team === p.team && q.alive);
+			return `<div class="pcard ${p.alive ? "" : "dead"}" style="--pc:${p.c}">
+      <div class="row1"><span class="glyph mage p${p.i}"></span>
+        <span class="nm">${p.name}${mates.length ? ` <span style="color:var(--muted);letter-spacing:0">+${mates.length} ally</span>` : ""}</span>
+        <span class="hpn">${p.hp}</span></div>
+      <div class="bar"><i style="width:${(p.hp / p.max) * 100}%;background:${p.c};box-shadow:0 0 8px ${p.c}"></i></div>
+      ${
+			p.cap > 12
+				? `<div class="wp" style="color:#ffd24a">${mine ? p.nrg : p.cap} / ${p.cap} energy</div>`
+				: `<div class="nrg">${Array.from(
+						{length: p.cap},
+						(_, i) => `<s class="${mine && i < p.nrg ? "f" : ""}"></s>`,
+					).join("")}</div>`
+		}
+      ${(() => {
+			if (p === cur()) return "";
+			const seen = p.hand.filter((c) => seenBy(c));
+			return seen.length
+				? `<div class="wp" style="color:var(--accent)">seen: ${seen.map(cardLabel).join(", ")}</div>`
+				: "";
+		})()}
+      <div class="wp">${wp}</div>
+    </div>`;
+		})
+		.join("");
+}
+let drag: Drag | null = null,
+	justDragged = false;
+function handCards(): GameEl[] {
+	return [...$("hand").querySelectorAll(".hcard")];
+}
+function clearSlots(): void {
+	handCards().forEach((c) => {
+		c.classList.remove("slotL", "slotR");
+	});
+}
+function dropIndex(clientX: number): {idx: number; el: GameEl | null; side: string} {
+	const others = handCards().filter((c) => +c.dataset["u"]! !== drag?.uid);
+	for (let k = 0; k < others.length; k++) {
+		const r = others[k]!.getBoundingClientRect();
+		if (clientX < r.left + r.width / 2) return {idx: k, el: others[k]!, side: "slotL"};
+	}
+	return {idx: others.length, el: others[others.length - 1] || null, side: "slotR"};
+}
+function dragStart(e: PointerEvent, uid: number): void {
+	if (S.phase !== "act" || S.handoff) return;
+	const p = cur(),
+		i = p.hand.findIndex((q) => q.uid === uid);
+	if (i < 0) return;
+	drag = {
+		uid,
+		el: e.currentTarget as GameEl,
+		x0: e.clientX,
+		y0: e.clientY,
+		pid: e.pointerId,
+		active: false,
+		touch: e.pointerType !== "mouse",
+	};
+}
+function dragMove(e: PointerEvent): void {
+	if (!drag || e.pointerId !== drag.pid) return;
+	const dx = e.clientX - drag.x0,
+		dy = e.clientY - drag.y0;
+	if (!drag.active) {
+		if (Math.hypot(dx, dy) < 8) return;
+		// on touch, a sideways swipe belongs to the scroller, not to us
+		if (drag.touch && Math.abs(dx) > Math.abs(dy)) {
+			drag = null;
+			return;
+		}
+		drag.active = true;
+		drag.el.classList.add("dragging");
+		try {
+			drag.el.setPointerCapture(drag.pid);
+		} catch {}
+	}
+	e.preventDefault();
+	drag.el.style.transform = `translate(${dx}px,${Math.max(-46, Math.min(0, dy))}px) scale(1.04)`;
+	const box = $("hand"),
+		r = box.getBoundingClientRect();
+	if (e.clientX < r.left + 44) box.scrollLeft -= 14;
+	else if (e.clientX > r.right - 44) box.scrollLeft += 14;
+	clearSlots();
+	const t = dropIndex(e.clientX);
+	if (t.el) t.el.classList.add(t.side);
+}
+function dragEnd(e: PointerEvent | null): void {
+	if (!drag || (e && e.pointerId !== drag.pid)) return;
+	const d = drag;
+	drag = null;
+	d.el.classList.remove("dragging");
+	d.el.style.transform = "";
+	clearSlots();
+	if (!d.active) return;
+	justDragged = true;
+	const p = cur(),
+		from = p.hand.findIndex((q) => q.uid === d.uid);
+	if (from < 0) {
+		render();
+		return;
+	}
+	drag = d;
+	const to = dropIndex(e ? e.clientX : d.x0).idx;
+	drag = null;
+	const [card] = p.hand.splice(from, 1);
+	if (card) p.hand.splice(to, 0, card);
+	render();
+}
+addEventListener("pointermove", dragMove, {passive: false});
+addEventListener("pointerup", dragEnd);
+addEventListener("pointercancel", dragEnd);
+function drawHand(): void {
+	const p = cur();
+	if (!p.hand.length) {
+		$("hand").innerHTML = '<span class="hint">Nothing in hand yet.</span>';
+		return;
+	}
+	$("hand").innerHTML = p.hand
+		.map((c, i) => {
+			const el = c.k === "el",
+				comp = el && isComp(c.id);
+			const col = el ? elColor(c.id) : wColor(c);
+			const strip = el ? col : wStrip(c);
+			const on = el ? S.sel === c.uid : p.held === c.uid;
+			const name = el ? elName(c.id) : wepName(c);
+			const f = el ? forgeOf(c.id) : null;
+			const desc = el
+				? `${comp && T[c.id]!.spread ? `Covers a ${T[c.id]!.spread! * 2 + 1}x${T[c.id]!.spread! * 2 + 1}. ` : ""}${T[EL[c.id] ? EL[c.id]!.t : c.id]!.d}. Forge: ${f!.mult && !f!.dmg ? f!.fx : `+${f!.dmg} damage`}.`
+				: `${wDesc(c)} ${wepDmg(c)}${wHits(c) > 1 ? ` x${wHits(c)}` : ""} damage, ${wCost(c)} energy.`;
+			const canMix =
+				(S.toss && S.tossPick == null) || (S.mode === "mix" && mixPartners(p).some((q) => q.uid === c.uid));
+			const doomed = S.toss && S.tossPick === c.uid;
+			return `<button class="hcard${canMix ? " mixable" : ""}${doomed ? " doomed" : ""}" data-u="${c.uid}"
+      style="--ec:${col};--strip:${strip}" aria-pressed="${on}">
+      <div class="ck">${el ? (comp ? "FUSED" : "ELEMENT") : "WEAPON"} · ${i + 1}</div>
+      <div class="cn">${name}</div><div class="cd">${desc}</div></button>`;
+		})
+		.join("");
+	updateHandArrows();
+	handCards().forEach((b) => {
+		const uid = +b.dataset["u"]!;
+		b.onpointerdown = (e) => {
+			dragStart(e, uid);
+		};
+		b.onclick = () => {
+			if (justDragged) {
+				justDragged = false;
+				return;
+			}
+			clickCard(uid);
+		};
+		b.setAttribute("draggable", "false");
+	});
+}
+function chatById(id: number): ChatMsg | undefined {
+	return S.chat.find((m) => m.id === id);
+}
+function drawChat(): void {
+	const box = $("chatlog");
+	if (!box) return;
+	box.innerHTML = S.chat.length
+		? S.chat
+				.map((m) => {
+					const par = m.to ? chatById(m.to) : null;
+					return `<p>${
+						par
+							? `<span class="quote"><b style="color:${par.c}">${par.who}</b>
+            ${par.t.length > 44 ? par.t.slice(0, 44) + "…" : par.t}</span>`
+							: ""
+					}
+          <b style="color:${m.c}">${m.who}</b><span class="rnd">r${m.r}</span>
+          <button class="reply" data-id="${m.id}">reply</button><br>${m.t}</p>`;
+				})
+				.join("")
+		: '<p class="none">Nothing said yet.</p>';
+	box.querySelectorAll(".reply").forEach(
+		(b) =>
+			(b.onclick = () => {
+				S.replyTo = +b.dataset["id"]!;
+				render();
+			}),
+	);
+	box.scrollTop = box.scrollHeight;
+	const bar = $("replybar");
+	const par = S.replyTo ? chatById(S.replyTo) : null;
+	bar.innerHTML = par
+		? `<span class="rto">replying to <b style="color:${par.c}">${par.who}</b>
+        ${par.t.length > 30 ? par.t.slice(0, 30) + "…" : par.t}
+        <button class="reply" id="replyx">cancel</button></span>`
+		: "";
+	if ($("replyx"))
+		$("replyx").onclick = () => {
+			S.replyTo = null;
+			render();
+		};
+}
+function saySomething(): void {
+	const el = $("chatin");
+	const t = (el.value || "").trim().replace(/[<>]/g, "");
+	if (!t) return;
+	const p = cur();
+	const par = S.replyTo ? chatById(S.replyTo) : null;
+	S.chat.push({
+		id: S.cid++,
+		who: p ? p.name : "",
+		c: p ? p.c : "var(--muted)",
+		r: S.round,
+		t,
+		to: par ? par.id : null,
+	});
+	logit(par ? `to ${par.who}: \u201c${t}\u201d` : `\u201c${t}\u201d`, undefined, true);
+	S.replyTo = null;
+	el.value = "";
+	render();
+}
+function drawCodex(): void {
+	const total = Object.keys(FUSE).length;
+	const found = Object.keys(FUSE).filter((k) => known(FUSE[k]!)).length;
+	const line = $("codexline");
+	if (line) line.textContent = `${found} of ${total} fusions discovered`;
+	if ($("table").classList.contains("on")) buildTable();
+}
+function buildTable(): void {
+	const els = Object.keys(EL),
+		m = $("matrix");
+	m.style.gridTemplateColumns = `68px repeat(${els.length},minmax(62px,1fr))`;
+	let h = '<div class="mc hdr"></div>';
+	const hcol = (e: string): string => (ownEl(e) ? EL[e]!.c : "var(--muted)");
+	const sel = S.tsel;
+	const par = sel && !EL[sel] && known(sel) ? parentsOf(sel) : sel && EL[sel] ? [sel] : [];
+	const lit = (e: string): string => (par.includes(e) ? " parent" : "");
+	els.forEach(
+		(e) => (h += `<div class="mc hdr elhdr${lit(e)}" data-k="${e}" style="color:${hcol(e)}">${EL[e]!.n}</div>`),
+	);
+	els.forEach((a) => {
+		h += `<div class="mc hdr elhdr${lit(a)}" data-k="${a}" style="color:${hcol(a)};align-items:flex-end;text-align:right">${EL[a]!.n}</div>`;
+		els.forEach((b) => {
+			const k = FUSE[fkey(a, b)]!,
+				vis = known(k);
+			const madeHere =
+				par.length === 2
+					? (a === par[0] && b === par[1]) || (a === par[1] && b === par[0])
+					: par.length === 1 && a === par[0] && b === par[0];
+			h += `<div class="mc${vis ? " found" : " unknown"}${a === b ? " self" : ""}${madeHere ? " parent" : ""}" data-k="${k}" aria-pressed="${S.tsel === k}">
+        <span class="d" style="background:${vis ? T[k]!.c : "var(--muted)"}"></span>
+        <span>${vis ? T[k]!.n : "? ? ?"}</span></div>`;
+		});
+	});
+	m.innerHTML = h;
+	m.querySelectorAll(".mc[data-k]").forEach(
+		(c) =>
+			(c.onclick = () => {
+				S.tsel = c.dataset["k"] ?? null;
+				buildTable();
+				drawDetail();
+			}),
+	);
+	$("mvpal").innerHTML = Object.entries(MV)
+		.sort((a, b) => a[1].price - b[1].price)
+		.map(([k, v]) => {
+			const own = S.munlocked.includes(k);
+			return `<button class="bp mvref${own ? "" : " unknown"}" data-k="mv:${k}" aria-pressed="${S.tsel === "mv:" + k}">
+      <span class="d" style="background:${own ? "var(--accent)" : "var(--muted)"}"></span>${v.n}</button>`;
+		})
+		.join("");
+	$("mvpal")
+		.querySelectorAll(".mvref")
+		.forEach(
+			(b) =>
+				(b.onclick = () => {
+					S.tsel = b.dataset["k"] ?? null;
+					buildTable();
+					drawDetail();
+				}),
+		);
+	drawDetail();
+}
+function drawDetail(): void {
+	const e = S.tsel,
+		box = $("tdetail");
+	if (!e) {
+		box.innerHTML = '<p class="thint" style="margin:0">Pick any cell above, or a piece of footwork.</p>';
+		return;
+	}
+	if (e.startsWith("mv:")) {
+		const k = e.slice(3),
+			v = MV[k],
+			owned = S.munlocked.includes(k);
+		if (!owned) {
+			box.innerHTML = `<div class="dh"><span class="d" style="background:var(--muted)"></span>
+        <b>${v!.n}</b><span class="made">not bought yet</span></div>
+        <div class="drow"><span>What it does</span><span>? ? ?</span></div>
+        <div class="drow"><span>Price</span><span>Buy it for <em>${v!.price}</em> coin to find out.</span></div>`;
+			return;
+		}
+		box.innerHTML = `<div class="dh"><span class="d" style="background:var(--accent)"></span>
+      <b>${v!.n}</b><span class="made">in your arsenal</span></div>
+      <div class="drow"><span>What it does</span><span>${v!.d}</span></div>
+      <div class="drow"><span>Costs</span><span><em>${COST[k as ActionKey]}</em> energy a use</span></div>
+      <div class="drow"><span>Giving it out</span><span>Hand it to a fighter on the setup screen. Each one only gets what you assign.</span></div>`;
+		return;
+	}
+	if (!known(e)) {
+		const unowned = (EL[e] ? [e] : parentsOf(e)).filter((k) => !ownEl(k));
+		const head = EL[e] ? EL[e].n : "? ? ?";
+		box.innerHTML = `<div class="dh"><span class="d" style="background:var(--muted)"></span>
+      <b style="color:var(--muted)">${head}</b></div>
+      ${
+			unowned.length
+				? `<div class="drow"><span>Underfoot</span><span>? ? ?</span></div>
+           <div class="drow"><span>In the forge</span><span>? ? ?</span></div>
+           <div class="drow"><span>Not bought</span><span>Buy ${unowned
+				.map((k) => `<em>${EL[k]!.n}</em> for ${EL[k]!.cost} coin`)
+				.join(" and ")} to read this.</span></div>`
+				: `<div class="drow"><span>Undiscovered</span><span>Mix <em>${madeFrom(e).join("</em> or <em>")}</em>
+             in a match to find out what it makes.</span></div>`
+		}`;
+		return;
+	}
+	const t = terrOf(e)!,
+		f = forgeOf(e),
+		from = madeFrom(e),
+		into = mixesInto(e);
+	const plain = wepDmg({ids: ["sword"], els: []}),
+		forged = wepDmg({ids: ["sword"], els: [e]});
+	const cross = wepDmg({ids: ["crossbow"], els: []}),
+		fcross = wepDmg({ids: ["crossbow"], els: [e]});
+	box.innerHTML = `
+    <div class="dh"><span class="d" style="background:${t.c}"></span><b>${elName(e)}</b>
+      <span class="made">${from.length ? from.join("  or  ") : "base element"}</span></div>
+    <div class="drow"><span>Underfoot</span><span>Lays <em>${t.n}</em>: ${t.d.charAt(0).toLowerCase() + t.d.slice(1)}.</span></div>
+    <div class="drow"><span>In the forge</span><span>${f.fx.charAt(0).toUpperCase() + f.fx.slice(1)}.</span></div>
+    <div class="drow"><span>Sword</span><span><em>${plain}</em> becomes <em>${forged}</em></span></div>
+    <div class="drow"><span>Crossbow</span><span><em>${cross}</em> becomes <em>${fcross}</em></span></div>
+    ${
+		into.length
+			? `<div class="drow"><span>Mixes into</span><span>${mixesIntoKeys(e)
+					.map((k) => (known(k) ? T[k]!.n : "? ? ?"))
+					.join(", ")}</span></div>`
+			: ""
+	}
+    ${S.codex[e] || !isComp(e) ? "" : '<div class="drow"><span>Status</span><span>Not yet discovered in play</span></div>'}`;
+}
+
+function syncSettings(): void {
+	// browsers restore form state across reloads, so drive the boxes from our own defaults
+	const set = (id: string, v: boolean): void => {
+		const el = $(id);
+		if (el) el.checked = v;
+	};
+	set("chaos", S.chaos);
+	set("paint", S.paint);
+	set("priv", S.priv);
+	const num = (id: string, v: number): void => {
+		const el = $(id);
+		if (el) el.value = String(v);
+	};
+	num("chaosr", S.chaosRound);
+	num("nrg0", S.startNrg);
+	num("hand0", S.openHand);
+	num("hp", S.hp);
+	num("dim", S.dim);
+	num("np", S.np);
+	const hv = $("hpval"),
+		dv = $("dimval"),
+		nv = $("npval");
+	if (hv) hv.textContent = String(S.hp);
+	if (dv) dv.textContent = `${S.dim} x ${S.dim}`;
+	if (nv) nv.textContent = String(S.np);
+}
+/**
+ * The saved progress, then the menu drawn from it. Exported so a test can await the load-time DOM
+ * wiring instead of racing it; the page itself just lets it settle.
+ */
+export const boot = load().then(() => {
+	applyTheme();
+	syncSettings();
+	drawSeg();
+	drawShop();
+	drawLoadout();
+	drawCodex();
+	drawCheat();
+});
+
+/* ============ EXPORTS ============ */
+/**
+ * The rules the tests drive the game through, plus the data tables they read alongside them. The
+ * page needs none of this: it loads this module for its side effects and nothing else.
+ */
+export type {Card, Cell, ChatMsg, ElCard, Frame, GameState, LogEntry, Offs, Player, WeaponSpec, WepCard};
+export {BASE, CFORGE, EL, FUSE, MV, PAT, T, W, WBASE};
+export {
+	ARENA_BOARD_MAX,
+	ARENA_CELL_MAX,
+	ARENA_CELL_MIN,
+	ARENA_GAP,
+	ARENA_STACK_AT,
+	arenaBoardRoom,
+	attackTiles,
+	boardCell,
+	boardWidth,
+	buildTable,
+	cur,
+	drawChat,
+	drawCheat,
+	drawCodex,
+	drawDetail,
+	drawLoadout,
+	drawMatchLog,
+	drawMvChips,
+	drawNames,
+	drawPalette,
+	drawReplay,
+	drawSeg,
+	drawShop,
+	drawSim,
+	drawSpawnPicker,
+	drawSpawns,
+	drawTeams,
+	drawWho,
+	elColor,
+	elName,
+	forgeOf,
+	GAME_PAD,
+	leaveFoe,
+	leaveSelf,
+	MODEHINT,
+	mvOwnedMask,
+	render,
+	S,
+	SIDE_MAX,
+	SIDE_MIN,
+	SIDE_VW,
+	simAdd,
+	startMatch,
+	terrOf,
+	wColor,
+	wCost,
+	wDesc,
+	wepDmg,
+	wepName,
+	wHits,
+	wStrip,
+};

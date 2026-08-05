@@ -1,5 +1,5 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, readIndexHtml, extractGameScript, topLevelNames, type GameHarness} from "./harness.js";
+import {loadGame, readGameScript, readIndexHtml, type GameHarness} from "./harness.js";
 
 describe("game script boot", () => {
 	let h: GameHarness;
@@ -57,22 +57,24 @@ describe("saved progress", () => {
 	});
 });
 
-describe("script extraction", () => {
-	let names: string[];
+describe("the game module", () => {
+	it("is what index.html loads, with nothing left inline", () => {
+		const html = readIndexHtml();
 
-	beforeAll(() => {
-		names = topLevelNames(extractGameScript(readIndexHtml()));
+		expect(html).toContain('<script type="module" src="/src/game/game.ts"></script>');
+		expect(html).not.toContain('<script type="module">');
 	});
 
-	it("finds the rules the script still declares itself", () => {
-		expect(names).toContain("S");
-		expect(names).toContain("startMatch");
-		expect(names).toContain("render");
+	it("declares the rules itself", () => {
+		const script = readGameScript();
+
+		expect(script).toContain("const S: GameState = {");
+		expect(script).toContain("function startMatch(): void {");
+		expect(script).toContain("function render(): void {");
 	});
 
 	it("leaves the data tables to the modules under src/game/data", () => {
-		expect(names).not.toContain("EL");
-		expect(names).not.toContain("W");
+		expect(readGameScript()).toContain('} from "./data/index.js";');
 	});
 
 	it("hands the imported tables to the tests all the same", async () => {

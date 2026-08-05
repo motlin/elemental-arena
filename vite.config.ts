@@ -263,6 +263,22 @@ export default defineConfig({
 				plugins: ["typescript", "react", "import"],
 			},
 			{
+				// The whole game came over from one inline <script> in index.html as-is, so it is written
+				// the way that script was: truthiness tests everywhere, `||` for defaults, and table
+				// lookups that trust their own keys. It stays that way while it is split into modules;
+				// each piece that moves out of it lands under the full rules above.
+				files: ["src/game/game.ts"],
+				rules: {
+					"@typescript-eslint/no-dynamic-delete": "off",
+					"@typescript-eslint/no-non-null-assertion": "off",
+					"@typescript-eslint/no-unnecessary-condition": "off",
+					"@typescript-eslint/no-unsafe-type-assertion": "off",
+					"@typescript-eslint/prefer-nullish-coalescing": "off",
+					"@typescript-eslint/strict-boolean-expressions": "off",
+				},
+				plugins: ["typescript"],
+			},
+			{
 				files: ["**/*.stories.@(ts|tsx|js|jsx|mjs|cjs)", "**/*.story.@(ts|tsx|js|jsx|mjs|cjs)"],
 				rules: {
 					"react-hooks/rules-of-hooks": "off",

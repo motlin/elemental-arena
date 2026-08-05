@@ -23,6 +23,11 @@
 		"jiti",
 		"lucide-react",
 	],
+	// src/game/game.ts is the game as it came out of index.html, still one file. It exports the
+	// rules so the jsdom tests can drive them, and fallow cannot see that through the
+	// `await import()` the harness loads it with. Comes off once the file is split into modules
+	// that the page and the tests both import by name.
+	"ignoreExports": [{"file": "src/game/game.ts", "exports": ["*"]}],
 	"rules": {
 		"unused-dependencies": "warn",
 	},

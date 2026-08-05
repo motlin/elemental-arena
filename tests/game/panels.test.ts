@@ -1,6 +1,5 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, readIndexHtml, extractGameScript, type Card, type GameHarness, type Player} from "./harness.js";
-import {handoffStore} from "../../src/game/bridge.js";
+import {loadGame, readGameScript, type Card, type GameHarness, type Player} from "./harness.js";
 
 const EL_UID = 9001;
 const WEAPON_UID = 9002;
@@ -174,7 +173,7 @@ describe("match panels in every mode", () => {
 		h.game.render();
 
 		expect(h.errors).toStrictEqual([]);
-		const view = handoffStore.get();
+		const view = h.bridge.handoffStore.get();
 		expect(view?.seat).toBe(p.i);
 		expect(view?.name).toBe(p.name);
 		expect(view?.colour).toBe(p.c);
@@ -187,10 +186,10 @@ describe("match panels in every mode", () => {
 		h.game.S.handoff = true;
 		h.game.render();
 
-		handoffStore.get()?.dismiss();
+		h.bridge.handoffStore.get()?.dismiss();
 
 		expect(h.game.S.handoff).toBe(false);
-		expect(handoffStore.get()).toBeNull();
+		expect(h.bridge.handoffStore.get()).toBeNull();
 	});
 
 	it("renders every tile of every terrain the game can lay", () => {
@@ -304,9 +303,7 @@ describe("menu panels", () => {
 describe("ids the script reaches for", () => {
 	it("are all produced by the markup or by a panel", async () => {
 		const referenced = [
-			...new Set(
-				[...extractGameScript(readIndexHtml()).matchAll(/\$\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? ""),
-			),
+			...new Set([...readGameScript().matchAll(/\$\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? "")),
 		];
 		const h = await startedMatch();
 		const seen = new Set<string>();
@@ -376,7 +373,7 @@ describe("ids the script reaches for", () => {
 			collect();
 
 			h.game.S.replyTo = 1;
-			h.game.S.chat = [{id: 1, i: 0, t: "hello", to: null}];
+			h.game.S.chat = [{id: 1, who: "Tester", c: "#ff4d8d", r: 1, t: "hello", to: null}];
 			h.game.drawChat();
 			collect();
 

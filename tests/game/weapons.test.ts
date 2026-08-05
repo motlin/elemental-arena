@@ -1,19 +1,8 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, type GameHarness, type Player, type WeaponDef} from "./harness.js";
+import {fighter, loadGame, type GameHarness, type Player, type WeaponDef} from "./harness.js";
 
 /** attackTiles only reads the position, so one stand-in fighter walks every pattern from anywhere. */
-const FIGHTER: Omit<Player, "x" | "y"> = {
-	i: 0,
-	c: "#ff4d8d",
-	name: "Tester",
-	team: 0,
-	hp: 60,
-	nrg: 9,
-	cap: 5,
-	alive: true,
-	hand: [],
-	held: null,
-};
+const FIGHTER: Omit<Player, "x" | "y"> = fighter();
 
 /**
  * A weapon's shop price is what separates a starting weapon from a bought one, and the three you
