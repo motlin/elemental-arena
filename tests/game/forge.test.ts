@@ -7,6 +7,7 @@ const BROKEN = /undefined|NaN|\[object Object\]/;
 /** attackTiles only reads the position, so a fighter parked mid-board is enough to walk every pattern. */
 const MIDBOARD: Player = {
 	i: 0,
+	c: "#ff4d8d",
 	name: "Tester",
 	team: 0,
 	x: 4,

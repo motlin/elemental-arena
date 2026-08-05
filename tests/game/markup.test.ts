@@ -5,10 +5,6 @@ import {loadGame, type GameHarness} from "./harness.js";
 const REQUIRED = [
 	"menu",
 	"game",
-	"pass",
-	"pbg",
-	"pwho",
-	"pbtn",
 	"endbtn",
 	"tglyph",
 	"tname",

@@ -2,6 +2,7 @@ import {readFileSync} from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {JSDOM, VirtualConsole} from "jsdom";
+import * as bridge from "../../src/game/bridge.js";
 import * as data from "../../src/game/data/index.js";
 import type {ElementDef, ForgeDef, MoveDef, Offset, TerrainDef, WeaponDef} from "../../src/game/data/index.js";
 
@@ -30,25 +31,34 @@ export function extractGameScript(html: string): string {
 	return body;
 }
 
-const DATA_IMPORT = /^(\t*)import \{([\s\S]*?)\} from "\/src\/game\/data\/index\.ts";/m;
+const SRC_IMPORT = /^(\t*)import \{([\s\S]*?)\} from "(\/src\/[^"]+)";/gm;
+
+/** The modules the game script imports, keyed by the absolute URL the browser would fetch. */
+const MODULES: Record<string, Record<string, unknown> | undefined> = {
+	"/src/game/data/index.ts": data,
+	"/src/game/bridge.ts": bridge,
+};
 
 /**
  * The game script is a module, but it is evaluated as loose script text here so the tests can still
- * reach its top-level bindings. That trades its one `import` for a `const` per imported name, read
- * off the `window.__DATA__` that `loadGame` fills from the very modules the browser would have
+ * reach its top-level bindings. That trades each `import` for a `const` per imported name, read off
+ * the `window.__MODULES__` that `loadGame` fills from the very modules the browser would have
  * fetched -- one per line, at the indent `topLevelNames` looks for.
  */
-function inlineDataImport(script: string): string {
-	const match = DATA_IMPORT.exec(script);
-	if (match === null) throw new Error("index.html no longer imports /src/game/data/index.ts");
-	const [, indent = "", names = ""] = match;
-	const declarations = names
-		.split(",")
-		.map((name) => name.trim())
-		.filter((name) => name !== "")
-		.map((name) => `${indent}const ${name} = window.__DATA__.${name};`)
-		.join("\n");
-	return script.replace(DATA_IMPORT, () => declarations);
+function inlineSrcImports(script: string): string {
+	let found = 0;
+	const inlined = script.replace(SRC_IMPORT, (_match, indent: string, names: string, from: string) => {
+		if (MODULES[from] === undefined) throw new Error(`index.html imports ${from}, which the harness does not stub`);
+		found++;
+		return names
+			.split(",")
+			.map((name) => name.trim())
+			.filter((name) => name !== "")
+			.map((name) => `${indent}const ${name} = window.__MODULES__[${JSON.stringify(from)}].${name};`)
+			.join("\n");
+	});
+	if (found === 0) throw new Error("index.html no longer imports anything from /src/");
+	return inlined;
 }
 
 /**
@@ -106,6 +116,8 @@ export interface WeaponCard {
 export interface Player {
 	i: number;
 	name: string;
+	/** The seat's colour, used wherever a fighter's glyph is painted. */
+	c: string;
 	team: number;
 	x: number;
 	y: number;
@@ -282,7 +294,7 @@ export interface LoadGameOptions {
  */
 export async function loadGame(options: LoadGameOptions = {}): Promise<GameHarness> {
 	const html = readIndexHtml();
-	const script = inlineDataImport(extractGameScript(html));
+	const script = inlineSrcImports(extractGameScript(html));
 	const source = captureBootPromise(script) + exportEpilogue(topLevelNames(script));
 
 	const errors: string[] = [];
@@ -298,7 +310,7 @@ export async function loadGame(options: LoadGameOptions = {}): Promise<GameHarne
 	});
 	const window = dom.window;
 	installStorage(window, options.storage ?? {});
-	Object.defineProperty(window, "__DATA__", {configurable: true, value: data});
+	Object.defineProperty(window, "__MODULES__", {configurable: true, value: MODULES});
 	window.eval(source);
 
 	const exported: unknown = window["__GAME__"];

@@ -1,5 +1,6 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
 import {loadGame, readIndexHtml, extractGameScript, type Card, type GameHarness, type Player} from "./harness.js";
+import {handoffStore} from "../../src/game/bridge.js";
 
 const EL_UID = 9001;
 const WEAPON_UID = 9002;
@@ -164,18 +165,32 @@ describe("match panels in every mode", () => {
 		h.game.S.reach = [];
 	});
 
-	it("renders the handoff curtain", () => {
-		armCurrentPlayer(h);
+	it("publishes the handoff curtain for React to paint", () => {
+		const p = armCurrentPlayer(h);
 		h.game.S.mode = null;
 		h.game.S.handoff = true;
 		h.errors.length = 0;
 
-		expect(() => {
-			h.game.render();
-		}).not.toThrow();
+		h.game.render();
+
 		expect(h.errors).toStrictEqual([]);
-		expect(h.document.getElementById("pwho")?.textContent ?? "").toContain(h.game.cur().name);
+		const view = handoffStore.get();
+		expect(view?.seat).toBe(p.i);
+		expect(view?.name).toBe(p.name);
+		expect(view?.colour).toBe(p.c);
 		h.game.S.handoff = false;
+	});
+
+	it("takes the handoff curtain back down through the view it published", () => {
+		armCurrentPlayer(h);
+		h.game.S.mode = null;
+		h.game.S.handoff = true;
+		h.game.render();
+
+		handoffStore.get()?.dismiss();
+
+		expect(h.game.S.handoff).toBe(false);
+		expect(handoffStore.get()).toBeNull();
 	});
 
 	it("renders every tile of every terrain the game can lay", () => {

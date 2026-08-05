@@ -4,6 +4,7 @@ import {loadGame, type GameHarness, type Player, type WeaponDef} from "./harness
 /** attackTiles only reads the position, so one stand-in fighter walks every pattern from anywhere. */
 const FIGHTER: Omit<Player, "x" | "y"> = {
 	i: 0,
+	c: "#ff4d8d",
 	name: "Tester",
 	team: 0,
 	hp: 60,

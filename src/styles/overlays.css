@@ -301,17 +301,14 @@
 	margin: 14px 0 7px;
 	font-weight: 600;
 }
-#pass {
+.handoff {
 	position: fixed;
 	inset: 0;
 	background: var(--void);
-	display: none;
+	display: grid;
 	place-items: center;
 	padding: 22px;
 	z-index: 20;
-}
-#pass.on {
-	display: grid;
 }
 #over {
 	position: fixed;

@@ -367,15 +367,6 @@
 			</div>
 		</div>
 
-		<div id="pass">
-			<div class="overbox">
-				<div class="bigglyph" id="pbg"></div>
-				<div class="who" id="pwho"></div>
-				<div class="earn">Everything is hidden. Hand the device over.</div>
-				<button class="start" id="pbtn"></button>
-			</div>
-		</div>
-
 		<div id="over">
 			<div class="overbox">
 				<div class="bigglyph" id="obg"></div>
@@ -392,6 +383,7 @@
 		<script type="module" src="/src/main.tsx"></script>
 
 		<script type="module">
+			import {handoffStore} from "/src/game/bridge.ts";
 			import {
 				BASE,
 				boon,
@@ -747,10 +739,12 @@
 			$("chaosr").onblur = () => {
 				$("chaosr").value = readChaosRound();
 			};
-			$("pbtn").onclick = () => {
+			/* One stable reference shared by the curtain's button and the Enter/Space shortcut, so the
+			   view republished on every redraw compares equal and React stays put. */
+			function dropCurtain() {
 				S.handoff = false;
 				render();
-			};
+			}
 			function ensureOverride(i) {
 				if (!S.pOff[i]) S.pOff[i] = {el: [...S.elOff], w: [...S.wOff]};
 				return S.pOff[i];
@@ -3228,8 +3222,7 @@
 				if (S.handoff) {
 					if (e.key === "Enter" || e.key === " ") {
 						e.preventDefault();
-						S.handoff = false;
-						render();
+						dropCurtain();
 					}
 					return;
 				}
@@ -3384,13 +3377,7 @@
 				if (S.players.length) checkRefill();
 				const p = cur();
 				const dark = blind(p);
-				$("pass").classList.toggle("on", S.handoff);
-				if (S.handoff) {
-					$("pbg").className = "bigglyph mage p" + p.i;
-					$("pbg").style.setProperty("--pc", p.c);
-					$("pwho").textContent = `${p.name} is up`;
-					$("pbtn").textContent = `I'm ${p.name}`;
-				}
+				handoffStore.set(S.handoff ? {seat: p.i, name: p.name, colour: p.c, dismiss: dropCurtain} : null);
 				$("endbtn").disabled = S.toss;
 				$("tglyph").className = "glyph mage p" + p.i;
 				$("tglyph").style.setProperty("--pc", p.c);
