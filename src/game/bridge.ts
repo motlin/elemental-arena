@@ -224,3 +224,176 @@ function sameDesign(a: DesignView | null, b: DesignView | null): boolean {
 }
 
 export const designStore = createStore<DesignView | null>(null, sameDesign);
+
+/** One seat on the setup screen: who plays it, and the colour they play it in. */
+export interface SeatRow {
+	/** Seat number, which picks the glyph's `p0`..`p7` class. */
+	readonly seat: number;
+	/** The name typed for this seat's colour, or "" while it still answers to the default. */
+	readonly name: string;
+	/** The default name, which the empty field shows. */
+	readonly placeholder: string;
+	/** Which swatch the seat plays, an index into `MenuView.arena.swatches`. */
+	readonly swatch: number;
+}
+
+/** One colour a seat can be switched to. */
+export interface Swatch {
+	readonly colour: string;
+	/** The short name the swatch is labelled with. */
+	readonly name: string;
+}
+
+/** A side, as the note under the seats counts them up. */
+export interface TeamTally {
+	readonly name: string;
+	readonly colour: string;
+	/** How many seats play this colour. */
+	readonly seats: number;
+}
+
+/** The arena panel: the seats, and every number a match is dealt from. */
+export interface ArenaSetup {
+	readonly seats: readonly SeatRow[];
+	readonly swatches: readonly Swatch[];
+	readonly teams: readonly TeamTally[];
+	readonly footworkUses: number;
+	readonly smash: boolean;
+	readonly paintball: boolean;
+	readonly chaos: boolean;
+	readonly chaosRound: number;
+	readonly hideHands: boolean;
+	readonly dim: number;
+	readonly hp: number;
+	readonly startNrg: number;
+	readonly openHand: number;
+	readonly setSeatCount: (seats: number) => void;
+	/** Renames the colour this seat plays, which renames everyone else playing it too. */
+	readonly rename: (seat: number, name: string) => void;
+	readonly recolour: (seat: number, swatch: number) => void;
+	readonly setFootworkUses: (uses: number) => void;
+	readonly setSmash: (on: boolean) => void;
+	readonly setPaintball: (on: boolean) => void;
+	readonly setChaos: (on: boolean) => void;
+	readonly setChaosRound: (round: number) => void;
+	readonly setHideHands: (on: boolean) => void;
+	readonly setDim: (dim: number) => void;
+	readonly setHp: (hp: number) => void;
+	readonly setStartNrg: (energy: number) => void;
+	readonly setOpenHand: (cards: number) => void;
+}
+
+/** One thing a fighter can be dealt or denied, as the loadout chips show it. */
+export interface LoadoutChip {
+	readonly key: string;
+	readonly name: string;
+	/** The colour the chip lights up in once it is on. */
+	readonly colour: string;
+	/** False while it is still in the shop, which greys the chip out. */
+	readonly owned: boolean;
+	/** What the shop wants for it, which the locked chip says. */
+	readonly price: number;
+	readonly on: boolean;
+}
+
+/** Whose loadout the chips belong to: one seat, or the shared list everybody starts from. */
+export interface ScopeChip {
+	readonly who: number | "all";
+	readonly label: string;
+	readonly colour: string;
+	/** True once this seat has a list of its own, which marks the chip with a star. */
+	readonly own: boolean;
+}
+
+/** The this-match panel: what gets dealt, and who it gets dealt to. */
+export interface LoadoutSetup {
+	readonly who: number | "all";
+	readonly scopes: readonly ScopeChip[];
+	readonly elements: readonly LoadoutChip[];
+	readonly weapons: readonly LoadoutChip[];
+	readonly footwork: readonly LoadoutChip[];
+	/** True once every piece of footwork bought is on, which spends the All button. */
+	readonly allFootwork: boolean;
+	/** True while none of it is, which spends the None button. */
+	readonly noFootwork: boolean;
+	/** False before any footwork has been bought, which takes both buttons away. */
+	readonly anyFootwork: boolean;
+	readonly setWho: (who: number | "all") => void;
+	readonly toggleElement: (key: string) => void;
+	readonly toggleWeapon: (key: string) => void;
+	readonly toggleFootwork: (key: string) => void;
+	readonly setAllFootwork: (on: boolean) => void;
+	/** Puts the seat being edited back on the shared list, or null while it is already on it. */
+	readonly share: (() => void) | null;
+}
+
+/** One row of the shop: something to buy, or something already in the arsenal. */
+export interface ShopRow {
+	readonly key: string;
+	readonly name: string;
+	/** What it does, once it has been bought; before that it is a tease. */
+	readonly blurb: string;
+	/** The dot beside the name, or null for footwork, which wears the accent instead. */
+	readonly colour: string | null;
+	readonly owned: boolean;
+	readonly price: number;
+	/** False when the treasury is short of this row, which spends its button. */
+	readonly affordable: boolean;
+}
+
+/** One shelf of the shop, and the button that sweeps up everything left on it. */
+export interface ShopShelf {
+	readonly heading: string;
+	readonly rows: readonly ShopRow[];
+	/** What the rest of the shelf costs together, or null once it is all owned. */
+	readonly due: number | null;
+	/** How many rows that is. */
+	readonly left: number;
+	/** False when the treasury is short of the lot. */
+	readonly affordable: boolean;
+	readonly buy: (key: string) => void;
+	readonly buyAll: () => void;
+}
+
+/** How the cheat box stands: still taking guesses, out of them, or already opened. */
+export type CheatState = "open" | "spent" | "accepted";
+
+/** The arsenal panel: the treasury, the shop, the cheat box and the wipe. */
+export interface ArsenalSetup {
+	readonly coins: number;
+	/** Why progress is not saving, or null while it is. */
+	readonly saveError: string | null;
+	readonly shelves: readonly ShopShelf[];
+	readonly cheat: CheatState;
+	/** How many guesses have been spent on the code. */
+	readonly tries: number;
+	/** How many there were to spend. */
+	readonly triesAllowed: number;
+	readonly submitCode: (code: string) => void;
+	readonly resetProgress: () => void;
+}
+
+/** The setup screen, as it stands between matches. */
+export interface MenuView {
+	readonly arena: ArenaSetup;
+	readonly loadout: LoadoutSetup;
+	readonly arsenal: ArsenalSetup;
+	/** What the theme button offers, which is whichever theme is not on. */
+	readonly themeLabel: string;
+	readonly toggleTheme: () => void;
+	readonly openSimulator: () => void;
+	readonly openDesigner: () => void;
+	readonly openTable: () => void;
+	readonly start: () => void;
+}
+
+/**
+ * Unlike the screens the match redraws behind, the setup screen is only ever republished once
+ * something on it has actually changed, so every publication is news. All this comparison does is
+ * keep a match that is already under way from taking the screen down twice.
+ */
+function sameMenu(a: MenuView | null, b: MenuView | null): boolean {
+	return a === null && b === null;
+}
+
+export const menuStore = createStore<MenuView | null>(null, sameMenu);

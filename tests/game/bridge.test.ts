@@ -2,12 +2,17 @@ import {describe, it, expect, afterEach} from "vitest";
 import {
 	designStore,
 	handoffStore,
+	menuStore,
 	overStore,
 	replayStore,
 	simStore,
 	tableStore,
+	type ArenaSetup,
+	type ArsenalSetup,
 	type DesignView,
 	type HandoffView,
+	type LoadoutSetup,
+	type MenuView,
 	type OverView,
 	type ReplayView,
 	type SimView,
@@ -30,6 +35,7 @@ afterEach(() => {
 	tableStore.set(null);
 	replayStore.set(null);
 	designStore.set(null);
+	menuStore.set(null);
 });
 
 describe("handoffStore", () => {
@@ -306,5 +312,115 @@ describe("designStore", () => {
 		unsubscribe();
 
 		expect(seen).toStrictEqual([1, 2]);
+	});
+});
+
+function menu(): MenuView {
+	const arena = {
+		seats: [{seat: 0, name: "", placeholder: "Vermilion", swatch: 0}],
+		swatches: [{colour: "#ff4d8d", name: "Rose"}],
+		teams: [{name: "Vermilion", colour: "#ff4d8d", seats: 1}],
+		footworkUses: 3,
+		smash: false,
+		paintball: false,
+		chaos: false,
+		chaosRound: 1,
+		hideHands: true,
+		dim: 9,
+		hp: 60,
+		startNrg: 2,
+		openHand: 3,
+		setSeatCount: noop,
+		rename: noop,
+		recolour: noop,
+		setFootworkUses: noop,
+		setSmash: noop,
+		setPaintball: noop,
+		setChaos: noop,
+		setChaosRound: noop,
+		setHideHands: noop,
+		setDim: noop,
+		setHp: noop,
+		setStartNrg: noop,
+		setOpenHand: noop,
+	} satisfies ArenaSetup;
+	const loadout = {
+		who: "all",
+		scopes: [{who: "all", label: "Everyone", colour: "var(--accent)", own: false}],
+		elements: [],
+		weapons: [],
+		footwork: [],
+		allFootwork: false,
+		noFootwork: true,
+		anyFootwork: false,
+		setWho: noop,
+		toggleElement: noop,
+		toggleWeapon: noop,
+		toggleFootwork: noop,
+		setAllFootwork: noop,
+		share: null,
+	} satisfies LoadoutSetup;
+	const arsenal = {
+		coins: 0,
+		saveError: null,
+		shelves: [],
+		cheat: "open",
+		tries: 0,
+		triesAllowed: 5,
+		submitCode: noop,
+		resetProgress: noop,
+	} satisfies ArsenalSetup;
+
+	return {
+		arena,
+		loadout,
+		arsenal,
+		themeLabel: "Day mode",
+		toggleTheme: noop,
+		openSimulator: noop,
+		openDesigner: noop,
+		openTable: noop,
+		start: noop,
+	};
+}
+
+describe("menuStore", () => {
+	it("starts with nothing published", () => {
+		expect(menuStore.get()).toBeNull();
+	});
+
+	it("hands subscribers the screen it was last given", () => {
+		const seen: (number | undefined)[] = [];
+		const unsubscribe = menuStore.subscribe(() => seen.push(menuStore.get()?.arsenal.coins));
+
+		menuStore.set(menu());
+		menuStore.set(null);
+		unsubscribe();
+
+		expect(seen).toStrictEqual([0, undefined]);
+	});
+
+	/* Unlike the screens the match redraws behind, the setup screen is only published once
+	   something on it has changed, so a second publication is a second change. */
+	it("counts every republished screen as news", () => {
+		let calls = 0;
+		const unsubscribe = menuStore.subscribe(() => calls++);
+
+		menuStore.set(menu());
+		menuStore.set(menu());
+		unsubscribe();
+
+		expect(calls).toBe(2);
+	});
+
+	it("stays quiet while a match has the screen and the game keeps redrawing", () => {
+		let calls = 0;
+		const unsubscribe = menuStore.subscribe(() => calls++);
+
+		menuStore.set(null);
+		menuStore.set(null);
+		unsubscribe();
+
+		expect(calls).toBe(0);
 	});
 });

@@ -1,5 +1,6 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
 import {loadGame, readGameSource, type Card, type GameHarness, type Player} from "./harness.js";
+import type {MenuView} from "../../src/game/bridge.js";
 
 const EL_UID = 9001;
 const WEAPON_UID = 9002;
@@ -212,50 +213,135 @@ describe("match panels in every mode", () => {
 	});
 });
 
-describe("menu panels", () => {
+describe("the setup screen", () => {
 	let h: GameHarness;
+
+	/** The screen as it stands, which is republished whole after every change. */
+	function menu(): MenuView {
+		const view = h.bridge.menuStore.get();
+		expect(view).not.toBeNull();
+		return view!;
+	}
 
 	beforeAll(async () => {
 		h = await loadGame();
 		h.game.S.unlocked = Object.keys(h.game.EL);
 		h.game.S.wunlocked = Object.keys(h.game.W);
 		h.game.S.munlocked = Object.keys(h.game.MV);
+		h.game.drawMenu();
 	});
 
 	afterAll(() => {
 		h.close();
 	});
 
-	it("renders every menu panel", () => {
-		h.errors.length = 0;
-		for (const draw of [
-			h.game.drawSeg,
-			h.game.drawShop,
-			h.game.drawLoadout,
-			h.game.drawCodex,
-			h.game.drawCheat,
-			h.game.drawNames,
-			h.game.drawTeams,
-			h.game.drawWho,
-			h.game.drawMvChips,
-		]) {
-			expect(() => {
-				draw();
-			}).not.toThrow();
-		}
-		expect(h.errors).toStrictEqual([]);
+	it("publishes the save whole the moment it has loaded", () => {
+		expect(menu().arena.seats.length).toBe(h.game.S.np);
+		expect([...menu().loadout.elements].map((c) => c.key).sort()).toStrictEqual(Object.keys(h.game.EL).sort());
+		expect(menu().arsenal.shelves.map((shelf) => shelf.heading)).toStrictEqual(["Elements", "Weapons", "Footwork"]);
 	});
 
-	it("gives every seat a name field at every table size", () => {
+	it("seats everybody at every table size", () => {
 		for (let seats = 2; seats <= 8; seats++) {
-			h.game.S.np = seats;
-			h.game.drawNames();
-			for (let i = 0; i < seats; i++) {
-				expect(h.document.getElementById(`nm${i}`)).not.toBeNull();
-			}
+			menu().arena.setSeatCount(seats);
+
+			expect(menu().arena.seats.map((row) => row.seat)).toStrictEqual(Array.from({length: seats}, (_, i) => i));
 		}
-		h.game.S.np = 2;
-		h.game.drawNames();
+		menu().arena.setSeatCount(2);
+	});
+
+	it("names a colour rather than a seat, so everyone playing it answers to it", () => {
+		menu().arena.recolour(1, 0);
+		menu().arena.rename(0, "The Twins");
+
+		expect(menu().arena.seats.map((row) => row.name)).toStrictEqual(["The Twins", "The Twins"]);
+		expect(menu().arena.teams).toStrictEqual([{name: "The Twins", colour: "#ff4d8d", seats: 2}]);
+
+		menu().arena.rename(0, "");
+		menu().arena.recolour(1, 1);
+	});
+
+	it("holds a typed number inside its range, and an empty box at the default", () => {
+		menu().arena.setOpenHand(400);
+		expect(h.game.S.openHand).toBe(30);
+
+		menu().arena.setOpenHand(Number.NaN);
+		expect(h.game.S.openHand).toBe(3);
+	});
+
+	it("gives a seat a list of its own, then puts it back on the shared one", () => {
+		menu().loadout.setWho(0);
+		menu().loadout.toggleElement("water");
+
+		expect(h.game.S.pOff[0]?.el).toStrictEqual(["water"]);
+		expect(h.game.S.elOff).toStrictEqual([]);
+		expect(menu().loadout.scopes[1]?.own).toBe(true);
+
+		menu().loadout.share?.();
+
+		expect(h.game.S.pOff[0]).toBeUndefined();
+		expect(menu().loadout.share).toBeNull();
+		menu().loadout.setWho("all");
+	});
+
+	it("buys out of the treasury and banks what it spent", () => {
+		h.game.S.wunlocked = [...h.game.WBASE];
+		h.game.S.coins = 1000;
+		h.game.drawMenu();
+		const shelf = menu().arsenal.shelves.find((s) => s.heading === "Weapons")!;
+		const row = shelf.rows.find((r) => !r.owned)!;
+
+		shelf.buy(row.key);
+
+		expect(h.game.S.wunlocked).toContain(row.key);
+		expect(h.game.S.coins).toBe(1000 - row.price);
+	});
+
+	it("sweeps up a whole shelf at once, and nothing at all when the treasury is short", () => {
+		h.game.S.coins = 0;
+		h.game.drawMenu();
+		const broke = menu().arsenal.shelves.find((s) => s.heading === "Weapons")!;
+		expect(broke.affordable).toBe(false);
+
+		broke.buyAll();
+		expect(h.game.S.coins).toBe(0);
+
+		h.game.S.coins = 100000;
+		h.game.drawMenu();
+		menu()
+			.arsenal.shelves.find((s) => s.heading === "Weapons")!
+			.buyAll();
+
+		expect(menu().arsenal.shelves.find((s) => s.heading === "Weapons")?.due).toBeNull();
+	});
+
+	it("counts down the guesses the cheat box has left", () => {
+		expect(menu().arsenal.cheat).toBe("open");
+
+		menu().arsenal.submitCode("not it");
+
+		expect(menu().arsenal.tries).toBe(1);
+		expect(menu().arsenal.cheat).toBe("open");
+	});
+});
+
+describe("the setup screen and the arena", () => {
+	it("comes down when a match starts and goes back up when it is called", async () => {
+		const h = await loadGame();
+
+		try {
+			expect(h.bridge.menuStore.get()).not.toBeNull();
+
+			h.game.startMatch();
+			expect(h.bridge.menuStore.get()).toBeNull();
+
+			forfeit(h);
+			h.bridge.overStore.get()?.back();
+
+			expect(h.bridge.menuStore.get()).not.toBeNull();
+		} finally {
+			h.close();
+		}
 	});
 });
 
@@ -340,7 +426,7 @@ describe("the power simulator", () => {
 	});
 
 	it("shelves what the save has unlocked and the health the arena is set to", () => {
-		h.document.getElementById("simopen")?.click();
+		h.bridge.menuStore.get()?.openSimulator();
 
 		const view = h.bridge.simStore.get();
 		expect(view?.weapons).toStrictEqual(h.game.S.wunlocked);
@@ -351,7 +437,7 @@ describe("the power simulator", () => {
 
 	it("shelves a fusion only once it has been mixed in play", () => {
 		h.game.S.codex["steam"] = 1;
-		h.document.getElementById("simopen")?.click();
+		h.bridge.menuStore.get()?.openSimulator();
 
 		expect(h.bridge.simStore.get()?.fusions).toStrictEqual(["steam"]);
 	});
@@ -363,7 +449,7 @@ describe("the power simulator", () => {
 	});
 
 	it("shuts on Escape, the way every other overlay does", () => {
-		h.document.getElementById("simopen")?.click();
+		h.bridge.menuStore.get()?.openSimulator();
 		expect(h.bridge.simStore.get()).not.toBeNull();
 
 		h.window.dispatchEvent(new h.window.KeyboardEvent("keydown", {key: "Escape"}));
@@ -388,7 +474,7 @@ describe("the mixing table", () => {
 	});
 
 	it("hands over what the save has bought and what it has mixed", () => {
-		h.document.getElementById("tableopen")?.click();
+		h.bridge.menuStore.get()?.openTable();
 
 		const view = h.bridge.tableStore.get();
 		expect(view?.owned).toStrictEqual(h.game.S.unlocked);
@@ -418,7 +504,7 @@ describe("the mixing table", () => {
 	});
 
 	it("shuts on Escape, the way every other overlay does", () => {
-		h.document.getElementById("tableopen")?.click();
+		h.bridge.menuStore.get()?.openTable();
 		expect(h.bridge.tableStore.get()).not.toBeNull();
 
 		h.window.dispatchEvent(new h.window.KeyboardEvent("keydown", {key: "Escape"}));
@@ -443,7 +529,7 @@ describe("the arena designer", () => {
 	});
 
 	it("hands over a blank board, what the save can paint with, and where everyone starts", () => {
-		h.document.getElementById("builderopen")?.click();
+		h.bridge.menuStore.get()?.openDesigner();
 
 		const view = h.bridge.designStore.get();
 		expect(view?.dim).toBe(h.game.S.dim);
@@ -456,7 +542,7 @@ describe("the arena designer", () => {
 
 	it("names a fusion only once it has been mixed in play", () => {
 		h.game.S.codex["steam"] = 1;
-		h.document.getElementById("builderopen")?.click();
+		h.bridge.menuStore.get()?.openDesigner();
 
 		expect(h.bridge.designStore.get()?.fusions).toStrictEqual(["steam"]);
 	});
@@ -472,8 +558,7 @@ describe("the arena designer", () => {
 		h.bridge.designStore.get()?.setSeats(4);
 
 		expect(h.game.S.np).toBe(4);
-		expect(h.document.querySelector<HTMLInputElement>("#np")?.value).toBe("4");
-		expect(h.document.getElementById("npval")?.textContent).toBe("4");
+		expect(h.bridge.menuStore.get()?.arena.seats.length).toBe(4);
 		expect(h.bridge.designStore.get()?.spawns.length).toBe(4);
 	});
 
@@ -506,19 +591,8 @@ describe("ids the script reaches for", () => {
 		collect();
 
 		try {
-			for (const draw of [
-				h.game.drawSeg,
-				h.game.drawShop,
-				h.game.drawLoadout,
-				h.game.drawCodex,
-				h.game.drawCheat,
-				h.game.drawNames,
-				h.game.drawWho,
-				h.game.drawMvChips,
-			]) {
-				draw();
-				collect();
-			}
+			h.game.drawCodex();
+			collect();
 
 			for (const mode of MODES) {
 				const p = armCurrentPlayer(h);
@@ -548,11 +622,6 @@ describe("ids the script reaches for", () => {
 			collect();
 			h.game.S.toss = false;
 			h.game.S.tossPick = null;
-
-			h.game.S.who = 0;
-			h.game.S.pOff = {0: {el: ["fire"], w: []}};
-			h.game.drawWho();
-			collect();
 
 			h.game.S.replyTo = 1;
 			h.game.S.chat = [{id: 1, who: "Tester", c: "#ff4d8d", r: 1, t: "hello", to: null}];

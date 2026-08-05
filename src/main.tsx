@@ -7,6 +7,7 @@ import {HandoffCurtain} from "./ui/HandoffCurtain.js";
 import {MixingTable} from "./ui/MixingTable.js";
 import {PowerSimulator} from "./ui/PowerSimulator.js";
 import {ReplayViewer} from "./ui/ReplayViewer.js";
+import {SetupScreen} from "./ui/SetupScreen.js";
 
 const root = document.getElementById("app");
 
@@ -19,6 +20,7 @@ if (!root) {
 createRoot(root).render(
 	<StrictMode>
 		{import.meta.env.DEV && <Agentation />}
+		<SetupScreen />
 		<HandoffCurtain />
 		<GameOverScreen />
 		<PowerSimulator />

@@ -3,7 +3,6 @@ import {loadGame, type GameHarness} from "./harness.js";
 
 /** Containers the game paints into without first checking that they exist. */
 const REQUIRED = [
-	"menu",
 	"game",
 	"endbtn",
 	"tglyph",
@@ -20,9 +19,6 @@ const REQUIRED = [
 	"chatgo",
 	"tileinfo",
 	"inspectbtn",
-	"names",
-	"whochips",
-	"whonote",
 ] as const;
 
 describe("static markup", () => {
@@ -55,5 +51,10 @@ describe("static markup", () => {
 	it("opens on the menu with the game screen hidden", () => {
 		expect(h.game.S.screen).toBe("menu");
 		expect(h.document.getElementById("game")?.classList.contains("on")).toBe(false);
+	});
+
+	it("leaves the setup screen to React, which paints it out of the bridge", () => {
+		expect(h.document.getElementById("menu")).toBeNull();
+		expect(h.bridge.menuStore.get()).not.toBeNull();
 	});
 });

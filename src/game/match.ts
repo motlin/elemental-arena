@@ -8,7 +8,6 @@ import type {Offset} from "./data/index.js";
 import {elsOn, mvOwnedMask, wsOn} from "./lookups.js";
 import {afterMove, canStand, voidOut} from "./movement.js";
 import {save, saveSoon} from "./save.js";
-import {readChaosRound, readMvUses, readOpenHand, readStartNrg} from "./settings.js";
 import {$, PC, S, cheb, cur, idx, nameOf, occupant, show, teamName, teamsAlive} from "./state.js";
 import type {Player} from "./types.js";
 import {openReplay, redraw, redrawBoard, redrawCodex} from "./view.js";
@@ -47,10 +46,6 @@ function dealOpening(p: Player): number {
 	return nEl;
 }
 export function startMatch(): void {
-	readStartNrg();
-	readOpenHand();
-	readChaosRound();
-	readMvUses();
 	S.board = Array.from({length: S.dim * S.dim}, () => ({t: null, el: null, life: 0, wid: 0, by: null}));
 	S.wid = 1;
 	S.uid = 1;

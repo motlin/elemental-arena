@@ -3,7 +3,7 @@
 import {BASE, WBASE} from "./data/index.js";
 import {S} from "./state.js";
 import type {Offs} from "./types.js";
-import {redrawShop} from "./view.js";
+import {redrawMenu} from "./view.js";
 
 /** The saved progress, as it comes back off `window.storage`. */
 interface SavedGame {
@@ -79,11 +79,11 @@ export async function save(): Promise<void> {
 		)
 		.then(() => {
 			S.saveErr = null;
-			if (S.screen === "menu") redrawShop();
+			if (S.screen === "menu") redrawMenu();
 		})
 		.catch((e: unknown) => {
 			S.saveErr = errText(e);
-			if (S.screen === "menu") redrawShop();
+			if (S.screen === "menu") redrawMenu();
 		});
 	return saveQ;
 }

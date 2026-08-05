@@ -15,12 +15,14 @@ export const PN = ["Vermilion", "Cyan", "Verdant", "Amethyst", "Amber", "Jade", 
 export const PCN = ["Rose", "Sky", "Lime", "Violet", "Amber", "Jade", "Bone", "Indigo"];
 export const CHAOS = 1; // default only; the live value is S.chaosRound
 export const MVUSES = 3; // default only; the live value is S.mvUses
+export const NRG0 = 2; // default only; the live value is S.startNrg
+export const HAND0 = 3; // default only; the live value is S.openHand
 export const S: GameState = {
 	dim: 9,
 	np: 2,
 	hp: 60,
-	startNrg: 2,
-	openHand: 3,
+	startNrg: NRG0,
+	openHand: HAND0,
 	players: [],
 	board: [],
 	turn: 0,
@@ -154,7 +156,7 @@ export function putTerrain(c: Cell, k: string): void {
 /** Swaps between the setup screen and the arena. */
 export function show(s: string): void {
 	S.screen = s;
-	$("menu").classList.toggle("on", s === "menu");
 	$("game").classList.toggle("on", s === "game");
-	if (s === "menu") redrawMenu();
+	// the setup screen is React's, so it goes up and comes down by being published or not
+	redrawMenu();
 }

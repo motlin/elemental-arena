@@ -11,10 +11,8 @@ export interface View {
 	redraw: () => void;
 	/** Rebuilds the board grid, which a new match and a new tile size both need. */
 	redrawBoard: () => void;
-	/** Repaints the setup screen, which is what coming back to the menu shows. */
+	/** Republishes the setup screen, which is what coming back to the menu shows. */
 	redrawMenu: () => void;
-	/** Repaints the shop, which is where a save that went wrong says so. */
-	redrawShop: () => void;
 	/** Repaints the fusion count, and the table behind it if it is open. */
 	redrawCodex: () => void;
 	/** Puts the replay up over whatever is on screen, wound back to the first frame. */
@@ -25,7 +23,6 @@ let view: View = {
 	redraw: () => {},
 	redrawBoard: () => {},
 	redrawMenu: () => {},
-	redrawShop: () => {},
 	redrawCodex: () => {},
 	openReplay: () => {},
 };
@@ -43,9 +40,6 @@ export const redrawBoard = (): void => {
 };
 export const redrawMenu = (): void => {
 	view.redrawMenu();
-};
-export const redrawShop = (): void => {
-	view.redrawShop();
 };
 export const redrawCodex = (): void => {
 	view.redrawCodex();

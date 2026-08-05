@@ -8,24 +8,18 @@
  * of that and loads this module for its side effects alone.
  */
 import {buildBoard} from "./board.js";
-import {drawCheat, drawCodex, drawLoadout, drawSeg, drawShop, openReplay} from "./menu.js";
+import {drawCodex, drawMenu, openReplay} from "./menu.js";
 import {render} from "./render.js";
 import {load} from "./save.js";
-import {applyTheme, syncSettings} from "./settings.js";
+import {applyTheme} from "./settings.js";
 import {setView} from "./view.js";
 
 setView({
 	redraw: render,
 	redrawBoard: buildBoard,
 	redrawCodex: drawCodex,
-	redrawShop: drawShop,
 	openReplay,
-	// coming back to the menu only restates the seats and the shop; the rest of the setup screen
-	// is drawn once at boot and kept current by whatever changes it
-	redrawMenu: () => {
-		drawSeg();
-		drawShop();
-	},
+	redrawMenu: drawMenu,
 });
 
 /**
@@ -34,12 +28,8 @@ setView({
  */
 export const boot = load().then(() => {
 	applyTheme();
-	syncSettings();
-	drawSeg();
-	drawShop();
-	drawLoadout();
+	drawMenu();
 	drawCodex();
-	drawCheat();
 });
 
 export type {
@@ -89,15 +79,5 @@ export {
 } from "./board.js";
 export {startMatch} from "./match.js";
 export {attackTiles, leaveFoe, leaveSelf} from "./combat.js";
-export {
-	drawCheat,
-	drawCodex,
-	drawLoadout,
-	drawMvChips,
-	drawNames,
-	drawSeg,
-	drawShop,
-	drawTeams,
-	drawWho,
-} from "./menu.js";
+export {drawCodex, drawMenu} from "./menu.js";
 export {MODEHINT, drawChat, render} from "./render.js";
