@@ -1,6 +1,6 @@
 /**
- * Everything the game script imports from `/src/game/data/index.ts`, plus the table shapes the tests
- * share. The rules and the rendering live in index.html for now.
+ * Everything the game imports from `/src/game/data/index.ts`, plus the table shapes the tests share.
+ * The rules and the rendering that read them live in the modules alongside this folder.
  */
 export {EL, BASE} from "./elements.js";
 export {T, type TerrainDef} from "./terrain.js";

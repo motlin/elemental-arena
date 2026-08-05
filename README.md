@@ -15,23 +15,32 @@ The game is served from `index.html` at <http://localhost:3000>.
 
 ## Shape of the code
 
-The game began as a single-file Claude artifact and is being pulled apart a seam at a time.
-The styles and the data tables now live under `src/`, and so does the game itself, though the rules
-and the rendering are still one module. `index.html` is markup only. One global `S` object holds all
-state, one `render()` redraws everything, and actions mutate `S` then call `render()`. There is no
-framework and no virtual DOM.
+The game began as a single-file Claude artifact and has been pulled apart a seam at a time. The
+styles, the data tables and the game itself now live under `src/`, and `index.html` is markup only.
+One global `S` object holds all state, one `render()` redraws everything, and actions mutate `S`
+then call `render()`. There is no framework and no virtual DOM.
 
-| Where              | What                                                       |
-| ------------------ | ---------------------------------------------------------- |
-| `src/styles/`      | every stylesheet, imported in cascade order by `index.css` |
-| `src/game/data/`   | the static tables, re-exported by `index.ts`               |
-| `src/game/game.ts` | the game rules and rendering, as one module for now        |
-| `src/ui/`          | the screens that have migrated into React                  |
-| `index.html`       | the static markup                                          |
+| Where            | What                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| `src/styles/`    | every stylesheet, imported in cascade order by `index.css` |
+| `src/game/`      | the game, one module per concern                           |
+| `src/game/data/` | the static tables, re-exported by `index.ts`               |
+| `src/ui/`        | the screens that have migrated into React                  |
+| `index.html`     | the static markup                                          |
 
-`src/game/game.ts` came over from that inline script whole, so it is still written the way the
-script was, and `vite.config.ts` relaxes a handful of lint rules for that one file. Each piece that
-moves out of it lands under the full rules.
+The modules stack one way. `types.ts` and `state.ts` at the bottom, then `lookups.ts`, `save.ts`
+and `settings.ts`, then the rules -- `movement.ts`, `cards.ts`, `combat.ts`, `match.ts` -- and above
+them the screens: `menu.ts`, `render.ts`, `input.ts`, `board.ts`. `game.ts` is what the page loads:
+it wires the two halves together and re-exports what the tests drive the game through.
+
+The rules never import a screen. They ask for drawing through `view.ts`, which `game.ts` fills in
+once every module has loaded; without that seam every rules module would import the renderer and
+the renderer would import them all straight back. The four rules modules do call each other, which
+is a real cycle and one `just fallow` reports as a warning.
+
+The game came over from that inline script whole, so it is still written the way the script was,
+and `vite.config.ts` relaxes a handful of lint rules for `src/game/*.ts`. Everything written fresh
+alongside it -- `src/game/bridge.ts` and the data tables -- stays under the full rules.
 
 Content is the data tables. Almost every feature is driven off flags in these, so new content is
 usually a table entry rather than new logic.
@@ -64,7 +73,7 @@ it on `localStorage` so the page runs in a plain browser.
 
 `src/main.tsx` mounts the React tree on `#app`, and the handoff curtain is the first screen to
 have moved across. A screen migrates by dropping its markup from `index.html` and gaining a store
-in `src/game/bridge.ts`, which `src/game/game.ts` publishes to, plus a component in `src/ui/` that
+in `src/game/bridge.ts`, which `src/game/render.ts` publishes to, plus a component in `src/ui/` that
 subscribes. Each component splits into a view taking plain props and a container reading the
 store, so stories and tests can pose it without a match running. Run `just storybook` to see them.
 

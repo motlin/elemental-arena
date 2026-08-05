@@ -1,9 +1,8 @@
 /**
- * The one-way channel from the vanilla game script still living in index.html to the React tree in
- * src/main.tsx. The script publishes a plain description of a screen whenever it redraws; React
- * subscribes and paints it. Screens migrate one at a time: each one drops its markup and its
- * `$("id").textContent = ...` writes from index.html and gains a store here plus a component in
- * src/ui/.
+ * The one-way channel from the game modules under src/game to the React tree in src/main.tsx. The
+ * game publishes a plain description of a screen whenever it redraws; React subscribes and paints
+ * it. Screens migrate one at a time: each one drops its markup from index.html and the writes that
+ * filled it in from the renderer, and gains a store here plus a component in src/ui/.
  */
 
 type Listener = () => void;

@@ -1,4 +1,4 @@
-import {readFileSync} from "node:fs";
+import {readdirSync, readFileSync} from "node:fs";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 import {JSDOM, VirtualConsole} from "jsdom";
@@ -9,7 +9,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 
 const indexHtmlPath = path.join(repoRoot, "index.html");
 
-const gameScriptPath = path.join(repoRoot, "src", "game", "game.ts");
+const gameDir = path.join(repoRoot, "src", "game");
 
 const stylesDir = path.join(repoRoot, "src", "styles");
 
@@ -17,9 +17,21 @@ export function readIndexHtml(): string {
 	return readFileSync(indexHtmlPath, "utf8");
 }
 
-/** The game module's source, for the tests that read the code rather than run it. */
-export function readGameScript(): string {
-	return readFileSync(gameScriptPath, "utf8");
+/** One of the game's modules by file name, for the tests that read the code rather than run it. */
+export function readGameModule(name: string): string {
+	return readFileSync(path.join(gameDir, name), "utf8");
+}
+
+/** The names of the modules src/game/game.ts pulls together, in no particular order. */
+export function gameModules(): string[] {
+	return readdirSync(gameDir).filter((name) => name.endsWith(".ts"));
+}
+
+/** Every game module at once, for the checks that are about the game rather than one module. */
+export function readGameSource(): string {
+	return gameModules()
+		.map((name) => readGameModule(name))
+		.join("\n");
 }
 
 /** Reads one of the stylesheets `index.css` pulls in, e.g. "arena.css". */

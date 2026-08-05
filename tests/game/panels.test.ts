@@ -1,5 +1,5 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, readGameScript, type Card, type GameHarness, type Player} from "./harness.js";
+import {loadGame, readGameSource, type Card, type GameHarness, type Player} from "./harness.js";
 
 const EL_UID = 9001;
 const WEAPON_UID = 9002;
@@ -303,7 +303,7 @@ describe("menu panels", () => {
 describe("ids the script reaches for", () => {
 	it("are all produced by the markup or by a panel", async () => {
 		const referenced = [
-			...new Set([...readGameScript().matchAll(/\$\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? "")),
+			...new Set([...readGameSource().matchAll(/\$\(\s*"([^"]+)"\s*\)/g)].map((m) => m[1] ?? "")),
 		];
 		const h = await startedMatch();
 		const seen = new Set<string>();

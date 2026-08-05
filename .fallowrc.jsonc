@@ -23,12 +23,17 @@
 		"jiti",
 		"lucide-react",
 	],
-	// src/game/game.ts is the game as it came out of index.html, still one file. It exports the
-	// rules so the jsdom tests can drive them, and fallow cannot see that through the
-	// `await import()` the harness loads it with. Comes off once the file is split into modules
-	// that the page and the tests both import by name.
-	"ignoreExports": [{"file": "src/game/game.ts", "exports": ["*"]}],
+	// The game's modules export their rules and their panels so the jsdom tests can drive them
+	// through src/game/game.ts, and fallow cannot see that through the `await import()` the
+	// harness loads it with. The data tables under src/game/data are imported normally and stay
+	// under the usual checks.
+	"ignoreExports": [{"file": "src/game/*.ts", "exports": ["*"]}],
 	"rules": {
 		"unused-dependencies": "warn",
+		// The rules modules call each other the way the game reads: a step lands on ground that
+		// hurts, a fall ends a turn, an ended turn moves everyone. They are one layer and they
+		// point both ways. Everything above them -- menu, render, input, board -- is one-way, and
+		// nothing below them points back up: src/game/view.ts is the seam that keeps it that way.
+		"circular-dependencies": "warn",
 	},
 }

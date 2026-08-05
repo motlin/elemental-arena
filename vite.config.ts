@@ -265,9 +265,10 @@ export default defineConfig({
 			{
 				// The whole game came over from one inline <script> in index.html as-is, so it is written
 				// the way that script was: truthiness tests everywhere, `||` for defaults, and table
-				// lookups that trust their own keys. It stays that way while it is split into modules;
-				// each piece that moves out of it lands under the full rules above.
-				files: ["src/game/game.ts"],
+				// lookups that trust their own keys. Splitting it into modules moved that code, it did
+				// not rewrite it. Everything written fresh alongside it -- src/game/bridge.ts and the
+				// data tables under src/game/data -- stays under the full rules above.
+				files: ["src/game/*.ts"],
 				rules: {
 					"@typescript-eslint/no-dynamic-delete": "off",
 					"@typescript-eslint/no-non-null-assertion": "off",
@@ -275,6 +276,21 @@ export default defineConfig({
 					"@typescript-eslint/no-unsafe-type-assertion": "off",
 					"@typescript-eslint/prefer-nullish-coalescing": "off",
 					"@typescript-eslint/strict-boolean-expressions": "off",
+				},
+				plugins: ["typescript"],
+			},
+			{
+				// The bridge was written here rather than carried over, so it takes the relaxations
+				// above back off. `files` has no negation, so the way to exclude one file from a
+				// glob is to follow the glob with an override that undoes it.
+				files: ["src/game/bridge.ts"],
+				rules: {
+					"@typescript-eslint/no-dynamic-delete": "error",
+					"@typescript-eslint/no-non-null-assertion": "error",
+					"@typescript-eslint/no-unnecessary-condition": "error",
+					"@typescript-eslint/no-unsafe-type-assertion": "error",
+					"@typescript-eslint/prefer-nullish-coalescing": "error",
+					"@typescript-eslint/strict-boolean-expressions": "error",
 				},
 				plugins: ["typescript"],
 			},

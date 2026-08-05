@@ -1,5 +1,5 @@
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, readGameScript, readIndexHtml, type GameHarness} from "./harness.js";
+import {gameModules, loadGame, readGameModule, readIndexHtml, type GameHarness} from "./harness.js";
 
 describe("game script boot", () => {
 	let h: GameHarness;
@@ -65,16 +65,32 @@ describe("the game module", () => {
 		expect(html).not.toContain('<script type="module">');
 	});
 
-	it("declares the rules itself", () => {
-		const script = readGameScript();
+	it("keeps the state, the match and the drawing in modules of their own", () => {
+		const where = {
+			state: readGameModule("state.ts").includes("export const S: GameState = {"),
+			match: readGameModule("match.ts").includes("export function startMatch(): void {"),
+			render: readGameModule("render.ts").includes("export function render(): void {"),
+		};
 
-		expect(script).toContain("const S: GameState = {");
-		expect(script).toContain("function startMatch(): void {");
-		expect(script).toContain("function render(): void {");
+		expect(where).toStrictEqual({state: true, match: true, render: true});
 	});
 
 	it("leaves the data tables to the modules under src/game/data", () => {
-		expect(readGameScript()).toContain('} from "./data/index.js";');
+		expect(readGameModule("lookups.ts")).toContain('} from "./data/index.js";');
+	});
+
+	/* The rules run the game and the screens draw it. If a rules module imported a screen the two
+	   would import each other, and the load order would decide which half of the game existed
+	   first. src/game/view.ts is the seam: the rules call it, and game.ts wires the real drawing in. */
+	it("keeps the rules from importing the screens that draw them", () => {
+		const screens = ["board", "input", "menu", "render"];
+		const rules = gameModules().filter((name) => !screens.includes(name.replace(".ts", "")) && name !== "game.ts");
+
+		const reaching = rules.filter((name) =>
+			screens.some((screen) => readGameModule(name).includes(`from "./${screen}.js"`)),
+		);
+
+		expect(reaching).toStrictEqual([]);
 	});
 
 	it("hands the imported tables to the tests all the same", async () => {
