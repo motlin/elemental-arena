@@ -220,6 +220,18 @@ export interface GameGlobals {
 	drawDetail: () => void;
 	buildTable: () => void;
 	cur: () => Player;
+	GAME_PAD: number;
+	ARENA_GAP: number;
+	SIDE_MIN: number;
+	SIDE_MAX: number;
+	SIDE_VW: number;
+	ARENA_STACK_AT: number;
+	ARENA_BOARD_MAX: number;
+	ARENA_CELL_MIN: number;
+	ARENA_CELL_MAX: number;
+	boardWidth: (dim: number, cell: number) => number;
+	boardCell: (dim: number, avail: number, min: number, max: number) => number;
+	arenaBoardRoom: (w: number) => number;
 }
 
 export interface GameHarness {

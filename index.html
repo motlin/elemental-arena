@@ -494,7 +494,14 @@
 				align-items: center;
 				gap: 11px;
 			}
+			/* A board can outgrow its column at narrow widths, where the 15px tile floor beats the room
+			   available. Scrolling it here keeps it off the side panels. */
+			.boardscroll {
+				max-width: 100%;
+			}
 			#board {
+				width: max-content;
+				margin-inline: auto;
 				display: grid;
 				gap: 2px;
 				padding: 8px;
@@ -720,6 +727,7 @@
 				}
 				.boardcol {
 					order: 0;
+					width: 100%;
 				}
 				.side.right {
 					order: 1;
@@ -1238,23 +1246,30 @@
 				margin: 0 0 18px;
 				max-width: 62ch;
 			}
-			.matrixwrap {
+			/* The two grids that can outgrow their container: the mixing table and the arena board. */
+			.matrixwrap,
+			.boardscroll {
 				overflow-x: auto;
-				margin-bottom: 20px;
 				overscroll-behavior-x: contain;
 				scrollbar-width: thin;
 				scrollbar-color: var(--accent) var(--slot);
 			}
-			.matrixwrap::-webkit-scrollbar {
+			.matrixwrap::-webkit-scrollbar,
+			.boardscroll::-webkit-scrollbar {
 				height: 10px;
 			}
-			.matrixwrap::-webkit-scrollbar-track {
+			.matrixwrap::-webkit-scrollbar-track,
+			.boardscroll::-webkit-scrollbar-track {
 				background: var(--slot);
 				border-radius: 5px;
 			}
-			.matrixwrap::-webkit-scrollbar-thumb {
+			.matrixwrap::-webkit-scrollbar-thumb,
+			.boardscroll::-webkit-scrollbar-thumb {
 				background: var(--accent);
 				border-radius: 5px;
+			}
+			.matrixwrap {
+				margin-bottom: 20px;
 			}
 			.matrix {
 				display: grid;
@@ -2156,7 +2171,7 @@
 					</div>
 				</div>
 				<div class="boardcol">
-					<div id="board"></div>
+					<div class="boardscroll"><div id="board"></div></div>
 					<div class="wep" id="wep"></div>
 					<div class="actbar" id="actbar"></div>
 					<div class="handwrap" style="width: 100%">
@@ -5166,14 +5181,47 @@
 				if (teamsAlive().length <= 1) finish(teamsAlive()[0]);
 				else beginTurn();
 			}
+			/* Board geometry. These mirror the stylesheet: #board draws a BOARD_GAP gap between tiles
+			   inside 8px of padding and a 1px border, and the arena lays the board column out between
+			   two .side columns of clamp(SIDE_MIN, SIDE_VW, SIDE_MAX), all inside #game's padding. */
+			const BOARD_GAP = 2;
+			const BOARD_CHROME = 18;
+			const GAME_PAD = 14;
+			const ARENA_GAP = 14;
+			const SIDE_MIN = 150;
+			const SIDE_MAX = 212;
+			const SIDE_VW = 0.17;
+			const ARENA_STACK_AT = 560;
+			const ARENA_BOARD_MAX = 640;
+			const ARENA_CELL_MIN = 15;
+			const ARENA_CELL_MAX = 46;
+
+			/** Outer width a dim x dim board occupies when drawn at `cell` pixels per tile. */
+			function boardWidth(dim, cell) {
+				return dim * cell + (dim - 1) * BOARD_GAP + BOARD_CHROME;
+			}
+			/** Largest tile size whose whole board fits `avail`, clamped so tiles stay legible.
+			    A board of zero-size tiles is exactly the width that is not tile, so subtracting it
+			    leaves the room the tiles themselves get. */
+			function boardCell(dim, avail, min, max) {
+				return Math.max(min, Math.min(max, Math.floor((avail - boardWidth(dim, 0)) / dim)));
+			}
+			/** Width the arena leaves the board column at viewport width `w`. Below the stacking
+			    breakpoint the side panels sit above and below, so the board gets the full width. */
+			function arenaBoardRoom(w) {
+				if (w <= ARENA_STACK_AT) return w - GAME_PAD * 2;
+				const side = Math.max(SIDE_MIN, Math.min(SIDE_MAX, w * SIDE_VW));
+				return w - GAME_PAD * 2 - (side * 2 + ARENA_GAP * 2);
+			}
+			/** Excludes the scrollbar, matching what the layout actually gets and what media queries see. */
+			function viewportWidth() {
+				return document.documentElement.clientWidth || window.innerWidth;
+			}
 			function buildBoard() {
 				const b = $("board");
 				b.style.gridTemplateColumns = `repeat(${S.dim},var(--cell))`;
-				const w = window.innerWidth;
-				const col = Math.max(150, Math.min(212, w * 0.17));
-				const sideRoom = w > 560 ? col * 2 + 46 : 56;
-				const avail = Math.min(w - sideRoom, 640);
-				b.style.setProperty("--cell", Math.max(15, Math.min(46, Math.floor(avail / S.dim) - 2)) + "px");
+				const room = Math.min(arenaBoardRoom(viewportWidth()), ARENA_BOARD_MAX);
+				b.style.setProperty("--cell", boardCell(S.dim, room, ARENA_CELL_MIN, ARENA_CELL_MAX) + "px");
 				b.innerHTML = "";
 				for (let y = 0; y < S.dim; y++)
 					for (let x = 0; x < S.dim; x++) {
