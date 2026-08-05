@@ -1,0 +1,26 @@
+{
+	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+	// src/**/*.mdx mirrors the Storybook stories glob in .storybook/main.ts;
+	// fallow's storybook plugin only detects *.stories.* files, not docs pages.
+	"entry": ["src/index.{ts,tsx,js,jsx}", "src/main.{ts,tsx,js,jsx}", "src/**/*.mdx"],
+	"ignorePatterns": [".storybook/**"],
+	// TEMPLATE-SPECIFIC: this template ships no application source, so fallow
+	// sees its scaffolding devDependencies as unused. Real projects should drop
+	// this ignoreDependencies block and let fallow flag genuinely unused deps.
+	"ignoreDependencies": [
+		"@chromatic-com/storybook",
+		"@sentry/vite-plugin",
+		"@storybook/addon-a11y",
+		"@storybook/addon-docs",
+		"@storybook/addon-onboarding",
+		"@storybook/addon-vitest",
+		"@storybook/test-runner",
+		"@tanstack/react-query-devtools",
+		"eslint-plugin-storybook",
+		"jiti",
+		"lucide-react",
+	],
+	"rules": {
+		"unused-dependencies": "warn",
+	},
+}
