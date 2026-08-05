@@ -1,10 +1,12 @@
 import {StrictMode} from "react";
 import {createRoot} from "react-dom/client";
 import {Agentation} from "agentation";
+import {ArenaDesigner} from "./ui/ArenaDesigner.js";
 import {GameOverScreen} from "./ui/GameOverScreen.js";
 import {HandoffCurtain} from "./ui/HandoffCurtain.js";
 import {MixingTable} from "./ui/MixingTable.js";
 import {PowerSimulator} from "./ui/PowerSimulator.js";
+import {ReplayViewer} from "./ui/ReplayViewer.js";
 
 const root = document.getElementById("app");
 
@@ -21,5 +23,7 @@ createRoot(root).render(
 		<GameOverScreen />
 		<PowerSimulator />
 		<MixingTable />
+		<ArenaDesigner />
+		<ReplayViewer />
 	</StrictMode>,
 );

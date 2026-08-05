@@ -279,55 +279,6 @@
 			</div>
 		</div>
 
-		<div id="replay">
-			<div class="tbox">
-				<div class="thead">
-					<h2>Replay</h2>
-					<button class="ghost" id="rvclose">Close</button>
-				</div>
-				<div class="rvtop">
-					<button class="ghost" id="rvprev">&#8249;</button>
-					<button class="ghost" id="rvplay">Play</button>
-					<button class="ghost" id="rvnext">&#8250;</button>
-					<input type="range" id="rvbar" min="0" max="0" value="0" aria-label="Replay position" />
-					<span class="rvcount" id="rvcount"></span>
-				</div>
-				<p class="rvnote" id="rvnote"></p>
-				<div class="rvwrap">
-					<div id="rvboard"></div>
-					<div class="rvside" id="rvside"></div>
-				</div>
-			</div>
-		</div>
-
-		<div id="builder">
-			<div class="tbox">
-				<div class="thead">
-					<h2>Arena designer</h2>
-					<button class="ghost" id="bdone">Done</button>
-				</div>
-				<p class="thint">
-					Paint the ground before anyone steps on it. Pick a material, then click or drag across the grid.
-					Break opens a hole now instead of waiting for the collapse. Whatever you paint on a spawn square
-					stays there, holes included.
-				</p>
-				<div class="bhead">Materials</div>
-				<div class="bpal" id="bpal"></div>
-				<div class="bhead">Discovered fusions</div>
-				<div class="bpal" id="bpalf"></div>
-				<div class="bhead">Tools</div>
-				<div class="bpal" id="bpalt"></div>
-				<div class="bhead">Show spawns for</div>
-				<div class="bpal" id="bspawn"></div>
-				<div id="bboard"></div>
-				<div class="wrow" style="display: flex; gap: 8px; justify-content: center; align-items: center">
-					<button class="ghost" id="bclear">Clear the board</button>
-					<span class="hint" id="bcount"></span>
-				</div>
-				<div class="spawnnote" id="bspawnnote"></div>
-			</div>
-		</div>
-
 		<div id="app"></div>
 		<script type="module" src="/src/main.tsx"></script>
 

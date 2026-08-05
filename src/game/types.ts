@@ -195,13 +195,9 @@ export interface GameState {
 	replyTo: number | null;
 	log: LogEntry[];
 	frames: Frame[];
-	/** Index into `frames` the replay is parked on. */
-	rvi: number;
 	/** Terrain keys the board builder painted, one per tile, or null for a blank arena. */
 	preset: (string | null)[] | null;
 	presetDim: number;
-	/** Terrain key the board builder paints with. */
-	btool: string;
 	/** Board index the inspector is looking at. */
 	look: number | null;
 	imode: boolean;

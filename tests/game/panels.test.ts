@@ -238,10 +238,6 @@ describe("menu panels", () => {
 			h.game.drawTeams,
 			h.game.drawWho,
 			h.game.drawMvChips,
-			h.game.drawPalette,
-			h.game.drawSpawnPicker,
-			h.game.drawSpawns,
-			h.game.drawReplay,
 		]) {
 			expect(() => {
 				draw();
@@ -309,7 +305,15 @@ describe("the end of a match", () => {
 	it("opens the replay through the view it published", () => {
 		h.bridge.overStore.get()?.openReplay();
 
-		expect(h.document.getElementById("replay")?.classList.contains("on")).toBe(true);
+		const view = h.bridge.replayStore.get();
+		expect(view?.dim).toBe(h.game.S.dim);
+		expect(view?.frames.map((f) => f.t)).toStrictEqual(h.game.S.log.map((e) => e.t));
+	});
+
+	it("shuts the replay on Escape, the way every other overlay does", () => {
+		h.window.dispatchEvent(new h.window.KeyboardEvent("keydown", {key: "Escape"}));
+
+		expect(h.bridge.replayStore.get()).toBeNull();
 	});
 
 	it("goes back to the menu through the view it published", () => {
@@ -423,6 +427,72 @@ describe("the mixing table", () => {
 	});
 });
 
+describe("the arena designer", () => {
+	let h: GameHarness;
+
+	beforeAll(async () => {
+		h = await loadGame();
+	});
+
+	afterAll(() => {
+		h.close();
+	});
+
+	it("publishes nothing until the menu asks for it", () => {
+		expect(h.bridge.designStore.get()).toBeNull();
+	});
+
+	it("hands over a blank board, what the save can paint with, and where everyone starts", () => {
+		h.document.getElementById("builderopen")?.click();
+
+		const view = h.bridge.designStore.get();
+		expect(view?.dim).toBe(h.game.S.dim);
+		expect(view?.preset.length).toBe(h.game.S.dim * h.game.S.dim);
+		expect(view?.preset.every((k) => k === null)).toBe(true);
+		expect(view?.elements).toStrictEqual(h.game.S.unlocked);
+		expect(view?.fusions).toStrictEqual([]);
+		expect(view?.spawns.length).toBe(h.game.S.np);
+	});
+
+	it("names a fusion only once it has been mixed in play", () => {
+		h.game.S.codex["steam"] = 1;
+		h.document.getElementById("builderopen")?.click();
+
+		expect(h.bridge.designStore.get()?.fusions).toStrictEqual(["steam"]);
+	});
+
+	it("paints the board the next match is played on", () => {
+		h.bridge.designStore.get()?.paint(3, "fire");
+
+		expect(h.game.S.preset?.[3]).toBe("fire");
+		expect(h.bridge.designStore.get()?.preset[3]).toBe("fire");
+	});
+
+	it("draws the ring for another table, and the setup screen follows", () => {
+		h.bridge.designStore.get()?.setSeats(4);
+
+		expect(h.game.S.np).toBe(4);
+		expect(h.document.querySelector<HTMLInputElement>("#np")?.value).toBe("4");
+		expect(h.document.getElementById("npval")?.textContent).toBe("4");
+		expect(h.bridge.designStore.get()?.spawns.length).toBe(4);
+	});
+
+	it("wipes the board through the view it published", () => {
+		h.bridge.designStore.get()?.clear();
+
+		expect(h.game.S.preset?.every((k) => k === null)).toBe(true);
+	});
+
+	it("keeps the painted board once the designer is shut", () => {
+		h.bridge.designStore.get()?.paint(5, "water");
+
+		h.bridge.designStore.get()?.close();
+
+		expect(h.bridge.designStore.get()).toBeNull();
+		expect(h.game.S.preset?.[5]).toBe("water");
+	});
+});
+
 describe("ids the script reaches for", () => {
 	it("are all produced by the markup or by a panel", async () => {
 		const referenced = [
@@ -445,9 +515,6 @@ describe("ids the script reaches for", () => {
 				h.game.drawNames,
 				h.game.drawWho,
 				h.game.drawMvChips,
-				h.game.drawPalette,
-				h.game.drawSpawnPicker,
-				h.game.drawReplay,
 			]) {
 				draw();
 				collect();

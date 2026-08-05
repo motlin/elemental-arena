@@ -1,10 +1,10 @@
 /** Turning clicks and keys into moves. */
 
-import {simStore, tableStore} from "./bridge.js";
+import {replayStore, simStore, tableStore} from "./bridge.js";
 import {clickCard, doPlace} from "./cards.js";
 import {attackTiles, doAttack, startAttack} from "./combat.js";
 import {endTurn} from "./match.js";
-import {closeSim, closeTable, rvStop} from "./menu.js";
+import {closeReplay, closeSim, closeTable} from "./menu.js";
 import {
 	doDash,
 	doFloat,
@@ -108,9 +108,8 @@ const typing = (e: Event): boolean => {
 };
 addEventListener("keydown", (e) => {
 	if (typing(e)) return; // let people write without moving their fighter
-	if (e.key === "Escape" && $("replay").classList.contains("on")) {
-		rvStop();
-		$("replay").classList.remove("on");
+	if (e.key === "Escape" && replayStore.get() !== null) {
+		closeReplay();
 		return;
 	}
 	if (e.key === "Escape" && simStore.get() !== null) {

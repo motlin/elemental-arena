@@ -5,7 +5,7 @@
  * filled it in from the renderer, and gains a store here plus a component in src/ui/.
  */
 
-import type {LogEntry} from "./types.js";
+import type {Frame, LogEntry} from "./types.js";
 
 type Listener = () => void;
 
@@ -104,8 +104,8 @@ export interface SimView {
 	readonly close: () => void;
 }
 
-/** A shelf is the same shelf whatever array it arrived in. */
-function sameKeys(a: readonly string[], b: readonly string[]): boolean {
+/** A list is the same list whatever array it arrived in. */
+function sameKeys<T>(a: readonly T[], b: readonly T[]): boolean {
 	return a.length === b.length && a.every((k, i) => k === b[i]);
 }
 
@@ -145,3 +145,82 @@ function sameTable(a: TableView | null, b: TableView | null): boolean {
 }
 
 export const tableStore = createStore<TableView | null>(null, sameTable);
+
+/** What the replay needs to know about the match it steps back through. */
+export interface ReplayView {
+	/** Every frame `logit` snapshotted, oldest first. */
+	readonly frames: readonly Frame[];
+	/** The grid the match was played on, which every frame's board fills. */
+	readonly dim: number;
+	/** Shuts the replay and goes back to whatever it was opened over. */
+	readonly close: () => void;
+}
+
+function sameReplay(a: ReplayView | null, b: ReplayView | null): boolean {
+	if (a === null || b === null) return a === b;
+	return a.dim === b.dim && a.frames === b.frames && a.close === b.close;
+}
+
+export const replayStore = createStore<ReplayView | null>(null, sameReplay);
+
+/** Where one seat starts on the board being painted. */
+export interface SpawnSpot {
+	/** Board index the seat opens the match on. */
+	readonly index: number;
+	/** Who starts there, so the square can say so. */
+	readonly name: string;
+	/** The seat's colour, fed to the glyph as `--pc`. */
+	readonly colour: string;
+}
+
+/** What the arena designer needs to know about the ground it is painting. */
+export interface DesignView {
+	/** The grid being painted, which is the one the next match is played on. */
+	readonly dim: number;
+	/** One terrain key per square, or null where nothing has been painted. */
+	readonly preset: readonly (string | null)[];
+	/** Element keys the save has unlocked, cheapest first. */
+	readonly elements: readonly string[];
+	/** Fused element keys already discovered in play. */
+	readonly fusions: readonly string[];
+	/** Where each seat starts, in seat order. */
+	readonly spawns: readonly SpawnSpot[];
+	/** How many seats the spawn ring is drawn for. */
+	readonly seats: number;
+	/** Draws the ring for a different number of seats, which the setup screen follows. */
+	readonly setSeats: (seats: number) => void;
+	/** Paints one square, or clears it back to bare ground with null. */
+	readonly paint: (index: number, key: string | null) => void;
+	/** Wipes every square the board has been painted with. */
+	readonly clear: () => void;
+	/** Shuts the designer and goes back to the setup screen. */
+	readonly close: () => void;
+}
+
+function sameSpawns(a: readonly SpawnSpot[], b: readonly SpawnSpot[]): boolean {
+	return (
+		a.length === b.length &&
+		a.every((spot, i) => {
+			const other = b[i];
+			return other !== undefined && spot.index === other.index && spot.name === other.name;
+		})
+	);
+}
+
+function sameDesign(a: DesignView | null, b: DesignView | null): boolean {
+	if (a === null || b === null) return a === b;
+	return (
+		a.dim === b.dim &&
+		a.seats === b.seats &&
+		a.setSeats === b.setSeats &&
+		a.paint === b.paint &&
+		a.clear === b.clear &&
+		a.close === b.close &&
+		sameKeys(a.preset, b.preset) &&
+		sameKeys(a.elements, b.elements) &&
+		sameKeys(a.fusions, b.fusions) &&
+		sameSpawns(a.spawns, b.spawns)
+	);
+}
+
+export const designStore = createStore<DesignView | null>(null, sameDesign);

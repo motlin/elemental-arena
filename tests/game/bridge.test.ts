@@ -1,15 +1,19 @@
 import {describe, it, expect, afterEach} from "vitest";
 import {
+	designStore,
 	handoffStore,
 	overStore,
+	replayStore,
 	simStore,
 	tableStore,
+	type DesignView,
 	type HandoffView,
 	type OverView,
+	type ReplayView,
 	type SimView,
 	type TableView,
 } from "../../src/game/bridge.js";
-import type {LogEntry} from "../../src/game/types.js";
+import type {Frame, LogEntry} from "../../src/game/types.js";
 
 function view(overrides: Partial<HandoffView> = {}): HandoffView {
 	return {seat: 0, name: "Vermilion", colour: "#ff4d8d", dismiss: noop, ...overrides};
@@ -24,6 +28,8 @@ afterEach(() => {
 	overStore.set(null);
 	simStore.set(null);
 	tableStore.set(null);
+	replayStore.set(null);
+	designStore.set(null);
 });
 
 describe("handoffStore", () => {
@@ -202,5 +208,103 @@ describe("tableStore", () => {
 		unsubscribe();
 
 		expect(seen).toStrictEqual([[], ["steam"]]);
+	});
+});
+
+/** The frames a match hands over, which the replay only ever reads. */
+const FRAMES: Frame[] = [];
+
+function replay(overrides: Partial<ReplayView> = {}): ReplayView {
+	return {frames: FRAMES, dim: 9, close: noop, ...overrides};
+}
+
+describe("replayStore", () => {
+	it("starts with the replay shut", () => {
+		expect(replayStore.get()).toBeNull();
+	});
+
+	it("stays quiet when the same match is republished", () => {
+		let calls = 0;
+		const unsubscribe = replayStore.subscribe(() => calls++);
+
+		replayStore.set(replay());
+		replayStore.set(replay());
+		unsubscribe();
+
+		expect(calls).toBe(1);
+	});
+
+	it("counts a match played on another grid as news", () => {
+		const seen: (number | undefined)[] = [];
+		const unsubscribe = replayStore.subscribe(() => seen.push(replayStore.get()?.dim));
+
+		replayStore.set(replay());
+		replayStore.set(replay({dim: 13}));
+		unsubscribe();
+
+		expect(seen).toStrictEqual([9, 13]);
+	});
+});
+
+function design(overrides: Partial<DesignView> = {}): DesignView {
+	return {
+		dim: 3,
+		preset: [null, null, null, null, null, null, null, null, null],
+		elements: ["fire"],
+		fusions: [],
+		spawns: [{index: 0, name: "Vermilion", colour: "#ff4d8d"}],
+		seats: 2,
+		setSeats: noop,
+		paint: noop,
+		clear: noop,
+		close: noop,
+		...overrides,
+	};
+}
+
+describe("designStore", () => {
+	it("starts with the designer shut", () => {
+		expect(designStore.get()).toBeNull();
+	});
+
+	it("stays quiet when the same board is republished", () => {
+		let calls = 0;
+		const unsubscribe = designStore.subscribe(() => calls++);
+
+		designStore.set(design());
+		designStore.set(design());
+		unsubscribe();
+
+		expect(calls).toBe(1);
+	});
+
+	it("counts one square painted as news", () => {
+		const seen: (readonly (string | null)[] | undefined)[] = [];
+		const unsubscribe = designStore.subscribe(() => seen.push(designStore.get()?.preset));
+
+		designStore.set(design());
+		designStore.set(design({preset: ["fire", null, null, null, null, null, null, null, null]}));
+		unsubscribe();
+
+		expect(seen.map((preset) => preset?.[0])).toStrictEqual([null, "fire"]);
+	});
+
+	it("counts the ring being drawn for another table as news", () => {
+		const seen: (number | undefined)[] = [];
+		const unsubscribe = designStore.subscribe(() => seen.push(designStore.get()?.spawns.length));
+
+		designStore.set(design());
+		designStore.set(
+			design({
+				seats: 3,
+				spawns: [
+					{index: 0, name: "Vermilion", colour: "#ff4d8d"},
+					{index: 8, name: "Cyan", colour: "#4dd8ff"},
+				],
+			}),
+		);
+		unsubscribe();
+
+		expect(seen).toStrictEqual([1, 2]);
 	});
 });

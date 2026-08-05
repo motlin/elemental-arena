@@ -133,7 +133,6 @@ export function startMatch(): void {
 	S.replyTo = null;
 	S.log = [];
 	S.frames = [];
-	S.rvi = 0;
 
 	S.players.forEach(dealOpening);
 	while (!S.players[S.turn]!.alive && S.turn < S.players.length - 1) S.turn++;

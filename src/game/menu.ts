@@ -3,14 +3,14 @@
  * replay, plus the doors to the power simulator and the mixing table React paints.
  */
 
-import {simStore, tableStore} from "./bridge.js";
-import type {TableView} from "./bridge.js";
-import {BASE, COST, EL, FUSE, MV, T, W, WBASE} from "./data/index.js";
+import {designStore, replayStore, simStore, tableStore} from "./bridge.js";
+import type {DesignView, SpawnSpot, TableView} from "./bridge.js";
+import {BASE, COST, EL, FUSE, MV, W, WBASE} from "./data/index.js";
 import type {ActionKey} from "./data/index.js";
-import {elsOn, known, mvOwnedMask, offFor, terrOf, wsOn} from "./lookups.js";
+import {elsOn, known, mvOwnedMask, offFor, wsOn} from "./lookups.js";
 import {ringSpots, startMatch} from "./match.js";
 import {errText, save} from "./save.js";
-import {$, PC, PCN, PN, S, idx, nameOf, rgba, src, teamName} from "./state.js";
+import {$, PC, PCN, PN, S, idx, nameOf, src, teamName} from "./state.js";
 import type {Offs, ShopItem} from "./types.js";
 
 export function drawSeg(): void {
@@ -450,261 +450,63 @@ function presetReady(): void {
 		S.presetDim = S.dim;
 	}
 }
-function paintedCount(): number {
-	return S.preset ? S.preset.filter(Boolean).length : 0;
+/** Where each seat opens the match, which the designer marks out on the board it is painting. */
+function spawnSpots(): SpawnSpot[] {
+	return ringSpots(S.dim, S.np).map(([x, y], seat) => ({index: idx(x, y), name: nameOf(seat), colour: PC[seat]!}));
 }
-function bLabel(k: string): string {
-	return k === "collapsed" ? "Break" : k === "erase" ? "Erase" : EL[k] ? EL[k].n : T[k]!.n;
-}
-function bColour(k: string): string {
-	return k === "erase" ? "var(--muted)" : EL[k] ? EL[k].c : T[k]!.c;
-}
-export function drawSpawnPicker(): void {
-	$("bspawn").innerHTML =
-		[2, 3, 4, 5, 6, 7, 8]
-			.map((n) => `<button class="bp spw" data-n="${n}" aria-pressed="${S.np === n}">${n}</button>`)
-			.join("") + '<span class="hint" style="margin-left:8px">players</span>';
-	$("bspawn")
-		.querySelectorAll(".spw")
-		.forEach(
-			(b) =>
-				(b.onclick = () => {
-					S.np = +b.dataset["n"]!;
-					$("np").value = String(S.np);
-					$("npval").textContent = String(S.np);
-					drawNames();
-					if (S.who !== "all" && S.who >= S.np) S.who = "all";
-					drawLoadout();
-					drawSpawnPicker();
-					buildBBoard();
-				}),
-		);
-}
-export function drawPalette(): void {
-	const row = (host: string, keys: string[]): void => {
-		const el = $(host);
-		el.innerHTML =
-			keys
-				.map(
-					(k) =>
-						`<button class="bp mat" data-k="${k}" aria-pressed="${S.btool === k}">
-        <span class="d" style="background:${bColour(k)}"></span>${bLabel(k)}</button>`,
-				)
-				.join("") || '<span class="hint">Nothing here yet.</span>';
-		el.querySelectorAll(".mat").forEach(
-			(b) =>
-				(b.onclick = () => {
-					S.btool = b.dataset["k"]!;
-					drawPalette();
-				}),
-		);
+/**
+ * The board as it stands. The designer paints through the game rather than keeping a copy, so the
+ * arena a match is fought over is the one thing either side has to agree on.
+ */
+function designView(): DesignView {
+	return {
+		dim: S.dim,
+		preset: [...(S.preset ?? [])],
+		elements: [...S.unlocked].sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0)),
+		fusions: [...new Set(Object.values(FUSE).filter((k) => S.codex[k]))],
+		spawns: spawnSpots(),
+		seats: S.np,
+		setSeats: designSeats,
+		paint: paintSquare,
+		clear: clearBoard,
+		close: closeBuilder,
 	};
-	row(
-		"bpal",
-		[...S.unlocked].sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0)),
-	);
-	row(
-		"bpalf",
-		Object.values(FUSE).filter((k) => S.codex[k]),
-	);
-	row("bpalt", ["collapsed", "erase"]);
 }
-function paintCell(i: number): void {
+function paintSquare(index: number, key: string | null): void {
 	if (!S.preset) return;
-	S.preset[i] = S.btool === "erase" ? null : S.btool;
-	paintTile(i);
-	drawSpawns();
-	$("bcount").textContent = `${paintedCount()} of ${S.dim * S.dim} squares set`;
+	S.preset[index] = key;
+	designStore.set(designView());
 }
-function paintTile(i: number): void {
-	const n = $("bboard").children[i];
-	if (!n) return;
-	const k = S.preset?.[i];
-	n.className = "tile";
-	n.style.removeProperty("--tc");
-	n.title = "";
-	if (!k) return;
-	const t = terrOf(k)!;
-	n.classList.add("terr");
-	if (t.solid) n.classList.add("solid");
-	if (t.dead) n.classList.add("gonezone");
-	n.style.setProperty("--tc", t.c);
-	n.style.setProperty("--tcs", rgba(t.c, 0.44));
-	n.title = `${t.n}: ${t.d}`;
-}
-let painting = false;
-function buildBBoard(): void {
-	const b = $("bboard");
-	b.style.gridTemplateColumns = `repeat(${S.dim},var(--cell))`;
-	const avail = Math.min(window.innerWidth - 70, 720);
-	b.style.setProperty("--cell", Math.max(12, Math.min(40, Math.floor(avail / S.dim) - 2)) + "px");
-	b.innerHTML = "";
-	for (let i = 0; i < S.dim * S.dim; i++) {
-		const t = document.createElement("div");
-		t.className = "tile";
-		t.onpointerdown = (e) => {
-			e.preventDefault();
-			painting = true;
-			paintCell(i);
-		};
-		t.onpointerenter = () => {
-			if (painting) paintCell(i);
-		};
-		b.appendChild(t);
-	}
-	for (let i = 0; i < S.dim * S.dim; i++) paintTile(i);
-	drawSpawns();
-	$("bcount").textContent = `${paintedCount()} of ${S.dim * S.dim} squares set`;
-}
-export function drawSpawns(): void {
-	const b = $("bboard");
-	b.querySelectorAll(".mage").forEach((m) => {
-		m.remove();
-	});
-	b.querySelectorAll(".tile").forEach((t) => {
-		t.classList.remove("willclear");
-	});
-	let sealed = 0;
-	ringSpots(S.dim, S.np).forEach(([x, y], n) => {
-		const i = idx(x, y),
-			node = b.children[i];
-		if (!node) return;
-		const m = document.createElement("i");
-		m.className = "mage p" + n;
-		m.style.setProperty("--pc", PC[n]!);
-		node.appendChild(m);
-		const k = S.preset?.[i];
-		const t = k ? terrOf(k) : null;
-		if (t && (t.solid || t.gone)) {
-			node.classList.add("willclear");
-			sealed++;
-		}
-		node.title = `${nameOf(n)} starts here`;
-	});
-	const note = $("bspawnnote");
-	if (note)
-		note.textContent = sealed
-			? `${sealed} spawn ${sealed === 1 ? "square has" : "squares have"} a wall or a hole on it. That is left exactly as you painted it: a hole there takes that player out on turn one.`
-			: "";
-}
-addEventListener("pointerup", () => {
-	painting = false;
-});
-function openBuilder(): void {
-	presetReady();
-	drawPalette();
-	drawSpawnPicker();
-	buildBBoard();
-	$("builder").classList.add("on");
-}
-$("builderopen").onclick = openBuilder;
-$("bdone").onclick = () => {
-	$("builder").classList.remove("on");
-};
-$("bclear").onclick = () => {
+function clearBoard(): void {
 	S.preset = Array(S.dim * S.dim).fill(null);
-	buildBBoard();
+	designStore.set(designView());
+}
+// the designer draws the ring for as many seats as it likes, and the setup screen follows it
+function designSeats(seats: number): void {
+	S.np = seats;
+	$("np").value = String(S.np);
+	$("npval").textContent = String(S.np);
+	drawNames();
+	if (S.who !== "all" && S.who >= S.np) S.who = "all";
+	drawLoadout();
+	designStore.set(designView());
+}
+/** Takes the designer down; a stable reference, so republishing the same board is not news. */
+export function closeBuilder(): void {
+	designStore.set(null);
+}
+$("builderopen").onclick = () => {
+	presetReady();
+	designStore.set(designView());
 };
-/* The replay: stepping through the frames `logit` snapshotted, one log line at a time. */
-let rvTimer: ReturnType<typeof setInterval> | null = null;
-export function drawReplay(): void {
-	const f = S.frames[S.rvi];
-	const bar = $("rvbar"),
-		cnt = $("rvcount"),
-		note = $("rvnote");
-	bar.max = String(Math.max(0, S.frames.length - 1));
-	bar.value = String(S.rvi);
-	cnt.textContent = `${S.frames.length ? S.rvi + 1 : 0} / ${S.frames.length}`;
-	if (!f) {
-		note.textContent = "Nothing was recorded.";
-		$("rvboard").innerHTML = "";
-		$("rvside").innerHTML = "";
-		return;
-	}
-	note.innerHTML = `<b style="color:${f.c}">${f.who || "The arena"}</b>
-    <span style="color:var(--muted)"> · round ${f.r}</span><br>
-    <span${f.say ? ' style="font-style:italic"' : ""}>${f.say ? "says " : ""}${f.t}</span>`;
-
-	const b = $("rvboard");
-	b.style.gridTemplateColumns = `repeat(${S.dim},var(--cell))`;
-	const avail = Math.min(window.innerWidth - 360, 560);
-	b.style.setProperty("--cell", Math.max(11, Math.min(34, Math.floor(avail / S.dim) - 2)) + "px");
-	let html = "";
-	for (let i = 0; i < S.dim * S.dim; i++) {
-		const k = f.board[i];
-		const d = k ? T[k] : null;
-		const who = f.players.find((q) => q.alive && q.y * S.dim + q.x === i);
-		const cls = "tile" + (d ? " terr" : "") + (d?.solid ? " solid" : "") + (d?.dead ? " gonezone" : "");
-		const style = d ? `--tc:${d.c};--tcs:${rgba(d.c, 0.44)}` : "";
-		const mage = who ? `<i class="mage p${f.players.indexOf(who)}" style="--pc:${who.c}"></i>` : "";
-		html += `<div class="${cls}" style="${style}" title="${d ? d.n : ""}">${mage}</div>`;
-	}
-	b.innerHTML = html;
-
-	$("rvside").innerHTML = f.players
-		.map(
-			(q) => `
-    <div class="rvp ${q.alive ? "" : "out"}" style="--pc:${q.c}">
-      <div class="rvh"><span class="glyph mage p${f.players.indexOf(q)}"></span>
-        <span class="rvn">${q.name}</span>
-        <span class="rvhp">${q.alive ? q.hp + " hp" : "out"}</span></div>
-      <div class="bar"><i style="width:${(q.hp / q.max) * 100}%;background:${q.c}"></i></div>
-      <div class="rvcards" style="margin-top:7px">${
-			q.hand.length
-				? q.hand.map((n) => `<span class="rvc">${n}</span>`).join("")
-				: '<span class="rvnone">empty hand</span>'
-		}</div>
-    </div>`,
-		)
-		.join("");
-}
-function rvGo(i: number): void {
-	S.rvi = Math.max(0, Math.min(S.frames.length - 1, i));
-	drawReplay();
-}
-export function rvStop(): void {
-	if (rvTimer !== null) clearInterval(rvTimer);
-	rvTimer = null;
-	$("rvplay").textContent = "Play";
-}
-function rvPlay(): void {
-	if (rvTimer) {
-		rvStop();
-		return;
-	}
-	if (S.rvi >= S.frames.length - 1) S.rvi = 0;
-	$("rvplay").textContent = "Pause";
-	rvTimer = setInterval(() => {
-		if (S.rvi >= S.frames.length - 1) {
-			rvStop();
-			return;
-		}
-		rvGo(S.rvi + 1);
-	}, 900);
-}
+/* The replay: the frames `logit` snapshotted, handed over whole for React to step through. */
 export function openReplay(): void {
-	rvStop();
-	S.rvi = 0;
-	drawReplay();
-	$("replay").classList.add("on");
+	replayStore.set({frames: [...S.frames], dim: S.dim, close: closeReplay});
 }
-$("rvclose").onclick = () => {
-	rvStop();
-	$("replay").classList.remove("on");
-};
-$("rvprev").onclick = () => {
-	rvStop();
-	rvGo(S.rvi - 1);
-};
-$("rvnext").onclick = () => {
-	rvStop();
-	rvGo(S.rvi + 1);
-};
-$("rvplay").onclick = rvPlay;
-$("rvbar").oninput = (e) => {
-	rvStop();
-	rvGo(+src(e).value);
-};
+/** Takes the replay down; a stable reference, so republishing the same match is not news. */
+export function closeReplay(): void {
+	replayStore.set(null);
+}
 /**
  * The weapon simulator: a card built out of nothing, read for what it would do if it were real.
  * The card itself is React's to keep, so all the menu hands over is what the save has to build one

@@ -95,12 +95,8 @@ export {
 	drawLoadout,
 	drawMvChips,
 	drawNames,
-	drawPalette,
-	drawReplay,
 	drawSeg,
 	drawShop,
-	drawSpawnPicker,
-	drawSpawns,
 	drawTeams,
 	drawWho,
 } from "./menu.js";
