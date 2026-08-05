@@ -2342,7 +2342,7 @@
 					c: "#7ed321",
 					t: "venom",
 					cost: 800,
-					blurb: "Hurts to cross and to linger in. In the forge it squares a weapon instead of adding to it.",
+					blurb: "Hurts to cross and to linger in. In the forge it doubles a weapon and adds 6 on top.",
 				},
 				life: {
 					n: "Life",
@@ -3650,7 +3650,7 @@
 				air: {dmg: 3, fx: "shoves the target 3 tiles"},
 				bolt: {dmg: 7, fx: "arcs to one more enemy nearby"},
 				space: {dmg: 0, mult: 2, fx: "doubles the damage of everything else on the weapon"},
-				poison: {dmg: 0, pow: 1, fx: "halves the weapon strength, then squares it"},
+				poison: {dmg: 0, pow: 1, fx: "doubles the weapon strength and adds 6 on top"},
 				life: {dmg: 4, steal: 1, fx: "heals you for half of what the swing deals"},
 				iron: {dmg: 8, drag: 1, fx: "drags the target one tile toward you"},
 				echo: {dmg: 2, hits: 1, fx: "makes the weapon strike one extra time"},
@@ -6262,10 +6262,12 @@
 				return (tally(c.els, elName) + " " + tally(c.ids, (i) => W[i].n)).trim();
 			}
 			function wepDmg(c) {
-				let d = c.ids.reduce((s, i) => s + W[i].dmg, 0) + c.els.reduce((s, e) => s + (forgeOf(e).dmg || 0), 0);
-				// squaring is a single transformation: stacking poison adds to the base, it does not re-square
-				if (c.els.some((e) => forgeOf(e).pow)) d = Math.pow(d / 2, 2);
-				const mult = c.els.reduce((m, e) => m * (forgeOf(e).mult || 1), 1);
+				const forges = c.els.map(forgeOf);
+				let d = c.ids.reduce((s, i) => s + W[i].dmg, 0) + forges.reduce((s, f) => s + (f.dmg || 0), 0);
+				// poison doubles once regardless of stack count: extra stacks add a flat kicker instead of compounding
+				const venom = forges.reduce((s, f) => s + (f.pow || 0), 0);
+				if (venom) d = d * 2 + 6 * venom;
+				const mult = forges.reduce((m, f) => m * (f.mult || 1), 1);
 				return Math.round(d * mult);
 			}
 			const DIR8 = [
