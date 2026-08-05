@@ -130,6 +130,7 @@ export interface GameState {
 	dim: number;
 	np: number;
 	hp: number;
+	startNrg: number;
 	names: string[];
 	cols: number[];
 	mv: number[];
@@ -182,6 +183,7 @@ export interface GameGlobals {
 	PAT: Record<string, (() => number[][]) | undefined>;
 	MODEHINT: Record<string, string | undefined>;
 	BASE: string[];
+	WBASE: string[];
 	S: GameState;
 	elName: (e: string) => string;
 	elColor: (e: string) => string;

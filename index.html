@@ -3487,7 +3487,7 @@
 					[-1, -2],
 					[-2, -1],
 				],
-				wand: () => rays(DIR8, 25).concat(PAT.knight()),
+				wand: () => rays(DIAG, 25).concat(PAT.knight()),
 				ray63: () => rays(DIR8, 6, 3),
 			};
 			const WBASE = ["dagger", "sword", "crossbow"];
@@ -3495,8 +3495,8 @@
 				dagger: {
 					n: "Dagger",
 					c: "#9fb4cc",
-					cost: 3,
-					dmg: 4,
+					cost: 2,
+					dmg: 5,
 					hits: 2,
 					pat: "adj",
 					d: "Any tile touching you. Strikes twice.",
@@ -3593,12 +3593,12 @@
 				wand: {
 					n: "Magic Wand",
 					c: "#b98cff",
-					cost: 6,
+					cost: 5,
 					dmg: 25,
 					hits: 1,
 					pat: "wand",
 					price: 700,
-					d: "Every straight and diagonal line, plus the eight squares a chess knight would reach.",
+					d: "Every diagonal line to the wall, plus the eight squares a chess knight would reach.",
 				},
 				gun: {
 					n: "Gun",
