@@ -364,18 +364,13 @@ function resetQuitBtn(): void {
 export function forfeitArmed(): boolean {
 	return quitArmed;
 }
-/** Arms the forfeit, then on the second tap takes this fighter out of the match. */
-export function forfeit(): void {
+/**
+ * Takes whoever is to move out of the match for good. The button arms itself first and asks again;
+ * a move arriving off a socket has already been asked, so the two callers part company here.
+ */
+export function dropOut(): void {
 	const p = cur();
-	if (!quitArmed) {
-		quitArmed = true;
-		quitT = setTimeout(resetQuitBtn, 3500);
-		redraw();
-		return;
-	}
 	clearUndo();
-	if (quitT !== null) clearTimeout(quitT);
-	resetQuitBtn();
 	p.hp = 0;
 	p.alive = false;
 	p.held = null;
@@ -383,6 +378,18 @@ export function forfeit(): void {
 	void save();
 	if (checkAlive()) nextTurn();
 	else redraw();
+}
+/** Arms the forfeit, then on the second tap takes this fighter out of the match. */
+export function forfeit(): void {
+	if (!quitArmed) {
+		quitArmed = true;
+		quitT = setTimeout(resetQuitBtn, 3500);
+		redraw();
+		return;
+	}
+	if (quitT !== null) clearTimeout(quitT);
+	resetQuitBtn();
+	dropOut();
 }
 /** Walks out of the match and back to the menu, leaving everyone else where they stand. */
 export function leaveMatch(): void {
