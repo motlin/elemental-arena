@@ -1,8 +1,14 @@
-import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {fighter, loadGame, type GameHarness, type Player, type WeaponDef} from "./harness.js";
+import {describe, it, expect} from "vitest";
+import {attackTiles} from "../../src/game/combat.js";
+import {W, WBASE, type WeaponDef} from "../../src/game/data/index.js";
+import {S} from "../../src/game/state.js";
+import type {Player} from "../../src/game/types.js";
+import {fighter} from "./fighter.js";
 
 /** attackTiles only reads the position, so one stand-in fighter walks every pattern from anywhere. */
 const FIGHTER: Omit<Player, "x" | "y"> = fighter();
+
+const keys = Object.keys(W);
 
 /**
  * A weapon's shop price is what separates a starting weapon from a bought one, and the three you
@@ -14,13 +20,9 @@ const priceOf = (w: WeaponDef): number => w.price ?? 0;
 const swingDmg = (w: WeaponDef): number => w.dmg * w.hits;
 
 describe("the weapon table", () => {
-	let h: GameHarness;
-	let keys: string[];
-	let dim: number;
-
 	/** Every square this weapon threatens from (x, y), as "x,y" keys. */
 	function reach(key: string, x: number, y: number): Set<string> {
-		return new Set(h.game.attackTiles({...FIGHTER, x, y}, {ids: [key], els: []}).map(([tx, ty]) => `${tx},${ty}`));
+		return new Set(attackTiles({...FIGHTER, x, y}, {ids: [key], els: []}).map(([tx, ty]) => `${tx},${ty}`));
 	}
 
 	/**
@@ -29,8 +31,8 @@ describe("the weapon table", () => {
 	 * which is the whole point of the whip reaching to the edge while the javelin stops at four.
 	 */
 	function coversEverywhere(outer: string, inner: string): boolean {
-		for (let y = 0; y < dim; y++)
-			for (let x = 0; x < dim; x++) {
+		for (let y = 0; y < S.dim; y++)
+			for (let x = 0; x < S.dim; x++) {
 				const wide = reach(outer, x, y);
 				for (const tile of reach(inner, x, y)) if (!wide.has(tile)) return false;
 			}
@@ -38,34 +40,24 @@ describe("the weapon table", () => {
 	}
 
 	function weapon(key: string): WeaponDef {
-		const w = h.game.W[key];
+		const w = W[key];
 		if (w === undefined) throw new Error(`no weapon named ${key}`);
 		return w;
 	}
-
-	beforeAll(async () => {
-		h = await loadGame();
-		keys = Object.keys(h.game.W);
-		dim = h.game.S.dim;
-	});
-
-	afterAll(() => {
-		h.close();
-	});
 
 	/**
 	 * Round one hands out `startNrg` energy, so a starting weapon that costs more than that is a
 	 * card you cannot play on the turn you are given it.
 	 */
 	it("swings all three starting weapons on round one", () => {
-		const base = [...h.game.WBASE];
+		const base = [...WBASE];
 		const costs = base.map((k) => weapon(k).cost);
 
 		expect([base, costs]).toStrictEqual([
 			["dagger", "sword", "crossbow"],
 			[2, 2, 2],
 		]);
-		expect(Math.max(...costs)).toBeLessThanOrEqual(h.game.S.startNrg);
+		expect(Math.max(...costs)).toBeLessThanOrEqual(S.startNrg);
 	});
 
 	/**

@@ -1,67 +1,88 @@
-import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {gameModules, loadGame, readGameModule, readIndexHtml, type GameHarness} from "./harness.js";
+// @vitest-environment jsdom
+import {readFileSync, readdirSync} from "node:fs";
+import path from "node:path";
+import {describe, it, expect, vi} from "vitest";
+
+const repoRoot = path.join(import.meta.dirname, "..", "..");
+const gameDir = path.join(repoRoot, "src", "game");
+
+/** One of the game's modules by file name, for the checks that read the code rather than run it. */
+function readGameModule(name: string): string {
+	return readFileSync(path.join(gameDir, name), "utf8");
+}
+
+/** The names of the modules src/game/game.ts pulls together, in no particular order. */
+function gameModules(): string[] {
+	return readdirSync(gameDir).filter((name) => name.endsWith(".ts"));
+}
+
+/** Stands in for the Claude-artifact `window.storage` that public/storage-shim.js provides. */
+function installStorage(seed: Record<string, string>): void {
+	const cells = new Map<string, string>(Object.entries(seed));
+	vi.stubGlobal("storage", {
+		get: async (key: string) => Promise.resolve(cells.has(key) ? {key, value: cells.get(key)!} : null),
+		set: async (key: string, value: string) => Promise.resolve(cells.set(key, value)).then(() => undefined),
+		delete: async (key: string) => Promise.resolve(cells.delete(key)).then(() => undefined),
+	});
+}
+
+/**
+ * A fresh copy of the game, booted against `seed`. The entry module reads the save while it loads,
+ * so the storage has to be in place before it is imported, and `resetModules` is what makes the
+ * next load read it again rather than hand back the copy the last one left behind.
+ */
+async function bootGame(seed: Record<string, string> = {}): Promise<typeof import("../../src/game/game.js")> {
+	installStorage(seed);
+	vi.resetModules();
+	const game = await import("../../src/game/game.js");
+	await game.boot;
+	return game;
+}
 
 describe("game script boot", () => {
-	let h: GameHarness;
+	it("builds the state object from the constants above it", async () => {
+		const {S} = await bootGame();
 
-	beforeAll(async () => {
-		h = await loadGame();
+		expect(S.dim).toBe(9);
+		expect([...S.unlocked]).toStrictEqual(["fire", "water", "earth"]);
 	});
 
-	afterAll(() => {
-		h.close();
-	});
+	it("reports no load error", async () => {
+		const {S} = await bootGame();
 
-	it("runs top to bottom without throwing", () => {
-		expect(h.errors).toStrictEqual([]);
-	});
-
-	it("builds the state object from the constants above it", () => {
-		expect(h.game.S.dim).toBe(9);
-		expect([...h.game.S.unlocked]).toStrictEqual(["fire", "water", "earth"]);
-	});
-
-	it("reports no load error", () => {
-		expect(h.game.S.loadErr).toBeNull();
+		expect(S.loadErr).toBeNull();
 	});
 });
 
 describe("saved progress", () => {
 	it("restores what a previous session unlocked", async () => {
-		const h = await loadGame({
-			storage: {
-				"arena:v3": JSON.stringify({v: 2, coins: 725, unlocked: ["air"], munlocked: ["jump"], theme: "day"}),
-			},
+		const {S} = await bootGame({
+			"arena:v3": JSON.stringify({v: 2, coins: 725, unlocked: ["air"], munlocked: ["jump"], theme: "day"}),
 		});
 
-		try {
-			expect(h.game.S.loadErr).toBeNull();
-			expect(h.game.S.coins).toBe(725);
-			expect([...h.game.S.unlocked]).toStrictEqual(["fire", "water", "earth", "air"]);
-			expect([...h.game.S.munlocked]).toStrictEqual(["jump"]);
-			expect(h.document.documentElement.dataset["theme"]).toBe("day");
-		} finally {
-			h.close();
-		}
+		expect(S.loadErr).toBeNull();
+		expect(S.coins).toBe(725);
+		expect([...S.unlocked]).toStrictEqual(["fire", "water", "earth", "air"]);
+		expect([...S.munlocked]).toStrictEqual(["jump"]);
+		expect(document.documentElement.dataset["theme"]).toBe("day");
 	});
 
 	it("reports a save it cannot parse instead of dying", async () => {
-		const h = await loadGame({storage: {"arena:v3": "{not json"}});
+		const {S} = await bootGame({"arena:v3": "{not json"});
 
-		try {
-			expect(h.game.S.loadErr).not.toBeNull();
-			expect([...h.game.S.unlocked]).toStrictEqual(["fire", "water", "earth"]);
-		} finally {
-			h.close();
-		}
+		expect(S.loadErr).not.toBeNull();
+		expect([...S.unlocked]).toStrictEqual(["fire", "water", "earth"]);
 	});
 });
 
 describe("the game module", () => {
-	it("is what index.html loads, with nothing left inline", () => {
-		const html = readIndexHtml();
+	it("is what index.html loads, alongside React, with nothing left inline", () => {
+		const html = readFileSync(path.join(repoRoot, "index.html"), "utf8");
 
-		expect(html).toContain('<script type="module" src="/src/game/game.ts"></script>');
+		expect([...html.matchAll(/<script type="module" src="([^"]+)"><\/script>/g)].map((m) => m[1])).toStrictEqual([
+			"/src/main.tsx",
+			"/src/game/game.ts",
+		]);
 		expect(html).not.toContain('<script type="module">');
 	});
 
@@ -91,18 +112,5 @@ describe("the game module", () => {
 		);
 
 		expect(reaching).toStrictEqual([]);
-	});
-
-	it("hands the imported tables to the tests all the same", async () => {
-		const h = await loadGame();
-
-		try {
-			expect({el: h.game.EL["fire"]?.n, weapon: h.game.W["dagger"]?.n}).toStrictEqual({
-				el: "Fire",
-				weapon: "Dagger",
-			});
-		} finally {
-			h.close();
-		}
 	});
 });

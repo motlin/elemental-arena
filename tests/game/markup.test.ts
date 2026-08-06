@@ -1,60 +1,21 @@
-import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {loadGame, type GameHarness} from "./harness.js";
+import {readFileSync} from "node:fs";
+import path from "node:path";
+import {describe, it, expect} from "vitest";
 
-/** Containers the game paints into without first checking that they exist. */
-const REQUIRED = [
-	"game",
-	"endbtn",
-	"tglyph",
-	"tname",
-	"tround",
-	"board",
-	"moves",
-	"wep",
-	"actbar",
-	"roster",
-	"hand",
-	"chatlog",
-	"chatin",
-	"chatgo",
-	"tileinfo",
-	"inspectbtn",
-] as const;
+/** The page as it ships, which is the only place stray game markup could come back. */
+const html = readFileSync(path.join(import.meta.dirname, "..", "..", "index.html"), "utf8");
 
 describe("static markup", () => {
-	let h: GameHarness;
+	/* Every panel a match paints belongs to React now, drawn from the view the game publishes. A
+	   panel that quietly reappeared here would be one nothing ever fills in and nothing ever reads,
+	   so pin that the page carries no id but the root React mounts on. */
+	it("names nothing but the root React mounts on", () => {
+		const ids = [...html.matchAll(/\bid="([^"]*)"/g)].map((m) => m[1]);
 
-	beforeAll(async () => {
-		h = await loadGame();
+		expect(ids).toStrictEqual(["app"]);
 	});
 
-	afterAll(() => {
-		h.close();
-	});
-
-	it("carries every container the game paints into unguarded", () => {
-		const missing = REQUIRED.filter((id) => h.document.getElementById(id) === null);
-
-		expect(missing).toStrictEqual([]);
-	});
-
-	it("uses each id exactly once", () => {
-		const seen = new Map<string, number>();
-		for (const el of h.document.querySelectorAll("[id]")) {
-			seen.set(el.id, (seen.get(el.id) ?? 0) + 1);
-		}
-		const duplicated = [...seen.entries()].filter(([, count]) => count > 1).map(([id]) => id);
-
-		expect(duplicated).toStrictEqual([]);
-	});
-
-	it("opens on the menu with the game screen hidden", () => {
-		expect(h.game.S.screen).toBe("menu");
-		expect(h.document.getElementById("game")?.classList.contains("on")).toBe(false);
-	});
-
-	it("leaves the setup screen to React, which paints it out of the bridge", () => {
-		expect(h.document.getElementById("menu")).toBeNull();
-		expect(h.bridge.menuStore.get()).not.toBeNull();
+	it("leaves that root empty for React to fill", () => {
+		expect(html).toContain('<div id="app"></div>');
 	});
 });

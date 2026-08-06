@@ -1,5 +1,21 @@
-import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {fighter, loadGame, type GameHarness, type Player, type WeaponSpec} from "./harness.js";
+import {describe, it, expect} from "vitest";
+import {attackTiles, leaveFoe, leaveSelf} from "../../src/game/combat.js";
+import {CFORGE, EL, FUSE, PAT, T, W} from "../../src/game/data/index.js";
+import {
+	elColor,
+	elName,
+	forgeOf,
+	terrOf,
+	wColor,
+	wCost,
+	wDesc,
+	wHits,
+	wStrip,
+	wepDmg,
+	wepName,
+} from "../../src/game/lookups.js";
+import type {Player, WeaponSpec} from "../../src/game/types.js";
+import {fighter} from "./fighter.js";
 
 /** Anything the game renders from a missing lookup surfaces as one of these in the output string. */
 const BROKEN = /undefined|NaN|\[object Object\]/;
@@ -7,28 +23,16 @@ const BROKEN = /undefined|NaN|\[object Object\]/;
 /** attackTiles only reads the position, so a fighter parked mid-board is enough to walk every pattern. */
 const MIDBOARD: Player = fighter();
 
+const elementKeys = [...Object.keys(EL), ...Object.keys(CFORGE)];
+const weaponKeys = Object.keys(W);
+
 describe("elements crossed with weapons", () => {
-	let h: GameHarness;
-	let elementKeys: string[];
-	let weaponKeys: string[];
-
-	beforeAll(async () => {
-		h = await loadGame();
-		elementKeys = [...Object.keys(h.game.EL), ...Object.keys(h.game.CFORGE)];
-		weaponKeys = Object.keys(h.game.W);
-	});
-
-	afterAll(() => {
-		h.close();
-	});
-
 	it("covers every base element, every fusion, and every weapon", () => {
-		expect(elementKeys.length).toBe(Object.keys(h.game.EL).length + Object.keys(h.game.FUSE).length);
+		expect(elementKeys.length).toBe(Object.keys(EL).length + Object.keys(FUSE).length);
 		expect(weaponKeys.length).toBeGreaterThan(3);
 	});
 
 	it("forges every element onto every weapon without a missing lookup", () => {
-		const {wCost, wHits, wColor, wStrip, wDesc, wepName, wepDmg, attackTiles} = h.game;
 		const broken: string[] = [];
 
 		for (const el of elementKeys) {
@@ -57,7 +61,6 @@ describe("elements crossed with weapons", () => {
 	});
 
 	it("picks ground to leave under both fighters without a missing lookup", () => {
-		const {leaveSelf, leaveFoe, T, EL} = h.game;
 		const broken: string[] = [];
 
 		for (const el of elementKeys) {
@@ -77,7 +80,6 @@ describe("elements crossed with weapons", () => {
 	});
 
 	it("gives every element a forge entry and a terrain", () => {
-		const {forgeOf, terrOf, elName, elColor, T} = h.game;
 		const broken: string[] = [];
 
 		for (const el of elementKeys) {
@@ -98,7 +100,6 @@ describe("elements crossed with weapons", () => {
 	});
 
 	it("fuses every element pair into a terrain the game knows", () => {
-		const {FUSE, T, EL} = h.game;
 		const keys = Object.keys(EL);
 		const broken: string[] = [];
 
@@ -114,10 +115,9 @@ describe("elements crossed with weapons", () => {
 	});
 
 	it("resolves every weapon attack pattern", () => {
-		const {W, PAT} = h.game;
 		const broken: string[] = [];
 
-		for (const key of Object.keys(W)) {
+		for (const key of weaponKeys) {
 			const pattern = W[key]?.pat;
 			if (pattern === undefined) {
 				broken.push(`${key}: no pattern`);

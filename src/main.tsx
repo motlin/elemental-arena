@@ -4,6 +4,7 @@ import {Agentation} from "agentation";
 import {ArenaDesigner} from "./ui/ArenaDesigner.js";
 import {GameOverScreen} from "./ui/GameOverScreen.js";
 import {HandoffCurtain} from "./ui/HandoffCurtain.js";
+import {MatchScreen} from "./ui/MatchScreen.js";
 import {MixingTable} from "./ui/MixingTable.js";
 import {PowerSimulator} from "./ui/PowerSimulator.js";
 import {ReplayViewer} from "./ui/ReplayViewer.js";
@@ -15,12 +16,13 @@ if (!root) {
 	throw new Error("Root element not found");
 }
 
-// The game itself runs from the modules under src/game, which publish each migrated screen to
-// src/game/bridge.ts. Screens move here one at a time.
+// The game itself runs from the modules under src/game, which publish every screen to
+// src/game/bridge.ts. Nothing below this file paints; it all describes, and React draws.
 createRoot(root).render(
 	<StrictMode>
 		{import.meta.env.DEV && <Agentation />}
 		<SetupScreen />
+		<MatchScreen />
 		<HandoffCurtain />
 		<GameOverScreen />
 		<PowerSimulator />

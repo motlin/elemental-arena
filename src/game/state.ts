@@ -5,7 +5,7 @@
 
 import {BASE, ELBYT, T, WBASE} from "./data/index.js";
 import type {Cell, ElCard, GameEl, GameState, Player, WepCard} from "./types.js";
-import {redrawMenu} from "./view.js";
+import {redraw, redrawMenu} from "./view.js";
 
 /** The element an event came from, which the handlers read values and `data-` attributes off. */
 export const src = (e: Event): GameEl => e.target as GameEl;
@@ -76,7 +76,6 @@ export const S: GameState = {
 	codex: {},
 	matchCoins: 0,
 };
-export const $ = (id: string): GameEl => document.getElementById(id) as GameEl;
 export const idx = (x: number, y: number): number => y * S.dim + x;
 export const inb = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < S.dim && y < S.dim;
 export const cheb = (a: number, b: number, c: number, d: number): number => Math.max(Math.abs(a - c), Math.abs(b - d));
@@ -156,7 +155,7 @@ export function putTerrain(c: Cell, k: string): void {
 /** Swaps between the setup screen and the arena. */
 export function show(s: string): void {
 	S.screen = s;
-	$("game").classList.toggle("on", s === "game");
-	// the setup screen is React's, so it goes up and comes down by being published or not
+	// both screens are React's, so each goes up and comes down by being published or not
+	redraw();
 	redrawMenu();
 }

@@ -397,3 +397,342 @@ function sameMenu(a: MenuView | null, b: MenuView | null): boolean {
 }
 
 export const menuStore = createStore<MenuView | null>(null, sameMenu);
+
+/** One fighter standing on a square, as the board paints them. */
+export interface TileFighter {
+	/** Seat number, which picks the glyph's `p0`..`p7` class. */
+	readonly seat: number;
+	/** The seat's colour, fed to the glyph as `--pc`. */
+	readonly colour: string;
+	/** True for the fighter whose turn it is, which marks the glyph active. */
+	readonly active: boolean;
+	/** True for a fighter under a glare, which is never shown to the fighter themselves. */
+	readonly lit: boolean;
+	/** Where the glyph sits when a square is shared, or null when it has the square to itself. */
+	readonly inset: string | null;
+	/** Which glyph sits on top when a square is shared, or null when only one stands there. */
+	readonly z: number | null;
+}
+
+/** One square of the board. Anything the seat cannot see has already been left out. */
+export interface TileView {
+	/** The ground's colour for `--tc`, or null on a square that reads as bare. */
+	readonly colour: string | null;
+	/** The same colour at the translucency the tile's glow wants, for `--tcs`. */
+	readonly shadow: string | null;
+	/** True once ground has been laid here that the seat can see. */
+	readonly terrain: boolean;
+	readonly solid: boolean;
+	/** True for ground that ends a fighter who stops on it. */
+	readonly dead: boolean;
+	/** True for ground that ends a fighter who touches it at all. */
+	readonly gone: boolean;
+	/** The letter a whirlpool is paired by, or null on every other square. */
+	readonly whirl: string | null;
+	/** How the square answers the move being aimed: a reachable square, one with someone on it, or neither. */
+	readonly aim: "aim" | "aimsure" | null;
+	/** True for a neighbouring square this turn's energy can still afford to step onto. */
+	readonly step: boolean;
+	/** True for the square the last shove or blast is about to land on. */
+	readonly warn: boolean;
+	/** True while somebody under a glare is standing here. */
+	readonly litsq: boolean;
+	/** True for the square Inspect is reading. */
+	readonly look: boolean;
+	/** The stripes saying who can reach this square, or null when nobody was asked. */
+	readonly reach: string | null;
+	/** The hover text: the ground, whoever is standing on it, or nothing. */
+	readonly title: string;
+	readonly occupants: readonly TileFighter[];
+	/** How many are standing here once that is worth a badge, or null. */
+	readonly stack: number | null;
+}
+
+/** One animation to replay on a square that was just hit. */
+export interface FxHit {
+	/** Board index of the square it plays on. */
+	readonly index: number;
+	/** The class whose keyframes play, restarted from the beginning. */
+	readonly animation: string;
+}
+
+/** The grid a match is played on. */
+export interface BoardView {
+	readonly dim: number;
+	/** One square per cell, row by row, `dim * dim` of them. */
+	readonly tiles: readonly TileView[];
+	readonly click: (x: number, y: number) => void;
+	/** Animations to replay now, which the board restarts and then forgets. */
+	readonly fx: readonly FxHit[];
+}
+
+/** The strip along the top: whose turn it is, and everything that ends or leaves it. */
+export interface TopbarView {
+	/** Seat number, which picks the glyph's `p0`..`p7` class. */
+	readonly seat: number;
+	readonly name: string;
+	/** The seat's colour, fed to the glyph as `--pc`. */
+	readonly colour: string;
+	/** The round, the energy, and whichever modes are running. */
+	readonly round: string;
+	readonly inspecting: boolean;
+	readonly toggleInspect: () => void;
+	readonly openTable: () => void;
+	/** False while chaos mode is still waiting for a card to be thrown away. */
+	readonly canEndTurn: boolean;
+	readonly endTurn: () => void;
+	/** What the forfeit button says, which changes once it is armed. */
+	readonly forfeitLabel: string;
+	/** True while a second tap would drop this fighter, which colours the button. */
+	readonly forfeitArmed: boolean;
+	readonly forfeit: () => void;
+	readonly leave: () => void;
+	/** What the theme button offers, which is whichever theme is not on. */
+	readonly themeLabel: string;
+	readonly toggleTheme: () => void;
+}
+
+/** One button on the footwork rail. */
+export interface FootworkButton {
+	/** The move it works, which is also its key in a list. */
+	readonly key: string;
+	/** What the button says: "Jump", "Jump · spent", "Floating", "Trailing Mud". */
+	readonly label: string;
+	/** What it costs, or null when the button is only saying what is already happening. */
+	readonly cost: number | null;
+	/** How many uses are left, or null when there are none to count. */
+	readonly left: number | null;
+	/** What the move does, as the button's hover text. */
+	readonly tip: string;
+	/** True while the board is waiting for this move's target. */
+	readonly aiming: boolean;
+	readonly disabled: boolean;
+	readonly click: (() => void) | null;
+}
+
+/** The footwork rail: every special move this fighter was given. */
+export interface FootworkView {
+	/** False for a fighter given no special movement at all. */
+	readonly any: boolean;
+	readonly floating: boolean;
+	/** True while this fighter cannot move at all this turn. */
+	readonly rooted: boolean;
+	readonly buttons: readonly FootworkButton[];
+}
+
+/** One element a weapon can be told to leave behind. */
+export interface LeaveChoice {
+	readonly key: string;
+	readonly name: string;
+	/** The colour the choice lights up in, fed to the button as `--lc`. */
+	readonly colour: string;
+	readonly on: boolean;
+	readonly choose: () => void;
+}
+
+/** One row of leavings: what goes under them, or what goes under you. */
+export interface LeaveRow {
+	readonly label: string;
+	readonly options: readonly LeaveChoice[];
+}
+
+/** The weapon panel, or null while this fighter's hands are empty. */
+export interface WeaponView {
+	readonly name: string;
+	readonly colour: string;
+	/** "8", or "8 x 2" for a weapon that swings more than once. */
+	readonly damage: string;
+	readonly desc: string;
+	/** What the elements forged into it do on a hit, or null when they only add damage. */
+	readonly onHit: string | null;
+	/** The gradient across the strip under the name. */
+	readonly strip: string;
+	readonly rows: readonly LeaveRow[];
+	readonly cost: number;
+	/** True while the board is waiting for a square to swing at. */
+	readonly aiming: boolean;
+	readonly disabled: boolean;
+	readonly swing: () => void;
+	/** What swinging it would find, or why it cannot be swung. */
+	readonly hint: string;
+}
+
+/** A run of the action bar's hint. `strong` picks out the card a question is about. */
+export interface HintPart {
+	readonly text: string;
+	readonly strong: boolean;
+}
+
+/** One button on the action bar. */
+export interface ActionButton {
+	readonly key: string;
+	readonly label: string;
+	readonly disabled: boolean;
+	/** True for a card the seat has not been shown, which is offered face down. */
+	readonly facedown: boolean;
+	readonly click: () => void;
+}
+
+/** The bar under the board: what the game is waiting for, and what can be done about it. */
+export interface ActionBarView {
+	/** What is going on, said before the buttons. */
+	readonly hint: readonly HintPart[];
+	/** True while the hint is about chaos mode, which is the one that shouts. */
+	readonly alarm: boolean;
+	readonly buttons: readonly ActionButton[];
+	/** A second line after the buttons, or null when there is nothing more to say. */
+	readonly tail: string | null;
+}
+
+/** One fighter's card in the roster down the left. */
+export interface RosterCard {
+	/** Seat number, which picks the glyph's `p0`..`p7` class. */
+	readonly seat: number;
+	readonly name: string;
+	/** The seat's colour, fed to the card as `--pc`. */
+	readonly colour: string;
+	readonly alive: boolean;
+	/** How many of their side are still standing beside them. */
+	readonly allies: number;
+	readonly hp: number;
+	/** Share of health left, between 0 and 1, which is how far the bar fills. */
+	readonly health: number;
+	/** The energy line for a cap too big to draw as pips, or null while the pips are drawn. */
+	readonly energy: string | null;
+	/** The pips, or null once the cap is drawn as a line instead. */
+	readonly pips: {readonly total: number; readonly filled: number} | null;
+	/** Cards of theirs this seat has peeked at, or null when it has seen none. */
+	readonly seen: string | null;
+	/** What they are holding, and how much of it. */
+	readonly line: string;
+}
+
+/** One card in this seat's hand. */
+export interface HandCard {
+	readonly uid: number;
+	/** "ELEMENT", "FUSED" or "WEAPON". */
+	readonly kind: string;
+	/** Its place in the hand, which is the number the keyboard picks it by. */
+	readonly number: number;
+	readonly name: string;
+	readonly desc: string;
+	/** The card's colour, fed to it as `--ec`. */
+	readonly colour: string;
+	/** The gradient down its edge, fed to it as `--strip`. */
+	readonly strip: string;
+	/** True while this card is the one selected or held. */
+	readonly on: boolean;
+	/** True while this card is one the pending merge or throw can take. */
+	readonly mixable: boolean;
+	/** True for the card a chaos throw is asking about. */
+	readonly doomed: boolean;
+}
+
+/** The hand: the cards, and the two things that can be done to one. */
+export interface HandView {
+	readonly cards: readonly HandCard[];
+	readonly click: (uid: number) => void;
+	/** Drops a card at a new place in the hand, counted among the cards it left behind. */
+	readonly reorder: (uid: number, to: number) => void;
+	/** False while the hand cannot be touched at all, which is between turns. */
+	readonly draggable: boolean;
+}
+
+/** A line being quoted: the one replied to, above a message or in the reply bar. */
+export interface ChatQuote {
+	readonly who: string;
+	readonly colour: string;
+	/** Already cut to length, so the view only has to print it. */
+	readonly text: string;
+}
+
+/** One thing said at the table. */
+export interface ChatLine {
+	readonly id: number;
+	readonly who: string;
+	readonly colour: string;
+	readonly round: number;
+	readonly text: string;
+	/** What it was said in answer to, or null. */
+	readonly quote: ChatQuote | null;
+	readonly reply: () => void;
+}
+
+/** Table talk: what has been said, and what is being said back. */
+export interface ChatView {
+	readonly lines: readonly ChatLine[];
+	/** The line the next message answers, or null. */
+	readonly replyingTo: ChatQuote | null;
+	readonly cancelReply: () => void;
+	readonly say: (text: string) => void;
+}
+
+/** One line of the tile readout. */
+export interface TileFact {
+	readonly label: string;
+	readonly value: string;
+}
+
+/** One fighter the reach overlay can be drawn for. */
+export interface ReachChip {
+	/** Seat number, which is also its key in a list. */
+	readonly seat: number;
+	readonly name: string;
+	readonly colour: string;
+	/** How far they could move on their turn. */
+	readonly budget: number;
+	readonly on: boolean;
+	readonly toggle: () => void;
+}
+
+/** Who the reach overlay can be drawn for, offered under the readout. */
+export interface ReachChooser {
+	readonly chips: readonly ReachChip[];
+	/** True when this seat is blinded, which leaves only their own reach to draw. */
+	readonly blinded: boolean;
+}
+
+/** The square Inspect is reading. */
+export interface TileReadout {
+	readonly name: string;
+	/** The ground's colour, or null for bare ground, which reads in the muted grey. */
+	readonly colour: string | null;
+	readonly blurb: string;
+	readonly facts: readonly TileFact[];
+}
+
+/** The tile inspector down the right. */
+export interface InspectView {
+	readonly inspecting: boolean;
+	/** What to do next while no square is being read, or null once one is. */
+	readonly hint: string | null;
+	readonly tile: TileReadout | null;
+	/** Who reach can be drawn for, or null while Inspect is off. */
+	readonly chooser: ReachChooser | null;
+}
+
+/** The match screen, as it stands after the move just made. */
+export interface MatchView {
+	readonly topbar: TopbarView;
+	readonly board: BoardView;
+	readonly footwork: FootworkView;
+	/** The weapon in hand, or null while this fighter's hands are empty. */
+	readonly weapon: WeaponView | null;
+	readonly actions: ActionBarView;
+	readonly roster: readonly RosterCard[];
+	readonly hand: HandView;
+	readonly chat: ChatView;
+	readonly inspect: InspectView;
+	/** How much of the fusion codex the save has turned up. */
+	readonly codex: string;
+}
+
+/**
+ * Every move changes something on the match screen, so a fresh publication is always news. All this
+ * comparison does is keep the screen from being taken down twice on the way back to the menu.
+ */
+function sameMatch(a: MatchView | null, b: MatchView | null): boolean {
+	return a === null && b === null;
+}
+
+export const matchStore = createStore<MatchView | null>(null, sameMatch);

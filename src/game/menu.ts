@@ -28,8 +28,9 @@ import {elsOn, known, mvCost, mvOwnedMask, offFor, wsOn} from "./lookups.js";
 import {ringSpots, startMatch} from "./match.js";
 import {errText, save} from "./save.js";
 import {flipTheme, themeLabel} from "./settings.js";
-import {$, CHAOS, HAND0, MVUSES, NRG0, PC, PCN, PN, S, idx, nameOf, teamName} from "./state.js";
+import {CHAOS, HAND0, MVUSES, NRG0, PC, PCN, PN, S, idx, nameOf, teamName} from "./state.js";
 import type {Offs, ShopItem} from "./types.js";
+import {redraw} from "./view.js";
 
 /**
  * The setup screen as it stands, or nothing at all while a match has the screen. Everything that
@@ -521,7 +522,7 @@ export function closeSim(): void {
  * below it. The grid itself is React's to paint, so all the menu hands over is how far the save
  * has got -- what has been bought, and what has been mixed in play.
  */
-function openTable(): void {
+export function openTable(): void {
 	tableStore.set(tableView());
 }
 
@@ -538,15 +539,14 @@ function tableView(): TableView {
 export function closeTable(): void {
 	tableStore.set(null);
 }
-["tableopen2", "tableopen3"].forEach((id) => {
-	const b = $(id);
-	if (b) b.onclick = openTable;
-});
-export function drawCodex(): void {
+/** How much of the fusion codex the save has turned up, as the arena's codex line reads it. */
+export function codexLine(): string {
 	const total = Object.keys(FUSE).length;
 	const found = Object.keys(FUSE).filter((k) => known(FUSE[k]!)).length;
-	const line = $("codexline");
-	if (line) line.textContent = `${found} of ${total} fusions discovered`;
-	// a fusion turned up mid-match reaches the table if it happens to be open over the board
+	return `${found} of ${total} fusions discovered`;
+}
+export function drawCodex(): void {
+	// a fusion turned up mid-match reaches the arena's codex line, and the table over the board too
+	redraw();
 	if (tableStore.get() !== null) tableStore.set(tableView());
 }

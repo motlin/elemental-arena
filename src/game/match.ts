@@ -8,9 +8,9 @@ import type {Offset} from "./data/index.js";
 import {elsOn, mvOwnedMask, wsOn} from "./lookups.js";
 import {afterMove, canStand, voidOut} from "./movement.js";
 import {save, saveSoon} from "./save.js";
-import {$, PC, S, cheb, cur, idx, nameOf, occupant, show, teamName, teamsAlive} from "./state.js";
+import {PC, S, cheb, cur, idx, nameOf, occupant, show, teamName, teamsAlive} from "./state.js";
 import type {Player} from "./types.js";
-import {openReplay, redraw, redrawBoard, redrawCodex} from "./view.js";
+import {openReplay, redraw, redrawCodex} from "./view.js";
 
 export function ringSpots(dim: number, n: number): Offset[] {
 	const m = 1,
@@ -132,7 +132,6 @@ export function startMatch(): void {
 	S.players.forEach(dealOpening);
 	while (!S.players[S.turn]!.alive && S.turn < S.players.length - 1) S.turn++;
 	show("game");
-	redrawBoard();
 	redrawCodex();
 	if (teamsAlive().length <= 1) finish(teamsAlive()[0] ?? null);
 	else beginTurn();
@@ -352,22 +351,22 @@ function finish(t: number | null): void {
 }
 let quitArmed = false,
 	quitT: ReturnType<typeof setTimeout> | null = null;
+/** Puts the forfeit button back to asking rather than doing, which the topbar reads off `forfeitArmed`. */
 function resetQuitBtn(): void {
-	const b = $("quit");
 	quitArmed = false;
-	b.textContent = "Forfeit";
-	b.style.borderColor = "";
-	b.style.color = "";
+	redraw();
 }
-$("quit").onclick = () => {
-	const b = $("quit"),
-		p = cur();
+/** True while a second tap would drop this fighter, which is what colours the button. */
+export function forfeitArmed(): boolean {
+	return quitArmed;
+}
+/** Arms the forfeit, then on the second tap takes this fighter out of the match. */
+export function forfeit(): void {
+	const p = cur();
 	if (!quitArmed) {
 		quitArmed = true;
-		b.textContent = "Tap again to fall";
-		b.style.borderColor = "#ff8f6b";
-		b.style.color = "#ff8f6b";
 		quitT = setTimeout(resetQuitBtn, 3500);
+		redraw();
 		return;
 	}
 	if (quitT !== null) clearTimeout(quitT);
@@ -379,8 +378,9 @@ $("quit").onclick = () => {
 	void save();
 	if (checkAlive()) nextTurn();
 	else redraw();
-};
-$("leave").onclick = () => {
+}
+/** Walks out of the match and back to the menu, leaving everyone else where they stand. */
+export function leaveMatch(): void {
 	void save();
 	show("menu");
-};
+}

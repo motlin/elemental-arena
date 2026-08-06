@@ -9,8 +9,6 @@
 export interface View {
 	/** Repaints the whole match screen. */
 	redraw: () => void;
-	/** Rebuilds the board grid, which a new match and a new tile size both need. */
-	redrawBoard: () => void;
 	/** Republishes the setup screen, which is what coming back to the menu shows. */
 	redrawMenu: () => void;
 	/** Repaints the fusion count, and the table behind it if it is open. */
@@ -21,7 +19,6 @@ export interface View {
 
 let view: View = {
 	redraw: () => {},
-	redrawBoard: () => {},
 	redrawMenu: () => {},
 	redrawCodex: () => {},
 	openReplay: () => {},
@@ -34,9 +31,6 @@ export function setView(next: View): void {
 
 export const redraw = (): void => {
 	view.redraw();
-};
-export const redrawBoard = (): void => {
-	view.redrawBoard();
 };
 export const redrawMenu = (): void => {
 	view.redrawMenu();

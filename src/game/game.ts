@@ -7,7 +7,6 @@
  * It also re-exports the rules and the tables the tests drive the game through. The page needs none
  * of that and loads this module for its side effects alone.
  */
-import {buildBoard} from "./board.js";
 import {drawCodex, drawMenu, openReplay} from "./menu.js";
 import {render} from "./render.js";
 import {load} from "./save.js";
@@ -16,7 +15,6 @@ import {setView} from "./view.js";
 
 setView({
 	redraw: render,
-	redrawBoard: buildBoard,
 	redrawCodex: drawCodex,
 	openReplay,
 	redrawMenu: drawMenu,
@@ -77,7 +75,8 @@ export {
 	boardCell,
 	boardWidth,
 } from "./board.js";
-export {startMatch} from "./match.js";
+export {forfeit, leaveMatch, startMatch} from "./match.js";
 export {attackTiles, leaveFoe, leaveSelf} from "./combat.js";
-export {drawCodex, drawMenu} from "./menu.js";
-export {MODEHINT, drawChat, render} from "./render.js";
+export {codexLine, drawCodex, drawMenu, openTable} from "./menu.js";
+export {MODEHINT, render, say} from "./render.js";
+export {toggleInspect} from "./input.js";

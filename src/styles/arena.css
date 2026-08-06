@@ -1,7 +1,7 @@
 /* The match screen chrome, the arena grid, tiles, and fighters. */
 #game {
 	padding: 14px;
-	min-height: 100%;
+	min-height: 100vh;
 	display: none;
 	flex-direction: column;
 	gap: 12px;

@@ -9,67 +9,6 @@
 		<link rel="stylesheet" href="/src/styles/index.css" />
 	</head>
 	<body>
-		<div id="game">
-			<div class="topbar">
-				<div class="turnchip"><span class="glyph" id="tglyph"></span><b id="tname"></b></div>
-				<span class="roundchip" id="tround"></span>
-				<span class="sp"></span>
-				<button class="ghost" id="inspectbtn">Inspect <span style="color: var(--muted)">I</span></button>
-				<button class="ghost" id="tableopen2">Mixing table</button>
-				<button class="ghost" id="endbtn">End turn <span style="color: var(--muted)">E</span></button>
-				<button class="ghost" id="quit">Forfeit</button>
-				<button class="ghost" id="leave">Menu</button>
-				<button class="ghost" id="theme">Day</button>
-			</div>
-			<div class="arena">
-				<div class="side left">
-					<div class="box">
-						<h3>Table talk</h3>
-						<div id="chatlog"></div>
-						<div id="replybar"></div>
-						<div class="chatrow">
-							<input
-								id="chatin"
-								maxlength="120"
-								placeholder="Say something"
-								aria-label="Message the table"
-							/>
-							<button class="ghost" id="chatgo">Say</button>
-						</div>
-					</div>
-					<div class="box">
-						<h3>Combatants</h3>
-						<div id="roster"></div>
-					</div>
-				</div>
-				<div class="boardcol">
-					<div class="boardscroll"><div id="board"></div></div>
-					<div class="wep" id="wep"></div>
-					<div class="actbar" id="actbar"></div>
-					<div class="handwrap" style="width: 100%">
-						<div class="handrail">
-							<button class="hscroll" id="hleft" aria-label="Scroll hand left">&#8249;</button>
-							<div class="hand" id="hand"></div>
-							<button class="hscroll" id="hright" aria-label="Scroll hand right">&#8250;</button>
-						</div>
-						<div class="hbar" id="hbar"><div class="hthumb" id="hthumb"></div></div>
-					</div>
-				</div>
-				<div class="side right">
-					<div class="wep" id="moves"></div>
-					<div class="box">
-						<h3>Tile</h3>
-						<div id="tileinfo"></div>
-					</div>
-					<div class="box">
-						<h3>Fusion codex</h3>
-						<div class="codexline" id="codexline"></div>
-						<button class="ghost" id="tableopen3" style="width: 100%">Mixing table</button>
-					</div>
-				</div>
-			</div>
-		</div>
-
 		<div id="app"></div>
 		<script type="module" src="/src/main.tsx"></script>
 

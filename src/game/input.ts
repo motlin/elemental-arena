@@ -23,14 +23,20 @@ import {
 	doWipe,
 	tryStep,
 } from "./movement.js";
-import {dropCurtain, render, saySomething} from "./render.js";
-import {$, S, cheb, cur, held, idx} from "./state.js";
+import {S, cheb, cur, held, idx} from "./state.js";
 import type {GameEl} from "./types.js";
+import {redraw} from "./view.js";
 
+/* One stable reference shared by the curtain's button and the Enter/Space shortcut, so the
+   view republished on every redraw compares equal and React stays put. */
+export function dropCurtain(): void {
+	S.handoff = false;
+	redraw();
+}
 function inspect(x: number, y: number): void {
 	const i = idx(x, y);
 	S.look = S.look === i ? null : i;
-	render();
+	redraw();
 }
 export function onTile(x: number, y: number): void {
 	if (S.phase !== "act" || S.toss) return;
@@ -86,20 +92,12 @@ export function onTile(x: number, y: number): void {
 	}
 	if (!S.sel && cheb(p.x, p.y, x, y) === 1) tryStep(x, y);
 }
-function toggleInspect(): void {
+/** Reads a square without moving, which the topbar and the I key both ask for. */
+export function toggleInspect(): void {
 	S.imode = !S.imode;
 	if (!S.imode) S.look = null;
-	render();
+	redraw();
 }
-$("inspectbtn").onclick = toggleInspect;
-$("chatgo").onclick = saySomething;
-$("chatin").onkeydown = (e) => {
-	if (e.key === "Enter") {
-		e.preventDefault();
-		saySomething();
-	}
-};
-$("endbtn").onclick = endTurn;
 const typing = (e: Event): boolean => {
 	const el: GameEl | null = e.target as GameEl | null;
 	if (!el) return false;
@@ -120,7 +118,7 @@ addEventListener("keydown", (e) => {
 		closeTable();
 		return;
 	}
-	if (!$("game").classList.contains("on")) return;
+	if (S.screen !== "game") return;
 	if (S.handoff) {
 		if (e.key === "Enter" || e.key === " ") {
 			e.preventDefault();
@@ -136,7 +134,7 @@ addEventListener("keydown", (e) => {
 		S.imode = false;
 		S.look = null;
 		S.tossPick = null;
-		render();
+		redraw();
 		return;
 	}
 	if (k === "e") {
@@ -171,7 +169,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 256 && p.used.spread < S.mvUses) {
 			S.mode = S.mode === "spread" ? null : "spread";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -179,7 +177,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 64 && p.used.warp < S.mvUses) {
 			S.mode = S.mode === "warp" ? null : "warp";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -187,7 +185,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 4096 && p.used.theft < S.mvUses) {
 			S.mode = S.mode === "theft" ? null : "theft";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -195,7 +193,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 8192 && p.used.swap < S.mvUses) {
 			S.mode = S.mode === "swap" ? null : "swap";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -203,7 +201,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 16384 && p.used.mark < S.mvUses) {
 			S.mode = S.mode === "mark" ? null : "mark";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -211,7 +209,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 32768 && p.used.light < S.mvUses) {
 			S.mode = S.mode === "light" ? null : "light";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -223,7 +221,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 1 && p.used.jump < S.mvUses) {
 			S.mode = S.mode === "jump" ? null : "jump";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -231,7 +229,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 2 && p.used.dash < S.mvUses) {
 			S.mode = S.mode === "dash" ? null : "dash";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}
@@ -239,7 +237,7 @@ addEventListener("keydown", (e) => {
 		if (p.mv & 4 && p.used.leap < S.mvUses) {
 			S.mode = S.mode === "leap" ? null : "leap";
 			S.sel = null;
-			render();
+			redraw();
 		}
 		return;
 	}

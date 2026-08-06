@@ -1,11 +1,7 @@
 /**
- * The board grid: how big its tiles are at a given viewport, and building the squares a match is
- * played on. The sizes mirror the stylesheet, so a test can check the two still agree.
+ * The board grid: how big its tiles are at a given viewport. The sizes mirror the stylesheet, so a
+ * test can check the two still agree. Pure geometry, so the React board can import it freely.
  */
-
-import {onTile} from "./input.js";
-import {render} from "./render.js";
-import {$, S} from "./state.js";
 
 /* Board geometry. These mirror the stylesheet: #board draws a BOARD_GAP gap between tiles
    inside 8px of padding and a 1px border, and the arena lays the board column out between
@@ -40,28 +36,6 @@ export function arenaBoardRoom(w: number): number {
 	return w - GAME_PAD * 2 - (side * 2 + ARENA_GAP * 2);
 }
 /** Excludes the scrollbar, matching what the layout actually gets and what media queries see. */
-function viewportWidth(): number {
+export function viewportWidth(): number {
 	return document.documentElement.clientWidth || window.innerWidth;
 }
-export function buildBoard(): void {
-	const b = $("board");
-	b.style.gridTemplateColumns = `repeat(${S.dim},var(--cell))`;
-	const room = Math.min(arenaBoardRoom(viewportWidth()), ARENA_BOARD_MAX);
-	b.style.setProperty("--cell", boardCell(S.dim, room, ARENA_CELL_MIN, ARENA_CELL_MAX) + "px");
-	b.innerHTML = "";
-	for (let y = 0; y < S.dim; y++)
-		for (let x = 0; x < S.dim; x++) {
-			const t = document.createElement("div");
-			t.className = "tile";
-			t.onclick = () => {
-				onTile(x, y);
-			};
-			b.appendChild(t);
-		}
-}
-addEventListener("resize", () => {
-	if ($("game").classList.contains("on")) {
-		buildBoard();
-		render();
-	}
-});

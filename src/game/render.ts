@@ -1,11 +1,40 @@
-/** The match screen, redrawn from `S` after every move. */
+/**
+ * The match screen, described afresh from `S` after every move. Nothing here touches the page: it
+ * builds a plain account of what the arena looks like and publishes it, and React paints that.
+ */
 
-import {handoffStore} from "./bridge.js";
+import {handoffStore, matchStore} from "./bridge.js";
+import type {
+	ActionBarView,
+	ActionButton,
+	BoardView,
+	ChatQuote,
+	ChatView,
+	FootworkButton,
+	FootworkView,
+	FxHit,
+	HandCard,
+	HandView,
+	InspectView,
+	LeaveRow,
+	MatchView,
+	ReachChooser,
+	RosterCard,
+	TileFact,
+	TileFighter,
+	TileReadout,
+	TileView,
+	TopbarView,
+	WeaponView,
+} from "./bridge.js";
 import {badPlace, cardLabel, clickCard, doToss, lethalRaw, logit, mixPartners, sealed, startMix} from "./cards.js";
 import {attackTiles, foeEls, leaveFoe, leaveSelf, liveTargets, selfEls, smashMult, startAttack} from "./combat.js";
 import {COST, EL, MV, T} from "./data/index.js";
+import type {ActionKey} from "./data/index.js";
+import {dropCurtain, onTile, toggleInspect} from "./input.js";
 import {elColor, elName, forgeOf, isComp, wColor, wCost, wDesc, wHits, wStrip, wepDmg, wepName} from "./lookups.js";
-import {checkRefill} from "./match.js";
+import {checkRefill, endTurn, forfeit, forfeitArmed, leaveMatch} from "./match.js";
+import {codexLine, openTable} from "./menu.js";
 import {
 	canEnter,
 	dashTargets,
@@ -33,88 +62,46 @@ import {
 	whirlList,
 	wipeTiles,
 } from "./movement.js";
-import {$, S, ally, blind, cheb, cur, held, hidden, idx, isLit, occupantsAt, rgba, seesTile, selCard} from "./state.js";
-import type {ChatMsg, Drag, GameEl, Player} from "./types.js";
+import {flipTheme, themeLabel} from "./settings.js";
+import {S, ally, blind, cheb, cur, held, hidden, idx, isLit, occupantsAt, rgba, seesTile, selCard} from "./state.js";
+import type {Card, ChatMsg, Player, WepCard} from "./types.js";
 
-/* One stable reference shared by the curtain's button and the Enter/Space shortcut, so the
-   view republished on every redraw compares equal and React stays put. */
-export function dropCurtain(): void {
-	S.handoff = false;
-	render();
-}
-/* The hand bar: the strip of cards scrolls, and a thumb under it says how far along it is. */
-function handScroll(dir: number): void {
-	const b = $("hand");
-	b.scrollLeft += dir * (b.clientWidth * 0.7);
-	setTimeout(updateHandArrows, 120);
-}
-function updateHandArrows(): void {
-	const b = $("hand"),
-		l = $("hleft"),
-		r = $("hright");
-	if (!b || !l || !r) return;
-	const room = b.scrollWidth - b.clientWidth;
-	l.disabled = b.scrollLeft <= 1;
-	r.disabled = b.scrollLeft >= room - 1;
-	drawHandBar();
-}
-function drawHandBar(): void {
-	const b = $("hand"),
-		bar = $("hbar"),
-		th = $("hthumb");
-	if (!b || !bar || !th) return;
-	const track = bar.clientWidth || 1;
-	const ratio = b.scrollWidth ? Math.min(1, b.clientWidth / b.scrollWidth) : 1;
-	const w = Math.max(40, Math.round(track * ratio));
-	const room = Math.max(0, b.scrollWidth - b.clientWidth);
-	const pos = room ? Math.round((b.scrollLeft / room) * (track - w)) : 0;
-	th.style.width = w + "px";
-	th.style.left = pos + "px";
-}
-let barDrag: {ox: number} | null = null;
-function barTo(clientX: number): void {
-	const b = $("hand"),
-		bar = $("hbar"),
-		th = $("hthumb");
-	const r = bar.getBoundingClientRect();
-	const w = th.offsetWidth;
-	const track = r.width - w;
-	const want = Math.max(0, Math.min(track, clientX - r.left - w / 2));
-	const room = Math.max(0, b.scrollWidth - b.clientWidth);
-	b.scrollLeft = track ? (want / track) * room : 0;
-	drawHandBar();
-}
-$("hleft").onclick = () => {
-	handScroll(-1);
-};
-$("hright").onclick = () => {
-	handScroll(1);
-};
-$("hand").addEventListener("scroll", updateHandArrows, {passive: true});
-$("hbar").addEventListener("pointerdown", (e) => {
-	barDrag = {ox: e.clientX};
-	try {
-		$("hbar").setPointerCapture(e.pointerId);
-	} catch {}
-	barTo(e.clientX);
-	e.preventDefault();
-});
-addEventListener("pointermove", (e) => {
-	if (barDrag) barTo(e.clientX);
-});
-addEventListener("pointerup", () => {
-	barDrag = null;
-});
-addEventListener("resize", drawHandBar);
+/**
+ * The match as it stands, or nothing at all while the setup screen has the page. Every callback in
+ * the view is built fresh here, which costs nothing: a move always changes something, so React is
+ * told to repaint whatever it was already showing.
+ */
 export function render(): void {
-	if (S.players.length) checkRefill();
+	if (!S.players.length || S.screen !== "game") {
+		matchStore.set(null);
+		handoffStore.set(null);
+		return;
+	}
+	checkRefill();
 	const p = cur();
 	const dark = blind(p);
 	handoffStore.set(S.handoff ? {seat: p.i, name: p.name, colour: p.c, dismiss: dropCurtain} : null);
-	$("endbtn").disabled = S.toss;
-	$("tglyph").className = "glyph mage p" + p.i;
-	$("tglyph").style.setProperty("--pc", p.c);
-	$("tname").textContent = p.name;
+	matchStore.set(matchView(p, dark));
+}
+
+function matchView(p: Player, dark: boolean): MatchView {
+	return {
+		topbar: topbarView(p),
+		board: boardView(p, dark),
+		footwork: footworkView(p),
+		weapon: weaponView(p, dark),
+		actions: actionsView(p),
+		roster: rosterView(),
+		hand: handView(p),
+		chat: chatView(),
+		inspect: inspectView(p, dark),
+		codex: codexLine(),
+	};
+}
+
+/* The strip along the top: whose turn it is, and every door out of the match. */
+
+function topbarView(p: Player): TopbarView {
 	const paint = S.paint ? "  ·  PAINTBALL" : "";
 	const smash = S.smash ? `  ·  SMASH MODE x${smashMult()}` : "";
 	const chaos = S.chaos
@@ -124,78 +111,81 @@ export function render(): void {
 				? `  ·  CHAOS IN ${S.chaosRound - S.round}`
 				: ""
 		: "";
-	$("tround").textContent =
-		`ROUND ${S.round}  ·  ${p.nrg}/${p.cap} ENERGY${p.bank ? `  ·  ${p.bank} CARRIED` : ""}${smash}${paint}${chaos}`;
+	const armed = forfeitArmed();
+	return {
+		seat: p.i,
+		name: p.name,
+		colour: p.c,
+		round: `ROUND ${S.round}  ·  ${p.nrg}/${p.cap} ENERGY${p.bank ? `  ·  ${p.bank} CARRIED` : ""}${smash}${paint}${chaos}`,
+		inspecting: S.imode,
+		toggleInspect,
+		openTable,
+		canEndTurn: !S.toss,
+		endTurn,
+		forfeitLabel: armed ? "Tap again to fall" : "Forfeit",
+		forfeitArmed: armed,
+		forfeit,
+		leave: leaveMatch,
+		themeLabel: themeLabel(),
+		toggleTheme: flipTheme,
+	};
+}
 
-	const aim = new Set(),
-		sure = new Set();
-	if (S.phase === "act") {
-		if (S.mode === "place") {
-			const sc = selCard(p);
-			for (let y = 0; y < S.dim; y++)
-				for (let x = 0; x < S.dim; x++) {
-					const d = cheb(p.x, p.y, x, y);
-					if (d > 0 && d <= 4 && !sealed(x, y) && !badPlace(sc ? sc.id : "", x, y)) aim.add(x + "," + y);
-				}
-		} else if (S.mode === "jump") {
-			jumpTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "dash") {
-			dashTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "leap") {
-			leapTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "light") {
-			lightTargets().forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "mark") {
-			markTargets().forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "swap") {
-			swapTargets().forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "theft") {
-			theftTargets().forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "warp") {
-			warpTargets(p).forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "spread") {
-			spreadTargets().forEach(([x, y]) => aim.add(x + "," + y));
-		} else if (S.mode === "attack") {
-			const c = held(p);
-			if (c) {
-				attackTiles(p, c).forEach(([x, y]) => aim.add(x + "," + y));
-				liveTargets(p, c).forEach(([x, y]) => {
-					if (!dark || occupantsAt(x, y).some((q) => q.lit && q !== p && !ally(q, p))) sure.add(x + "," + y);
-				});
+/* The board. Anything this seat cannot see is left out here rather than drawn and hidden, so the
+   published view carries no answer React could give away. */
+
+/** The squares the move being aimed can land on, and the ones with a visible fighter already there. */
+function aimSquares(p: Player, dark: boolean): {aim: Set<string>; sure: Set<string>} {
+	const aim = new Set<string>(),
+		sure = new Set<string>();
+	if (S.phase !== "act") return {aim, sure};
+	const mark = (list: [number, number][]): void => {
+		list.forEach(([x, y]) => aim.add(x + "," + y));
+	};
+	if (S.mode === "place") {
+		const sc = selCard(p);
+		for (let y = 0; y < S.dim; y++)
+			for (let x = 0; x < S.dim; x++) {
+				const d = cheb(p.x, p.y, x, y);
+				if (d > 0 && d <= 4 && !sealed(x, y) && !badPlace(sc ? sc.id : "", x, y)) aim.add(x + "," + y);
 			}
+	} else if (S.mode === "jump") mark(jumpTargets(p));
+	else if (S.mode === "dash") mark(dashTargets(p));
+	else if (S.mode === "leap") mark(leapTargets(p));
+	else if (S.mode === "light") mark(lightTargets());
+	else if (S.mode === "mark") mark(markTargets());
+	else if (S.mode === "swap") mark(swapTargets());
+	else if (S.mode === "theft") mark(theftTargets());
+	else if (S.mode === "warp") mark(warpTargets(p));
+	else if (S.mode === "spread") mark(spreadTargets());
+	else if (S.mode === "attack") {
+		const c = held(p);
+		if (c) {
+			mark(attackTiles(p, c));
+			liveTargets(p, c).forEach(([x, y]) => {
+				if (!dark || occupantsAt(x, y).some((q) => q.lit && q !== p && !ally(q, p))) sure.add(x + "," + y);
+			});
 		}
 	}
+	return {aim, sure};
+}
 
+function boardView(p: Player, dark: boolean): BoardView {
+	const {aim, sure} = aimSquares(p, dark);
 	const rmap = S.imode && S.reach.length ? reachMap() : null;
-	const wl = whirlList(),
-		tiles = $("board").children;
+	const wl = whirlList();
+	const tiles: TileView[] = [];
 	for (let y = 0; y < S.dim; y++)
 		for (let x = 0; x < S.dim; x++) {
-			const n = tiles[idx(x, y)]!,
-				c = S.board[idx(x, y)]!;
-			n.className = "tile";
-			n.innerHTML = "";
-			n.title = "";
-			if (c.t && seesTile(p, x, y)) {
-				const d = T[c.t]!;
-				n.classList.add("terr");
-				if (d.solid) n.classList.add("solid");
-				if (d.dead) n.classList.add("gonezone");
-				if (d.gone) n.classList.add("void");
-				n.style.setProperty("--tc", d.c);
-				n.style.setProperty("--tcs", rgba(d.c, 0.44));
-				n.title = `${d.n}: ${d.d}`;
-				if (c.t === "whirl") {
-					const pos = wl.findIndex((a) => a[1] === idx(x, y));
-					const s = document.createElement("span");
-					s.className = "wnum";
-					s.textContent = String.fromCharCode(65 + (pos >> 1));
-					n.appendChild(s);
-				}
-			} else n.style.removeProperty("--tc");
-			if (aim.size) {
-				if (aim.has(x + "," + y)) n.classList.add(sure.has(x + "," + y) ? "aimsure" : "aim");
-			} else if (
+			const i = idx(x, y),
+				c = S.board[i]!,
+				key = x + "," + y;
+			const ground = c.t && seesTile(p, x, y) ? T[c.t]! : null;
+			// a fighter reaches the view only when nothing is keeping them out of this seat's sight
+			const here = occupantsAt(x, y).filter((o) => o === p || o.lit || (!dark && !hidden(o)));
+			let step = false;
+			if (
+				!aim.size &&
 				S.phase === "act" &&
 				!S.mode &&
 				!S.sel &&
@@ -204,442 +194,187 @@ export function render(): void {
 				canEnter(x, y, p)
 			) {
 				const cost = p.float ? 1 : c.t ? T[c.t]!.enter : 1;
-				if (cost <= p.nrg && cost < 50) n.classList.add("step");
+				step = cost <= p.nrg && cost < 50;
 			}
-			if (S.warn === idx(x, y)) n.classList.add("warn");
-			if (isLit(x, y)) n.classList.add("litsq");
-			if (S.look === idx(x, y)) n.classList.add("look");
-			if (rmap) {
-				const who = rmap.get(idx(x, y));
-				if (who?.length) {
-					n.style.backgroundImage =
-						who.length === 1
-							? `linear-gradient(${rgba(who[0]!.c, 0.34)},${rgba(who[0]!.c, 0.34)})`
-							: `repeating-linear-gradient(135deg,${who
-									.map(
-										(q: Player, z: number) =>
-											`${rgba(q.c, 0.4)} ${z * 7}px,${rgba(q.c, 0.4)} ${(z + 1) * 7}px`,
-									)
-									.join(",")})`;
-					n.classList.add("reach");
-				} else n.style.removeProperty("background-image");
-			} else n.style.removeProperty("background-image");
-			const here = occupantsAt(x, y).filter((o) => o === p || o.lit || (!dark && !hidden(o)));
-			here.forEach((o, k) => {
-				const m = document.createElement("i");
-				m.className = "mage p" + o.i + (o === p ? " active" : "");
-				m.style.setProperty("--pc", o.c);
-				if (o.lit && o !== p) m.classList.add("litp"); // the lit fighter is never shown their own glow
-				if (here.length > 1) {
-					// shoulder to shoulder
-					m.style.inset = k ? "34% 8% 8% 34%" : "8% 34% 34% 8%";
-					m.style.zIndex = o === p ? "2" : "1";
-				}
-				n.appendChild(m);
+			tiles.push({
+				colour: ground ? ground.c : null,
+				shadow: ground ? rgba(ground.c, 0.44) : null,
+				terrain: !!ground,
+				solid: !!ground?.solid,
+				dead: !!ground?.dead,
+				gone: !!ground?.gone,
+				whirl:
+					ground && c.t === "whirl" ? String.fromCharCode(65 + (wl.findIndex((a) => a[1] === i) >> 1)) : null,
+				aim: aim.has(key) ? (sure.has(key) ? "aimsure" : "aim") : null,
+				step,
+				warn: S.warn === i,
+				litsq: isLit(x, y),
+				look: S.look === i,
+				reach: reachStripes(rmap?.get(i)),
+				// whoever is standing here has the last word on what the square says it is
+				title: here.length
+					? here.map((o) => `${o.name}: ${o.hp} HP`).join("  ·  ")
+					: ground
+						? `${ground.n}: ${ground.d}`
+						: "",
+				occupants: here.map((o, k) => tileFighter(o, p, k, here.length)),
+				stack: here.length > 2 ? here.length : null,
 			});
-			if (here.length) n.title = here.map((o) => `${o.name}: ${o.hp} HP`).join("  ·  ");
-			if (here.length > 2) {
-				const b = document.createElement("span");
-				b.className = "stackn";
-				b.textContent = String(here.length);
-				n.appendChild(b);
-			}
 		}
-
-	drawMoves();
-	drawWep();
-	drawActions();
-	drawRoster();
-	drawHand();
-	drawChat();
-	drawTileInfo(dark);
-	$("tileinfo")
-		.querySelectorAll(".rch")
-		.forEach(
-			(b) =>
-				(b.onclick = () => {
-					const i = +b.dataset["i"]!,
-						at = S.reach.indexOf(i);
-					if (at >= 0) S.reach.splice(at, 1);
-					else S.reach.push(i);
-					render();
-				}),
-		);
-	runFx();
-}
-function runFx(): void {
-	S.fx.forEach(([i, cls]) => {
-		const n = $("board").children[i];
-		if (n) {
-			n.classList.remove(cls);
-			void n.offsetWidth;
-			n.classList.add(cls);
-		}
-	});
+	// the animations are handed over once and then forgotten, so each one plays on exactly one screen
+	const fx: FxHit[] = S.fx.map(([index, animation]) => ({index, animation}));
 	S.fx = [];
+	return {dim: S.dim, tiles, click: onTile, fx};
 }
-function drawTileInfo(dark: boolean): void {
-	const box = $("tileinfo"),
-		btn = $("inspectbtn");
-	btn.innerHTML = S.imode
-		? 'Stop inspecting <span style="color:var(--onaccent)">I</span>'
-		: 'Inspect <span style="color:var(--muted)">I</span>';
-	btn.style.borderColor = S.imode ? "var(--accent)" : "";
-	btn.style.background = S.imode ? "var(--accent)" : "";
-	btn.style.color = S.imode ? "var(--onaccent)" : "";
-	if (!S.imode) S.reach = [];
-	const chooser = S.imode ? reachChooser(dark) : "";
-	if (S.look == null) {
-		box.innerHTML =
-			(S.imode
-				? "<span>Click any square to read it. Press I or Escape to go back to playing.</span>"
-				: "<span>Turn on Inspect to read any square without moving.</span>") + chooser;
-		return;
-	}
-	const i = S.look,
-		x = i % S.dim,
-		y = (i / S.dim) | 0,
-		c = S.board[i]!,
-		p = cur();
-	const t = c.t && seesTile(p, x, y) ? T[c.t] : null;
-	const bits: [string, string][] = [];
-	if (t) {
-		if (t.enter > 50) bits.push(["Entering", "impossible"]);
-		else bits.push(["Entering", t.enter + " energy"]);
-		if (t.end) bits.push(["Ending here", t.end + " damage"]);
-		if (t.bite) bits.push(["Crossing it", t.bite + " damage"]);
-		if (t.heal) bits.push(["Ending here", "heals " + t.heal]);
-		if (t.aura) bits.push(["Within " + (t.rad || 2), t.aura + " damage"]);
-		if (t.auraHeal) bits.push(["Within " + (t.rad || 2), "heals " + t.auraHeal]);
-		if (t.gain) bits.push(["Ending here", "+" + t.gain + " energy"]);
-		if (t.los) bits.push(["Standing here", "you are blind"]);
-		if (t.anchor) bits.push(["Shoves", "cannot move you"]);
-		if (t.ward) bits.push(["Ground effects", "cannot touch you"]);
-		if (t.gone) bits.push(["Touching it", "you are gone"]);
-		bits.push(["Lasts", t.life > 900 ? "permanent" : t.life + " more rounds"]);
-	}
-	const shown = occupantsAt(x, y).filter((q) => q === p || q.lit || !dark);
-	const who = occupantsAt(x, y).length
-		? shown.length
-			? shown.map((q) => `${q.name}, ${q.hp} HP`).join(" and ") +
-				(shown.length < occupantsAt(x, y).length ? " and someone you cannot see" : "")
-			: "someone you cannot see"
-		: null;
-	box.innerHTML = `<b style="color:${t ? t.c : "var(--muted)"}">${t ? t.n : "Bare ground"}</b>
-    <div style="margin-top:5px">${t ? t.d + "." : "Nothing has been laid here."}</div>
-    ${bits.map(([a, b]) => `<div class="k"><span>${a}</span><span>${b}</span></div>`).join("")}
-    ${who ? `<div class="k"><span>Standing on it</span><span>${who}</span></div>` : ""}
-    <div class="k"><span>Square</span><span>${x + 1}, ${y + 1}</span></div>
-    ${reachHere(i, dark)}${chooser}`;
-}
-function reachHere(i: number, dark: boolean): string {
-	if (!S.imode || !S.reach.length) return "";
-	const who = reachMap().get(i);
-	if (!who?.length) return '<div class="k"><span>In reach of</span><span>nobody selected</span></div>';
-	const names = who.map((q: Player) => (q === cur() || !dark ? q.name : "someone hidden")).join(", ");
-	return `<div class="k"><span>In reach of</span><span>${names}</span></div>`;
-}
-function reachChooser(dark: boolean): string {
-	const list = S.players.filter((p) => p.alive && (p === cur() || p.lit || (!dark && !hidden(p))));
-	return `<div class="bhead" style="margin:14px 0 7px">Show who can reach where</div>
-    <div class="bpal">${list
-		.map(
-			(p) =>
-				`<button class="bp rch" data-i="${p.i}" aria-pressed="${S.reach.includes(p.i)}">
-        <span class="d" style="background:${p.c}"></span>${p.name} · ${moveBudget(p)}</button>`,
-		)
-		.join("")}</div>
-    ${dark ? '<span class="hint">You are blinded, so only your own reach is available.</span>' : ""}`;
-}
-const mvTip = (label: string): string => {
-	const e = Object.values(MV).find((v) => v.n === label);
-	return e ? e.d.replace(/"/g, "&quot;") : "";
-};
-function drawMoves(): void {
-	const p = cur(),
-		box = $("moves");
-	if (!p.mv) {
-		box.innerHTML =
-			'<div class="wtop"><span class="wn" style="color:var(--muted)">No footwork</span></div>' +
-			'<div class="wsub">This fighter was given no special movement.</div>';
-		return;
-	}
-	const rooted = p.rootTurns > 0;
-	const hasJ = p.mv & 1,
-		hasD = p.mv & 2,
-		hasL = p.mv & 4,
-		hasF = p.mv & 8,
-		hasS = p.mv & 16,
-		hasW = p.mv & 32,
-		hasR = p.mv & 64,
-		hasU = p.mv & 128,
-		hasG = p.mv & 256,
-		hasT = p.mv & 512;
-	const j = jumpTargets(p).length,
-		d = dashTargets(p).length,
-		l = leapTargets(p).length,
-		sp = spinTiles(p).length,
-		wp = wipeTiles(p).length,
-		rp = warpTargets(p).length,
-		up = S.board.filter((c) => c.t).length,
-		gp = spreadTargets().length;
-	const left = (n: number): number => S.mvUses - n;
-	const btn = (
-		id: string,
-		label: string,
-		has: boolean,
-		used: number,
-		targets: number,
-		mode: string,
-		cost: number,
-	): string => {
-		if (!has) return "";
-		if (used >= S.mvUses) return `<button class="act" disabled>${label} · spent</button>`;
-		return `<button class="act" id="${id}" aria-pressed="${S.mode === mode}" title="${mvTip(label)}"
-      ${rooted || p.nrg < cost || !targets ? "disabled" : ""}>${label} · ${cost} <span style="opacity:.6">x${left(used)}</span></button>`;
+
+function tileFighter(o: Player, p: Player, k: number, crowd: number): TileFighter {
+	return {
+		seat: o.i,
+		colour: o.c,
+		active: o === p,
+		lit: !!o.lit && o !== p, // the lit fighter is never shown their own glow
+		// shoulder to shoulder
+		inset: crowd > 1 ? (k ? "34% 8% 8% 34%" : "8% 34% 34% 8%") : null,
+		z: crowd > 1 ? (o === p ? 2 : 1) : null,
 	};
-	box.innerHTML = `
-    <div class="wtop"><span class="wn">Footwork</span>
-      <span class="wd" style="font-size:11px">footwork</span></div>
-${p.float ? '<div class="wsub"><span class="fx">You are in the air.</span></div>' : ""}
-    <div class="wrow">
-      ${btn("jmp", "Jump", !!hasJ, p.used.jump, j, "jump", COST.jump)}
-      ${btn("dsh", "Dash", !!hasD, p.used.dash, d, "dash", COST.dash)}
-      ${btn("lep", "Leap", !!hasL, p.used.leap, l, "leap", COST.leap)}
-      ${
-			hasF
-				? p.float
-					? '<button class="act" aria-pressed="true" disabled>Floating</button>'
-					: p.used.float >= S.mvUses
-						? '<button class="act" disabled>Float · spent</button>'
-						: `<button class="act" id="flt" ${p.nrg < COST.float ? "disabled" : ""}>Float · ${COST.float} <span style="opacity:.6">x${left(p.used.float)}</span></button>`
-				: ""
-		}
-      ${
-			hasS
-				? p.used.spin >= S.mvUses
-					? '<button class="act" disabled>Spin · spent</button>'
-					: `<button class="act" id="spn" ${p.nrg < COST.spin || !sp ? "disabled" : ""}>Spin · ${COST.spin} <span style="opacity:.6">x${left(p.used.spin)}</span></button>`
-				: ""
-		}
-      ${
-			hasW
-				? p.used.wipe >= S.mvUses
-					? '<button class="act" disabled>Wipe · spent</button>'
-					: `<button class="act" id="wpe" ${p.nrg < COST.wipe || !wp ? "disabled" : ""}>Wipe · ${COST.wipe} <span style="opacity:.6">x${left(p.used.wipe)}</span></button>`
-				: ""
-		}
-      ${
-			hasR
-				? p.used.warp >= S.mvUses
-					? '<button class="act" disabled>Warp · spent</button>'
-					: `<button class="act" id="wrp" aria-pressed="${S.mode === "warp"}"
-          ${rooted || p.nrg < COST.warp || !rp ? "disabled" : ""}>Warp · ${COST.warp} <span style="opacity:.6">x${left(p.used.warp)}</span></button>`
-				: ""
-		}
-      ${
-			hasT
-				? p.trail
-					? `<button class="act" aria-pressed="true" disabled>Trailing ${T[p.trail]!.n}</button>`
-					: p.used.trail >= S.mvUses
-						? '<button class="act" disabled>Trail · spent</button>'
-						: `<button class="act" id="trl" ${p.nrg < COST.trail || !S.board[idx(p.x, p.y)]!.t ? "disabled" : ""}>Trail · ${COST.trail} <span style="opacity:.6">x${left(p.used.trail)}</span></button>`
-				: ""
-		}
-      ${
-			hasU
-				? p.used.ultra >= S.mvUses
-					? '<button class="act" disabled>Ultraclear · spent</button>'
-					: `<button class="act" id="ult" ${p.nrg < COST.ultra || !up ? "disabled" : ""}>Ultraclear · ${COST.ultra} <span style="opacity:.6">x${left(p.used.ultra)}</span></button>`
-				: ""
-		}
-      ${
-			hasG
-				? p.used.spread >= S.mvUses
-					? '<button class="act" disabled>Spread · spent</button>'
-					: `<button class="act" id="spr" aria-pressed="${S.mode === "spread"}"
-          ${p.nrg < COST.spread || !gp ? "disabled" : ""}>Spread · ${COST.spread} <span style="opacity:.6">x${left(p.used.spread)}</span></button>`
-				: ""
-		}
-      ${
-			p.mv & 32768
-				? p.used.light >= S.mvUses
-					? '<button class="act" disabled>Spotlight · spent</button>'
-					: `<button class="act" id="lgt" aria-pressed="${S.mode === "light"}"
-          ${p.nrg < COST.light || !lightTargets().length ? "disabled" : ""}>Spotlight · ${COST.light} <span style="opacity:.6">x${left(p.used.light)}</span></button>`
-				: ""
-		}
-      ${
-			p.mv & 16384
-				? p.used.mark >= S.mvUses
-					? '<button class="act" disabled>Mark · spent</button>'
-					: `<button class="act" id="mrk" aria-pressed="${S.mode === "mark"}"
-          ${p.nrg < COST.mark || !markTargets().length ? "disabled" : ""}>Mark · ${COST.mark} <span style="opacity:.6">x${left(p.used.mark)}</span></button>`
-				: ""
-		}
-      ${
-			p.mv & 8192
-				? p.used.swap >= S.mvUses
-					? '<button class="act" disabled>Swap · spent</button>'
-					: `<button class="act" id="swp" aria-pressed="${S.mode === "swap"}"
-          ${rooted || p.nrg < COST.swap || !swapTargets().length ? "disabled" : ""}>Swap · ${COST.swap} <span style="opacity:.6">x${left(p.used.swap)}</span></button>`
-				: ""
-		}
-      ${
-			p.mv & 4096
-				? p.used.theft >= S.mvUses
-					? '<button class="act" disabled>Theft · spent</button>'
-					: `<button class="act" id="thf" aria-pressed="${S.mode === "theft"}"
-          ${p.nrg < COST.theft || !theftTargets().length ? "disabled" : ""}>Theft · ${COST.theft} <span style="opacity:.6">x${left(p.used.theft)}</span></button>`
-				: ""
-		}
-      ${
-			p.mv & 2048
-				? p.used.smash >= S.mvUses
-					? '<button class="act" disabled>Handsmash · spent</button>'
-					: `<button class="act" id="smh" ${p.nrg < COST.smash || !smashable(p) ? "disabled" : ""}
-          >Handsmash · ${COST.smash} <span style="opacity:.6">x${left(p.used.smash)}</span></button>`
-				: ""
-		}
-      ${
-			p.mv & 1024
-				? p.used.shift >= S.mvUses
-					? '<button class="act" disabled>Shift · spent</button>'
-					: `<button class="act" id="shf" aria-pressed="${S.mode === "shift"}"
-          ${p.nrg < COST.shift ? "disabled" : ""}>Shift · ${COST.shift} <span style="opacity:.6">x${left(p.used.shift)}</span></button>`
-				: ""
-		}
-      ${rooted ? '<span class="hint">Stuck in the mud this turn.</span>' : ""}
-    </div>`;
-	if ($("shf"))
-		$("shf").onclick = () => {
-			S.mode = S.mode === "shift" ? null : "shift";
-			S.sel = null;
-			render();
-		};
-	if ($("smh")) $("smh").onclick = doSmash;
-	if ($("thf"))
-		$("thf").onclick = () => {
-			S.mode = S.mode === "theft" ? null : "theft";
-			S.sel = null;
-			render();
-		};
-	if ($("swp"))
-		$("swp").onclick = () => {
-			S.mode = S.mode === "swap" ? null : "swap";
-			S.sel = null;
-			render();
-		};
-	if ($("mrk"))
-		$("mrk").onclick = () => {
-			S.mode = S.mode === "mark" ? null : "mark";
-			S.sel = null;
-			render();
-		};
-	if ($("lgt"))
-		$("lgt").onclick = () => {
-			S.mode = S.mode === "light" ? null : "light";
-			S.sel = null;
-			render();
-		};
-	if ($("jmp"))
-		$("jmp").onclick = () => {
-			S.mode = S.mode === "jump" ? null : "jump";
-			S.sel = null;
-			render();
-		};
-	if ($("dsh"))
-		$("dsh").onclick = () => {
-			S.mode = S.mode === "dash" ? null : "dash";
-			S.sel = null;
-			render();
-		};
-	if ($("lep"))
-		$("lep").onclick = () => {
-			S.mode = S.mode === "leap" ? null : "leap";
-			S.sel = null;
-			render();
-		};
-	if ($("flt")) $("flt").onclick = doFloat;
-	if ($("spn")) $("spn").onclick = doSpin;
-	if ($("wpe")) $("wpe").onclick = doWipe;
-	if ($("wrp"))
-		$("wrp").onclick = () => {
-			S.mode = S.mode === "warp" ? null : "warp";
-			S.sel = null;
-			render();
-		};
-	if ($("ult")) $("ult").onclick = doUltra;
-	if ($("spr"))
-		$("spr").onclick = () => {
-			S.mode = S.mode === "spread" ? null : "spread";
-			S.sel = null;
-			render();
-		};
-	if ($("trl")) $("trl").onclick = doTrail;
 }
-function drawWep(): void {
-	const p = cur(),
-		c = held(p);
-	if (!c) {
-		$("wep").innerHTML = `<div class="wtop"><span class="wn" style="color:var(--muted)">Empty hands</span></div>
-      <div class="wsub">Pick a weapon card from your hand. Holding one is free, and you can put it back.</div>`;
-		return;
-	}
+
+/** One band per fighter who could reach the square, or null while nobody has been asked about it. */
+function reachStripes(who: Player[] | undefined): string | null {
+	if (!who?.length) return null;
+	if (who.length === 1) return `linear-gradient(${rgba(who[0]!.c, 0.34)},${rgba(who[0]!.c, 0.34)})`;
+	return `repeating-linear-gradient(135deg,${who
+		.map((q, z) => `${rgba(q.c, 0.4)} ${z * 7}px,${rgba(q.c, 0.4)} ${(z + 1) * 7}px`)
+		.join(",")})`;
+}
+
+/* The footwork rail: one button per special move this fighter was given. A move can be offered,
+   spent, or already running, and each of the three reads differently. */
+
+function liveMove(key: ActionKey, used: number, disabled: boolean, click: () => void, aiming: boolean): FootworkButton {
+	return {key, label: MV[key]!.n, cost: COST[key], left: S.mvUses - used, tip: MV[key]!.d, aiming, disabled, click};
+}
+
+function spentMove(key: ActionKey): FootworkButton {
+	return {
+		key,
+		label: `${MV[key]!.n} · spent`,
+		cost: null,
+		left: null,
+		tip: MV[key]!.d,
+		aiming: false,
+		disabled: true,
+		click: null,
+	};
+}
+
+/** A move already under way, which is not offered again while it is. */
+function runningMove(key: ActionKey, label: string): FootworkButton {
+	return {key, label, cost: null, left: null, tip: MV[key]!.d, aiming: true, disabled: true, click: null};
+}
+
+/** Puts the board into a mode, or back out of the one it is already waiting in. */
+function aimAt(mode: string): () => void {
+	return () => {
+		S.mode = S.mode === mode ? null : mode;
+		S.sel = null;
+		render();
+	};
+}
+
+function footworkView(p: Player): FootworkView {
+	const rooted = p.rootTurns > 0;
+	const buttons: FootworkButton[] = [];
+	const add = (has: number, key: ActionKey, disabled: boolean, click: () => void, aiming: boolean): void => {
+		if (!has) return;
+		buttons.push(p.used[key] >= S.mvUses ? spentMove(key) : liveMove(key, p.used[key], disabled, click, aiming));
+	};
+	add(p.mv & 1, "jump", rooted || p.nrg < COST.jump || !jumpTargets(p).length, aimAt("jump"), S.mode === "jump");
+	add(p.mv & 2, "dash", rooted || p.nrg < COST.dash || !dashTargets(p).length, aimAt("dash"), S.mode === "dash");
+	add(p.mv & 4, "leap", rooted || p.nrg < COST.leap || !leapTargets(p).length, aimAt("leap"), S.mode === "leap");
+	if (p.mv & 8 && p.float) buttons.push(runningMove("float", "Floating"));
+	else add(p.mv & 8, "float", p.nrg < COST.float, doFloat, false);
+	add(p.mv & 16, "spin", p.nrg < COST.spin || !spinTiles(p).length, doSpin, false);
+	add(p.mv & 32, "wipe", p.nrg < COST.wipe || !wipeTiles(p).length, doWipe, false);
+	add(p.mv & 64, "warp", rooted || p.nrg < COST.warp || !warpTargets(p).length, aimAt("warp"), S.mode === "warp");
+	if (p.mv & 512 && p.trail) buttons.push(runningMove("trail", `Trailing ${T[p.trail]!.n}`));
+	else add(p.mv & 512, "trail", p.nrg < COST.trail || !S.board[idx(p.x, p.y)]!.t, doTrail, false);
+	add(p.mv & 128, "ultra", p.nrg < COST.ultra || !S.board.some((c) => c.t), doUltra, false);
+	add(p.mv & 256, "spread", p.nrg < COST.spread || !spreadTargets().length, aimAt("spread"), S.mode === "spread");
+	add(p.mv & 32768, "light", p.nrg < COST.light || !lightTargets().length, aimAt("light"), S.mode === "light");
+	add(p.mv & 16384, "mark", p.nrg < COST.mark || !markTargets().length, aimAt("mark"), S.mode === "mark");
+	add(p.mv & 8192, "swap", rooted || p.nrg < COST.swap || !swapTargets().length, aimAt("swap"), S.mode === "swap");
+	add(p.mv & 4096, "theft", p.nrg < COST.theft || !theftTargets().length, aimAt("theft"), S.mode === "theft");
+	add(p.mv & 2048, "smash", p.nrg < COST.smash || !smashable(p), doSmash, false);
+	add(p.mv & 1024, "shift", p.nrg < COST.shift, aimAt("shift"), S.mode === "shift");
+	return {any: !!p.mv, floating: p.float, rooted, buttons};
+}
+
+/* The weapon panel, which is only ever about the one card being held. */
+
+/** A row of leavings, or nothing at all when the weapon carries no choice to make. */
+function leaveRow(
+	c: WepCard,
+	label: string,
+	opts: string[],
+	pick: string | undefined,
+	key: "leaveSelf" | "leaveFoe",
+): LeaveRow[] {
+	if (opts.length < 2) return [];
+	return [
+		{
+			label,
+			options: opts.map((e) => ({
+				key: e,
+				name: elName(e),
+				colour: EL[e] ? EL[e].c : T[e]!.c,
+				on: e === pick,
+				choose: () => {
+					c[key] = e;
+					render();
+				},
+			})),
+		},
+	];
+}
+
+function weaponView(p: Player, dark: boolean): WeaponView | null {
+	const c = held(p);
+	if (!c) return null;
 	const dmg = wepDmg(c),
 		cost = wCost(c),
 		hits = wHits(c);
 	const uniq = [...new Set(c.els.map((e: string) => forgeOf(e).fx))];
-	const dark = blind(p);
+	// a square only counts as a target when somebody this seat can actually see is standing on it
 	const tg = liveTargets(p, c).filter(
 		([x, y]) => !dark || occupantsAt(x, y).some((q) => q.lit && q !== p && !ally(q, p)),
 	).length;
 	const poor = p.nrg < cost;
-	$("wep").innerHTML = `
-    <div class="wtop"><span class="wn" style="color:${wColor(c)}">${wepName(c)}</span>
-      <span class="wd">${dmg}${hits > 1 ? ` x ${hits}` : ""} damage</span></div>
-    <div class="wsub">${wDesc(c)} Breaks the moment you swing it.${uniq.length ? ` <span class="fx">On hit: ${uniq.join(", ")}.</span>` : ""}</div>
-    <div class="wstrip" style="background:${wStrip(c)}"></div>
-    ${(() => {
-		const row = (label: string, opts: string[], pick: string | undefined, key: "leaveSelf" | "leaveFoe"): string =>
-			opts.length < 2
-				? ""
-				: `<div class="wsub" style="margin-top:8px">${label}
-          ${opts
-				.map(
-					(e: string) => `<button class="lv${e === pick ? " on" : ""}" data-k="${key}" data-e="${e}"
-            style="--lc:${EL[e] ? EL[e].c : T[e]!.c}">${elName(e)}</button>`,
-				)
-				.join("")}</div>`;
-		return (
-			row("Leaves under them:", foeEls(c), leaveFoe(c), "leaveFoe") +
-			row("Lays under you:", selfEls(c), leaveSelf(c), "leaveSelf")
-		);
-	})()}
-    <div class="wrow"><button class="atk" id="atkbtn" aria-pressed="${S.mode === "attack"}"
-      ${poor ? "disabled" : ""}>Swing · ${cost} energy <span style="opacity:.6">F</span></button>
-      ${
-			poor
-				? '<span class="hint">Not enough energy this turn.</span>'
-				: dark
-					? '<span class="hint">Blinded. Swing where you think they are.</span>'
-					: tg
-						? `<span class="hint">${tg} square${tg === 1 ? "" : "s"} you can see someone on. You may swing anywhere in reach.</span>`
-						: '<span class="hint">Nobody visible in reach. Swing anyway to sweep for someone hidden.</span>'
-		}</div>`;
-	const b = $("atkbtn");
-	if (b) b.onclick = startAttack;
-	$("wep")
-		.querySelectorAll(".lv")
-		.forEach(
-			(el) =>
-				(el.onclick = () => {
-					if (el.dataset["k"] === "leaveSelf") c.leaveSelf = el.dataset["e"]!;
-					else c.leaveFoe = el.dataset["e"]!;
-					render();
-				}),
-		);
+	return {
+		name: wepName(c),
+		colour: wColor(c),
+		damage: `${dmg}${hits > 1 ? ` x ${hits}` : ""}`,
+		desc: `${wDesc(c)} Breaks the moment you swing it.`,
+		onHit: uniq.length ? uniq.join(", ") : null,
+		strip: wStrip(c),
+		rows: [
+			...leaveRow(c, "Leaves under them:", foeEls(c), leaveFoe(c), "leaveFoe"),
+			...leaveRow(c, "Lays under you:", selfEls(c), leaveSelf(c), "leaveSelf"),
+		],
+		cost,
+		aiming: S.mode === "attack",
+		disabled: poor,
+		swing: startAttack,
+		hint: poor
+			? "Not enough energy this turn."
+			: dark
+				? "Blinded. Swing where you think they are."
+				: tg
+					? `${tg} square${tg === 1 ? "" : "s"} you can see someone on. You may swing anywhere in reach.`
+					: "Nobody visible in reach. Swing anyway to sweep for someone hidden.",
+	};
 }
+
 export const MODEHINT: Record<string, string | undefined> = {
 	jump: "Pick a square exactly two away to land on.",
 	dash: "Pick a square along a clear straight line.",
@@ -651,331 +386,264 @@ export const MODEHINT: Record<string, string | undefined> = {
 	warp: "Pick any bare, empty square on the board.",
 	spread: "Pick a square with something on it to grow into a 5x5.",
 };
-function drawActions(): void {
-	const p = cur(),
-		bar = $("actbar");
-	if (MODEHINT[S.mode!]) {
-		bar.innerHTML = `<span class="hint">${MODEHINT[S.mode!]} Esc to cancel.</span>`;
-		return;
-	}
-	if (S.mode === "attack") {
-		bar.innerHTML = '<span class="hint">Pick a tile to strike. Esc to cancel.</span>';
-		return;
-	}
+
+/* The bar under the board: what the game is waiting for, and what can be done about it. */
+
+/** A bar that only says something, which is most of them. */
+function saying(text: string): ActionBarView {
+	return {hint: [{text, strong: false}], alarm: false, buttons: [], tail: null};
+}
+
+function press(key: string, label: string, click: () => void, disabled = false): ActionButton {
+	return {key, label, disabled, facedown: false, click};
+}
+
+function actionsView(p: Player): ActionBarView {
+	if (MODEHINT[S.mode!]) return saying(`${MODEHINT[S.mode!]} Esc to cancel.`);
+	if (S.mode === "attack") return saying("Pick a tile to strike. Esc to cancel.");
 	if (S.mode === "place") {
 		const sc = selCard(p);
-		bar.innerHTML = `<span class="hint">Pick a tile within 4.${
-			sc && lethalRaw(sc.id) ? ` ${elName(sc.id)} cannot be laid on a square someone is standing on.` : ""
-		} Esc to cancel.</span>`;
-		return;
+		const lethal =
+			sc && lethalRaw(sc.id) ? ` ${elName(sc.id)} cannot be laid on a square someone is standing on.` : "";
+		return saying(`Pick a tile within 4.${lethal} Esc to cancel.`);
 	}
-	if (S.steal != null) {
-		const v = S.players[S.steal]!;
-		bar.innerHTML =
-			`<span class="hint">Take a card from ${v ? v.name : "them"}:</span>` +
-			(v
-				? v.hand
-						.map((c, i) =>
-							seenBy(c)
-								? `<button class="act stl" data-u="${c.uid}">${cardLabel(c)}</button>`
-								: `<button class="act stl facedown" data-u="${c.uid}">Card ${i + 1}</button>`,
-						)
-						.join("")
-				: "") +
-			`<button class="act" id="stlno">Cancel</button>`;
-		bar.querySelectorAll(".stl").forEach(
-			(b) =>
-				(b.onclick = () => {
-					takeCard(v, +b.dataset["u"]!);
-				}),
-		);
-		$("stlno").onclick = () => {
-			S.steal = null;
-			render();
-		};
-		return;
-	}
-	if (S.toss) {
-		const pick = p.hand.find((q) => q.uid === S.tossPick);
-		if (!pick) {
-			bar.innerHTML =
-				'<span class="hint" style="color:#ff8f6b">Chaos mode. Pick a card from your hand to throw away before you do anything else.</span>';
-			return;
-		}
-		const label = pick.k === "el" ? elName(pick.id) : wepName(pick);
-		bar.innerHTML = `<span class="hint" style="color:#ff8f6b">Throw away <b style="color:var(--ink)">${label}</b>?</span>
-      <button class="act" id="tossyes">Yes, bin it</button>
-      <button class="act" id="tossno">Pick another</button>`;
-		$("tossyes").onclick = () => {
-			doToss(pick.uid);
-		};
-		$("tossno").onclick = () => {
-			S.tossPick = null;
-			render();
-		};
-		return;
-	}
-	if (S.mode === "shift") {
-		bar.innerHTML = `<span class="hint">Slide everyone:</span>
-      <button class="act" id="shL">&#8592; Left</button>
-      <button class="act" id="shR">Right &#8594;</button>
-      <button class="act" id="shU">&#8593; Up</button>
-      <button class="act" id="shD">&#8595; Down</button>
-      <span class="hint">Esc to cancel.</span>`;
-		$("shL").onclick = () => {
-			doShift(-1, 0);
-		};
-		$("shR").onclick = () => {
-			doShift(1, 0);
-		};
-		$("shU").onclick = () => {
-			doShift(0, -1);
-		};
-		$("shD").onclick = () => {
-			doShift(0, 1);
-		};
-		return;
-	}
-	if (S.mode === "mix") {
-		bar.innerHTML = '<span class="hint">Click any highlighted card to merge with. Esc to cancel.</span>';
-		return;
-	}
+	if (S.steal != null) return stealBar(S.steal);
+	if (S.toss) return tossBar(p);
+	if (S.mode === "shift") return shiftBar();
+	if (S.mode === "mix") return saying("Click any highlighted card to merge with. Esc to cancel.");
 	const c = selCard(p),
 		h = held(p),
 		active = c || h;
-	if (!active) {
-		bar.innerHTML =
+	if (!active)
+		return saying(
 			p.rootTurns > 0
-				? '<span class="hint">Stuck in the mud. You cannot move until this turn ends.</span>'
-				: '<span class="hint">Click a card, or step onto a highlighted tile.</span>';
-		return;
-	}
+				? "Stuck in the mud. You cannot move until this turn ends."
+				: "Click a card, or step onto a highlighted tile.",
+		);
 	const parts = mixPartners(p, active).length;
-	bar.innerHTML = `${c ? `<button class="act" id="a1" ${p.nrg < COST.place ? "disabled" : ""}>Lay on a tile · ${COST.place}</button>` : ""}
-    <button class="act" id="a3" ${p.nrg < COST.merge || !parts ? "disabled" : ""}>Merge · ${COST.merge}</button>
-    ${
-		parts
-			? '<span class="hint">Two elements fuse, two weapons combine, an element goes into a weapon.</span>'
-			: '<span class="hint">Nothing in hand merges with this.</span>'
-	}`;
-	if ($("a1"))
-		$("a1").onclick = () => {
-			S.mode = "place";
+	const buttons: ActionButton[] = [];
+	if (c)
+		buttons.push(
+			press(
+				"place",
+				`Lay on a tile · ${COST.place}`,
+				() => {
+					S.mode = "place";
+					render();
+				},
+				p.nrg < COST.place,
+			),
+		);
+	buttons.push(
+		press(
+			"merge",
+			`Merge · ${COST.merge}`,
+			() => {
+				startMix(active.uid);
+			},
+			p.nrg < COST.merge || !parts,
+		),
+	);
+	return {
+		hint: [],
+		alarm: false,
+		buttons,
+		tail: parts
+			? "Two elements fuse, two weapons combine, an element goes into a weapon."
+			: "Nothing in hand merges with this.",
+	};
+}
+
+/** The hand being robbed, with every card this seat has not been shown offered face down. */
+function stealBar(seat: number): ActionBarView {
+	const v = S.players[seat]!;
+	const buttons: ActionButton[] = v
+		? v.hand.map((c: Card, i: number) => ({
+				key: String(c.uid),
+				label: seenBy(c) ? cardLabel(c) : `Card ${i + 1}`,
+				disabled: false,
+				facedown: !seenBy(c),
+				click: () => {
+					takeCard(v, c.uid);
+				},
+			}))
+		: [];
+	buttons.push(
+		press("cancel", "Cancel", () => {
+			S.steal = null;
 			render();
-		};
-	$("a3").onclick = () => {
-		startMix(active.uid);
+		}),
+	);
+	return {
+		hint: [{text: `Take a card from ${v ? v.name : "them"}:`, strong: false}],
+		alarm: false,
+		buttons,
+		tail: null,
 	};
 }
-function drawRoster(): void {
-	$("roster").innerHTML = S.players
-		.map((p) => {
-			const c = held(p),
-				mine = p === cur(),
-				open = !S.priv;
-			const wp =
-				mine || open
-					? `${c ? `${wepName(c)} · ${wepDmg(c)} dmg` : "unarmed"} · ${p.hand.length} in hand`
-					: `${p.hand.length} in hand`;
-			const mates = S.players.filter((q) => q !== p && q.team === p.team && q.alive);
-			return `<div class="pcard ${p.alive ? "" : "dead"}" style="--pc:${p.c}">
-      <div class="row1"><span class="glyph mage p${p.i}"></span>
-        <span class="nm">${p.name}${mates.length ? ` <span style="color:var(--muted);letter-spacing:0">+${mates.length} ally</span>` : ""}</span>
-        <span class="hpn">${p.hp}</span></div>
-      <div class="bar"><i style="width:${(p.hp / p.max) * 100}%;background:${p.c};box-shadow:0 0 8px ${p.c}"></i></div>
-      ${
-			p.cap > 12
-				? `<div class="wp" style="color:#ffd24a">${mine ? p.nrg : p.cap} / ${p.cap} energy</div>`
-				: `<div class="nrg">${Array.from(
-						{length: p.cap},
-						(_, i) => `<s class="${mine && i < p.nrg ? "f" : ""}"></s>`,
-					).join("")}</div>`
-		}
-      ${(() => {
-			if (p === cur()) return "";
-			const seen = p.hand.filter((c) => seenBy(c));
-			return seen.length
-				? `<div class="wp" style="color:var(--accent)">seen: ${seen.map(cardLabel).join(", ")}</div>`
-				: "";
-		})()}
-      <div class="wp">${wp}</div>
-    </div>`;
-		})
-		.join("");
+
+function tossBar(p: Player): ActionBarView {
+	const pick = p.hand.find((q) => q.uid === S.tossPick);
+	if (!pick)
+		return {
+			hint: [
+				{
+					text: "Chaos mode. Pick a card from your hand to throw away before you do anything else.",
+					strong: false,
+				},
+			],
+			alarm: true,
+			buttons: [],
+			tail: null,
+		};
+	return {
+		hint: [
+			{text: "Throw away ", strong: false},
+			{text: cardLabel(pick), strong: true},
+			{text: "?", strong: false},
+		],
+		alarm: true,
+		buttons: [
+			press("toss", "Yes, bin it", () => {
+				doToss(pick.uid);
+			}),
+			press("another", "Pick another", () => {
+				S.tossPick = null;
+				render();
+			}),
+		],
+		tail: null,
+	};
 }
-let drag: Drag | null = null,
-	justDragged = false;
-function handCards(): GameEl[] {
-	return [...$("hand").querySelectorAll(".hcard")];
+
+function shiftBar(): ActionBarView {
+	const slide = (key: string, label: string, dx: number, dy: number): ActionButton =>
+		press(key, label, () => {
+			doShift(dx, dy);
+		});
+	return {
+		hint: [{text: "Slide everyone:", strong: false}],
+		alarm: false,
+		buttons: [
+			slide("left", "← Left", -1, 0),
+			slide("right", "Right →", 1, 0),
+			slide("up", "↑ Up", 0, -1),
+			slide("down", "↓ Down", 0, 1),
+		],
+		tail: "Esc to cancel.",
+	};
 }
-function clearSlots(): void {
-	handCards().forEach((c) => {
-		c.classList.remove("slotL", "slotR");
+
+/* The roster down the left: one card per seat, read from where this seat is sitting. */
+
+function rosterView(): RosterCard[] {
+	return S.players.map((p) => {
+		const c = held(p),
+			mine = p === cur(),
+			open = !S.priv;
+		const line =
+			mine || open
+				? `${c ? `${wepName(c)} · ${wepDmg(c)} dmg` : "unarmed"} · ${p.hand.length} in hand`
+				: `${p.hand.length} in hand`;
+		const mates = S.players.filter((q) => q !== p && q.team === p.team && q.alive);
+		const seen = mine ? [] : p.hand.filter((q) => seenBy(q));
+		return {
+			seat: p.i,
+			name: p.name,
+			colour: p.c,
+			alive: p.alive,
+			allies: mates.length,
+			hp: p.hp,
+			health: p.hp / p.max,
+			// a cap too big to draw as pips reads as a line instead
+			energy: p.cap > 12 ? `${mine ? p.nrg : p.cap} / ${p.cap} energy` : null,
+			pips: p.cap > 12 ? null : {total: p.cap, filled: mine ? p.nrg : 0},
+			seen: seen.length ? seen.map(cardLabel).join(", ") : null,
+			line,
+		};
 	});
 }
-function dropIndex(clientX: number): {idx: number; el: GameEl | null; side: string} {
-	const others = handCards().filter((c) => +c.dataset["u"]! !== drag?.uid);
-	for (let k = 0; k < others.length; k++) {
-		const r = others[k]!.getBoundingClientRect();
-		if (clientX < r.left + r.width / 2) return {idx: k, el: others[k]!, side: "slotL"};
-	}
-	return {idx: others.length, el: others[others.length - 1] || null, side: "slotR"};
-}
-function dragStart(e: PointerEvent, uid: number): void {
-	if (S.phase !== "act" || S.handoff) return;
-	const p = cur(),
-		i = p.hand.findIndex((q) => q.uid === uid);
-	if (i < 0) return;
-	drag = {
-		uid,
-		el: e.currentTarget as GameEl,
-		x0: e.clientX,
-		y0: e.clientY,
-		pid: e.pointerId,
-		active: false,
-		touch: e.pointerType !== "mouse",
+
+/* The hand: the cards this seat is holding, in whatever order they have been left in. */
+
+function handCard(p: Player, c: Card, i: number): HandCard {
+	const el = c.k === "el",
+		comp = el && isComp(c.id);
+	const colour = el ? elColor(c.id) : wColor(c);
+	const f = el ? forgeOf(c.id) : null;
+	const desc = el
+		? `${comp && T[c.id]!.spread ? `Covers a ${T[c.id]!.spread! * 2 + 1}x${T[c.id]!.spread! * 2 + 1}. ` : ""}${T[EL[c.id] ? EL[c.id]!.t : c.id]!.d}. Forge: ${f!.mult && !f!.dmg ? f!.fx : `+${f!.dmg} damage`}.`
+		: `${wDesc(c)} ${wepDmg(c)}${wHits(c) > 1 ? ` x${wHits(c)}` : ""} damage, ${wCost(c)} energy.`;
+	return {
+		uid: c.uid,
+		kind: el ? (comp ? "FUSED" : "ELEMENT") : "WEAPON",
+		number: i + 1,
+		name: el ? elName(c.id) : wepName(c),
+		desc,
+		colour,
+		strip: el ? colour : wStrip(c),
+		on: el ? S.sel === c.uid : p.held === c.uid,
+		mixable: (S.toss && S.tossPick == null) || (S.mode === "mix" && mixPartners(p).some((q) => q.uid === c.uid)),
+		doomed: S.toss && S.tossPick === c.uid,
 	};
 }
-function dragMove(e: PointerEvent): void {
-	if (!drag || e.pointerId !== drag.pid) return;
-	const dx = e.clientX - drag.x0,
-		dy = e.clientY - drag.y0;
-	if (!drag.active) {
-		if (Math.hypot(dx, dy) < 8) return;
-		// on touch, a sideways swipe belongs to the scroller, not to us
-		if (drag.touch && Math.abs(dx) > Math.abs(dy)) {
-			drag = null;
-			return;
-		}
-		drag.active = true;
-		drag.el.classList.add("dragging");
-		try {
-			drag.el.setPointerCapture(drag.pid);
-		} catch {}
-	}
-	e.preventDefault();
-	drag.el.style.transform = `translate(${dx}px,${Math.max(-46, Math.min(0, dy))}px) scale(1.04)`;
-	const box = $("hand"),
-		r = box.getBoundingClientRect();
-	if (e.clientX < r.left + 44) box.scrollLeft -= 14;
-	else if (e.clientX > r.right - 44) box.scrollLeft += 14;
-	clearSlots();
-	const t = dropIndex(e.clientX);
-	if (t.el) t.el.classList.add(t.side);
-}
-function dragEnd(e: PointerEvent | null): void {
-	if (!drag || (e && e.pointerId !== drag.pid)) return;
-	const d = drag;
-	drag = null;
-	d.el.classList.remove("dragging");
-	d.el.style.transform = "";
-	clearSlots();
-	if (!d.active) return;
-	justDragged = true;
-	const p = cur(),
-		from = p.hand.findIndex((q) => q.uid === d.uid);
-	if (from < 0) {
-		render();
-		return;
-	}
-	drag = d;
-	const to = dropIndex(e ? e.clientX : d.x0).idx;
-	drag = null;
-	const [card] = p.hand.splice(from, 1);
-	if (card) p.hand.splice(to, 0, card);
-	render();
-}
-addEventListener("pointermove", dragMove, {passive: false});
-addEventListener("pointerup", dragEnd);
-addEventListener("pointercancel", dragEnd);
-function drawHand(): void {
-	const p = cur();
-	if (!p.hand.length) {
-		$("hand").innerHTML = '<span class="hint">Nothing in hand yet.</span>';
-		return;
-	}
-	$("hand").innerHTML = p.hand
-		.map((c, i) => {
-			const el = c.k === "el",
-				comp = el && isComp(c.id);
-			const col = el ? elColor(c.id) : wColor(c);
-			const strip = el ? col : wStrip(c);
-			const on = el ? S.sel === c.uid : p.held === c.uid;
-			const name = el ? elName(c.id) : wepName(c);
-			const f = el ? forgeOf(c.id) : null;
-			const desc = el
-				? `${comp && T[c.id]!.spread ? `Covers a ${T[c.id]!.spread! * 2 + 1}x${T[c.id]!.spread! * 2 + 1}. ` : ""}${T[EL[c.id] ? EL[c.id]!.t : c.id]!.d}. Forge: ${f!.mult && !f!.dmg ? f!.fx : `+${f!.dmg} damage`}.`
-				: `${wDesc(c)} ${wepDmg(c)}${wHits(c) > 1 ? ` x${wHits(c)}` : ""} damage, ${wCost(c)} energy.`;
-			const canMix =
-				(S.toss && S.tossPick == null) || (S.mode === "mix" && mixPartners(p).some((q) => q.uid === c.uid));
-			const doomed = S.toss && S.tossPick === c.uid;
-			return `<button class="hcard${canMix ? " mixable" : ""}${doomed ? " doomed" : ""}" data-u="${c.uid}"
-      style="--ec:${col};--strip:${strip}" aria-pressed="${on}">
-      <div class="ck">${el ? (comp ? "FUSED" : "ELEMENT") : "WEAPON"} · ${i + 1}</div>
-      <div class="cn">${name}</div><div class="cd">${desc}</div></button>`;
-		})
-		.join("");
-	updateHandArrows();
-	handCards().forEach((b) => {
-		const uid = +b.dataset["u"]!;
-		b.onpointerdown = (e) => {
-			dragStart(e, uid);
-		};
-		b.onclick = () => {
-			if (justDragged) {
-				justDragged = false;
-				return;
+
+function handView(p: Player): HandView {
+	return {
+		cards: p.hand.map((c, i) => handCard(p, c, i)),
+		click: clickCard,
+		// `to` counts the cards the dragged one left behind, which is where it lands among them
+		reorder: (uid: number, to: number) => {
+			const from = p.hand.findIndex((q) => q.uid === uid);
+			if (from >= 0) {
+				const [card] = p.hand.splice(from, 1);
+				if (card) p.hand.splice(to, 0, card);
 			}
-			clickCard(uid);
-		};
-		b.setAttribute("draggable", "false");
-	});
+			render();
+		},
+		draggable: S.phase === "act" && !S.handoff,
+	};
 }
+
+/* Table talk. */
+
 function chatById(id: number): ChatMsg | undefined {
 	return S.chat.find((m) => m.id === id);
 }
-export function drawChat(): void {
-	const box = $("chatlog");
-	if (!box) return;
-	box.innerHTML = S.chat.length
-		? S.chat
-				.map((m) => {
-					const par = m.to ? chatById(m.to) : null;
-					return `<p>${
-						par
-							? `<span class="quote"><b style="color:${par.c}">${par.who}</b>
-            ${par.t.length > 44 ? par.t.slice(0, 44) + "…" : par.t}</span>`
-							: ""
-					}
-          <b style="color:${m.c}">${m.who}</b><span class="rnd">r${m.r}</span>
-          <button class="reply" data-id="${m.id}">reply</button><br>${m.t}</p>`;
-				})
-				.join("")
-		: '<p class="none">Nothing said yet.</p>';
-	box.querySelectorAll(".reply").forEach(
-		(b) =>
-			(b.onclick = () => {
-				S.replyTo = +b.dataset["id"]!;
+
+/** The line an answer hangs off, cut to whatever length the place it is shown in has room for. */
+function quoteOf(id: number | null, cut: number): ChatQuote | null {
+	const m = id ? chatById(id) : null;
+	if (!m) return null;
+	return {who: m.who, colour: m.c, text: m.t.length > cut ? m.t.slice(0, cut) + "…" : m.t};
+}
+
+function chatView(): ChatView {
+	return {
+		lines: S.chat.map((m) => ({
+			id: m.id,
+			who: m.who,
+			colour: m.c,
+			round: m.r,
+			text: m.t,
+			quote: quoteOf(m.to, 44),
+			reply: () => {
+				S.replyTo = m.id;
 				render();
-			}),
-	);
-	box.scrollTop = box.scrollHeight;
-	const bar = $("replybar");
-	const par = S.replyTo ? chatById(S.replyTo) : null;
-	bar.innerHTML = par
-		? `<span class="rto">replying to <b style="color:${par.c}">${par.who}</b>
-        ${par.t.length > 30 ? par.t.slice(0, 30) + "…" : par.t}
-        <button class="reply" id="replyx">cancel</button></span>`
-		: "";
-	if ($("replyx"))
-		$("replyx").onclick = () => {
+			},
+		})),
+		replyingTo: quoteOf(S.replyTo, 30),
+		cancelReply: () => {
 			S.replyTo = null;
 			render();
-		};
+		},
+		say,
+	};
 }
-export function saySomething(): void {
-	const el = $("chatin");
-	const t = (el.value || "").trim().replace(/[<>]/g, "");
+
+/** Says something at the table, answering whatever the reply bar is pointing at. */
+export function say(text: string): void {
+	const t = text.trim().replace(/[<>]/g, "");
 	if (!t) return;
 	const p = cur();
 	const par = S.replyTo ? chatById(S.replyTo) : null;
@@ -987,8 +655,95 @@ export function saySomething(): void {
 		t,
 		to: par ? par.id : null,
 	});
-	logit(par ? `to ${par.who}: \u201c${t}\u201d` : `\u201c${t}\u201d`, undefined, true);
+	logit(par ? `to ${par.who}: “${t}”` : `“${t}”`, undefined, true);
 	S.replyTo = null;
-	el.value = "";
 	render();
+}
+
+/* The tile inspector down the right, and the reach overlay offered under it. */
+
+function reachChooser(p: Player, dark: boolean): ReachChooser {
+	const list = S.players.filter((q) => q.alive && (q === p || q.lit || (!dark && !hidden(q))));
+	return {
+		chips: list.map((q) => ({
+			seat: q.i,
+			name: q.name,
+			colour: q.c,
+			budget: moveBudget(q),
+			on: S.reach.includes(q.i),
+			toggle: () => {
+				const at = S.reach.indexOf(q.i);
+				if (at >= 0) S.reach.splice(at, 1);
+				else S.reach.push(q.i);
+				render();
+			},
+		})),
+		blinded: dark,
+	};
+}
+
+/** Who can reach the square being read, or nothing at all while nobody has been asked. */
+function reachFact(i: number, p: Player, dark: boolean): TileFact[] {
+	if (!S.imode || !S.reach.length) return [];
+	const who = reachMap().get(i);
+	if (!who?.length) return [{label: "In reach of", value: "nobody selected"}];
+	return [{label: "In reach of", value: who.map((q) => (q === p || !dark ? q.name : "someone hidden")).join(", ")}];
+}
+
+function tileReadout(p: Player, dark: boolean, i: number): TileReadout {
+	const x = i % S.dim,
+		y = (i / S.dim) | 0,
+		c = S.board[i]!;
+	const t = c.t && seesTile(p, x, y) ? T[c.t] : null;
+	const facts: TileFact[] = [];
+	if (t) {
+		if (t.enter > 50) facts.push({label: "Entering", value: "impossible"});
+		else facts.push({label: "Entering", value: t.enter + " energy"});
+		if (t.end) facts.push({label: "Ending here", value: t.end + " damage"});
+		if (t.bite) facts.push({label: "Crossing it", value: t.bite + " damage"});
+		if (t.heal) facts.push({label: "Ending here", value: "heals " + t.heal});
+		if (t.aura) facts.push({label: "Within " + (t.rad || 2), value: t.aura + " damage"});
+		if (t.auraHeal) facts.push({label: "Within " + (t.rad || 2), value: "heals " + t.auraHeal});
+		if (t.gain) facts.push({label: "Ending here", value: "+" + t.gain + " energy"});
+		if (t.los) facts.push({label: "Standing here", value: "you are blind"});
+		if (t.anchor) facts.push({label: "Shoves", value: "cannot move you"});
+		if (t.ward) facts.push({label: "Ground effects", value: "cannot touch you"});
+		if (t.gone) facts.push({label: "Touching it", value: "you are gone"});
+		facts.push({label: "Lasts", value: t.life > 900 ? "permanent" : t.life + " more rounds"});
+	}
+	// the same rule the board reads by: cover keeps a fighter out of the readout as well as off the
+	// square, or Inspect would name whoever the ground is busy hiding
+	const all = occupantsAt(x, y),
+		shown = all.filter((q) => q === p || q.lit || (!dark && !hidden(q)));
+	if (all.length)
+		facts.push({
+			label: "Standing on it",
+			value: shown.length
+				? shown.map((q) => `${q.name}, ${q.hp} HP`).join(" and ") +
+					(shown.length < all.length ? " and someone you cannot see" : "")
+				: "someone you cannot see",
+		});
+	facts.push({label: "Square", value: `${x + 1}, ${y + 1}`});
+	facts.push(...reachFact(i, p, dark));
+	return {
+		name: t ? t.n : "Bare ground",
+		colour: t ? t.c : null,
+		blurb: t ? t.d + "." : "Nothing has been laid here.",
+		facts,
+	};
+}
+
+function inspectView(p: Player, dark: boolean): InspectView {
+	if (!S.imode) S.reach = [];
+	const chooser = S.imode ? reachChooser(p, dark) : null;
+	if (S.look == null)
+		return {
+			inspecting: S.imode,
+			hint: S.imode
+				? "Click any square to read it. Press I or Escape to go back to playing."
+				: "Turn on Inspect to read any square without moving.",
+			tile: null,
+			chooser,
+		};
+	return {inspecting: S.imode, hint: null, tile: tileReadout(p, dark, S.look), chooser};
 }
