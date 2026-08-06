@@ -2,7 +2,9 @@
 	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
 	// src/**/*.mdx mirrors the Storybook stories glob in .storybook/main.ts;
 	// fallow's storybook plugin only detects *.stories.* files, not docs pages.
-	"entry": ["src/main.{ts,tsx,js,jsx}", "src/**/*.mdx"],
+	// worker/index.ts is the match server's entry, loaded by wrangler rather than by the page, and
+	// scripts/multiplayer-smoke.mjs is run by `just multiplayer-check`.
+	"entry": ["src/main.{ts,tsx,js,jsx}", "src/**/*.mdx", "worker/index.ts", "scripts/*.mjs"],
 	"ignorePatterns": [".storybook/**"],
 	// Tooling that never appears in an import: Storybook addons and the test
 	// runner are named as strings in .storybook/main.ts, eslint-plugin-storybook

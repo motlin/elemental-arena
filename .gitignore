@@ -29,6 +29,9 @@ src/routeTree.gen.*
 eslint_report.json
 /.vite/
 
+# miniflare's local state, written by `wrangler dev`
+/.wrangler/
+
 # Local documentation and context
 .llm/
 /.claude/*

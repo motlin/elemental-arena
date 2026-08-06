@@ -26,6 +26,8 @@ then call `render()`. There is no framework and no virtual DOM.
 | `src/game/`      | the game, one module per concern                           |
 | `src/game/data/` | the static tables, re-exported by `index.ts`               |
 | `src/ui/`        | the screens that have migrated into React                  |
+| `src/net/`       | what a client and a match server say to each other         |
+| `worker/`        | the match server: one Durable Object per online match      |
 | `index.html`     | the static markup                                          |
 
 The modules stack one way. `types.ts` and `state.ts` at the bottom, then `lookups.ts`, `save.ts`
@@ -96,8 +98,33 @@ positions should ask these first.
 
 **Footwork bits must stay unique.** Next free bit is 65536.
 
+**The match log narrates concealed moves.** `logit` writes "moved from 4,4 to 5,4" whoever is
+moving, so the log is a leak with a plot. Hot-seat gets away with it because the log is only shown
+once the match is over. Nothing that goes over a socket mid-match may carry it -- see
+`src/game/seat.ts`.
+
 **Anything worth logging goes through `logit()`,** which also snapshots a full replay frame.
 Skip it and the event is missing from both the match log and the replay.
+
+## Online play
+
+Not finished, and not wired into any screen yet, but the server half runs and is tested. One
+Durable Object per match, WebSockets, server-authoritative: a client sends the move it would like to
+make and is sent back only the arena its own seat is allowed to see.
+
+```sh
+just multiplayer         # the match server on miniflare, no Cloudflare account involved
+just multiplayer-check   # opens a match on it and proves the two seats are told different things
+```
+
+`src/game/seat.ts` is the boundary that matters. It builds everything one seat may be told, asking
+the same `hidden()`/`seesTile()`/`blind()` the match screen asks, and it is the only thing the room
+is allowed to send. `src/game/snapshot.ts` lifts a match in and out of `S` around every message,
+because a Durable Object isolate may hold more than one match and `S` is one object.
+
+`wrangler.toml` stays Pages-shaped, so the single-player deploy is untouched; the match server has
+its own `wrangler.multiplayer.toml`. The reasoning, the migration and the open questions are in
+`.llm/plans/2026-08-05-online-multiplayer.md`.
 
 ## Tasks
 
