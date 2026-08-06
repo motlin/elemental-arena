@@ -1,0 +1,21 @@
+# The match server, which is a Worker of its own.
+#
+# wrangler.toml beside this one stays Pages-shaped, because that is how the single-player game
+# deploys and nothing here is allowed to disturb that. A Pages project cannot define a Durable
+# Object class -- only bind to one another Worker defines -- so online play needs a second
+# deployable either way. See .llm/plans/2026-08-05-online-multiplayer.md.
+#
+#   just multiplayer         runs this locally on miniflare, no Cloudflare account involved
+#   just multiplayer-check   opens a match on it and proves the two seats are told different things
+
+name = "elemental-arena-match"
+main = "worker/index.ts"
+compatibility_date = "2025-01-12"
+
+[[durable_objects.bindings]]
+name = "MATCH"
+class_name = "MatchRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MatchRoom"]

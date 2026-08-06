@@ -31,8 +31,16 @@
 		"inlineSources": true,
 		"outDir": "./dist",
 		"newLine": "lf",
-		"types": ["node", "vite/client", "vitest/globals"]
+		"types": ["node", "vite/client", "vitest/globals", "@cloudflare/workers-types"]
 	},
-	"include": ["src/**/*", "tests/**/*", "vite.config.ts", "vitest.config.ts", "vitest.setup.ts", ".storybook/**/*"],
+	"include": [
+		"src/**/*",
+		"tests/**/*",
+		"worker/**/*",
+		"vite.config.ts",
+		"vitest.config.ts",
+		"vitest.setup.ts",
+		".storybook/**/*"
+	],
 	"exclude": ["node_modules", "dist", "build", "coverage"]
 }

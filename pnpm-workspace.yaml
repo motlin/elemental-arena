@@ -22,4 +22,4 @@ allowBuilds:
   esbuild: true
   fallow: true
   unrs-resolver: true
-  workerd: false
+  workerd: true
