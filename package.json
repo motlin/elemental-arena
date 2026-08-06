@@ -26,8 +26,8 @@
 	"dependencies": {
 		"agentation": "^3.0.2",
 		"lucide-react": "^1.25.0",
-		"react": "^19.2.7",
-		"react-dom": "^19.2.7"
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8"
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^5.2.1",
