@@ -180,17 +180,31 @@ describe("MixingTable", () => {
 		return broken;
 	}
 
-	it("reads out every element, every fusion, and every piece of footwork", () => {
-		render(<MixingTable />);
-		open({owned: ELS, found: EVERY_FUSION, footwork: Object.keys(MV)});
+	/* These two click through every element against every other one, so they carry a few hundred
+	   renders each. They land around 2-4s on a quiet machine but have been measured at 12s on a busy
+	   one, which put them over the 5s default often enough to fail a run for no real reason. The
+	   allowance is for the spikes; nothing here should ever take anywhere near it. */
+	const EVERY_ENTRY_TIMEOUT = 30_000;
 
-		expect(everyDetail()).toStrictEqual([]);
-	});
+	it(
+		"reads out every element, every fusion, and every piece of footwork",
+		() => {
+			render(<MixingTable />);
+			open({owned: ELS, found: EVERY_FUSION, footwork: Object.keys(MV)});
 
-	it("reads out every undiscovered entry too", () => {
-		render(<MixingTable />);
-		open();
+			expect(everyDetail()).toStrictEqual([]);
+		},
+		EVERY_ENTRY_TIMEOUT,
+	);
 
-		expect(everyDetail()).toStrictEqual([]);
-	});
+	it(
+		"reads out every undiscovered entry too",
+		() => {
+			render(<MixingTable />);
+			open();
+
+			expect(everyDetail()).toStrictEqual([]);
+		},
+		EVERY_ENTRY_TIMEOUT,
+	);
 });
