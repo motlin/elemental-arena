@@ -41,8 +41,10 @@
 :root[data-theme="day"] .tile.terr {
 	filter: saturate(1.25) brightness(0.9);
 }
+/* brightness and saturate stay: they recolour the shape's own pixels, so the clip keeps them. The
+   drop-shadow beside them did not survive the clip. See the .mage block in arena.css. */
 :root[data-theme="day"] .mage {
-	filter: drop-shadow(0 0 4px var(--pc)) brightness(0.85) saturate(1.3);
+	filter: brightness(0.85) saturate(1.3);
 }
 /* The warm triangle is a texture with its colour baked in, so the day theme's --hot has to be
    restated here rather than inherited. See the sigil block in menu.css. */

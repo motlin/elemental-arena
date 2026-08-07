@@ -137,11 +137,23 @@
 	box-shadow:
 		inset 0 0 0 2px #ff2f4a,
 		0 0 14px -3px #ff2f4a;
+}
+/* The throb rides an overlay's opacity rather than the tile's own background. Opacity and transform
+   are the only two the compositor can carry by itself; animating a background repaints every warned
+   tile every frame, which measured several times the CPU across a board. */
+.tile.warn::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: 3px;
+	background: #ff2f4a3d;
+	opacity: 0;
+	will-change: opacity;
 	animation: warnpulse 1s ease-in-out infinite;
 }
 @keyframes warnpulse {
 	50% {
-		background: #ff2f4a3d;
+		opacity: 1;
 	}
 }
 .tile.gonezone {
@@ -156,9 +168,9 @@
 		inset 0 0 0 1px #ffe9a8,
 		0 0 12px -3px #ffe9a8;
 }
-.mage.litp {
-	filter: drop-shadow(0 0 8px #ffe9a8) drop-shadow(0 0 3px var(--pc));
-}
+/* .mage.litp carried only drop-shadows, which its clip-path discarded, so a lit mage has never
+   actually looked any different. The declaration is gone rather than left costing frames; giving
+   the lit state a highlight that reads is a design call, not a cleanup. */
 .tile.look {
 	box-shadow: inset 0 0 0 2px var(--accent);
 }
@@ -230,11 +242,13 @@
 	font-weight: 700;
 	mix-blend-mode: multiply;
 }
+/* No drop-shadow here: every .mage carries a clip-path from its .pN class, and a filter is applied
+   before the clip, so the halo is drawn around the whole box and then cut away with everything
+   outside the shape. It reached the screen as at most a dozen pixels of edge antialiasing. */
 .mage {
 	position: absolute;
 	inset: 13%;
 	background: var(--pc);
-	filter: drop-shadow(0 0 7px var(--pc));
 }
 .mage.p0 {
 	clip-path: polygon(50% 3%, 97% 92%, 3% 92%);
@@ -260,12 +274,22 @@
 .mage.p7 {
 	clip-path: polygon(3% 8%, 97% 8%, 50% 97%);
 }
-.mage.active {
+/* The pulse cross-fades to a pre-brightened copy of the player's colour. Fading linearly from C to
+   1.35 x C is exactly what brightness(1.35) computes, so the throb lands on the same colours the
+   filter drew -- but it moves opacity, so the compositor carries it without repainting the mage.
+   The dropped drop-shadow was invisible here for the same reason it is on .mage. */
+.mage.active::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: rgb(from var(--pc) calc(r * 1.35) calc(g * 1.35) calc(b * 1.35));
+	opacity: 0;
+	will-change: opacity;
 	animation: pulse 1.7s ease-in-out infinite;
 }
 @keyframes pulse {
 	50% {
-		filter: drop-shadow(0 0 15px var(--pc)) brightness(1.35);
+		opacity: 1;
 	}
 }
 
