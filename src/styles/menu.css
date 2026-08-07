@@ -22,21 +22,28 @@
 	position: relative;
 	flex: none;
 }
+/* The mark turns for as long as the setup screen is open, so a frame it costs is a frame it costs
+   sixty times a second. Each triangle is a texture rather than a clipped box: a clip-path has to be
+   re-evaluated every frame and keeps the layer off the compositor, which measured at roughly twice
+   the CPU for the same picture. will-change hands the turn to the GPU as a plain transform.
+   Do not pair it with translateZ(0): that leaves the underlying transform mismatched against the
+   rotate() keyframe, the two interpolate as matrices, and rotate(360deg) as a matrix is the
+   identity -- the mark would sit perfectly still. */
 .sigil i {
 	position: absolute;
 	inset: 0;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+	will-change: transform;
 	animation: spin 14s linear infinite;
 }
+/* Colours are baked into the texture, so anything that restyles --hot restates the triangle. */
 .sigil i:nth-child(1) {
-	background: var(--hot);
-	clip-path: polygon(50% 3%, 97% 90%, 3% 90%);
-	filter: drop-shadow(0 0 14px var(--hot));
+	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,3 97,90 3,90" fill="%23ff6b3d"/></svg>');
 }
 .sigil i:nth-child(2) {
-	background: #2f9dff;
-	clip-path: polygon(50% 97%, 97% 10%, 3% 10%);
+	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,97 97,10 3,10" fill="%232f9dff"/></svg>');
 	animation-direction: reverse;
-	filter: drop-shadow(0 0 14px #2f9dff);
 }
 @keyframes spin {
 	to {
