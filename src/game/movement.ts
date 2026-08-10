@@ -9,9 +9,9 @@ import {COST, DIR8, T} from "./data/index.js";
 import type {ActionKey, Offset} from "./data/index.js";
 import {checkAlive, nextTurn} from "./match.js";
 import {saveSoon} from "./save.js";
-import {S, ally, cur, hidden, idx, inb, layFor, occupant, occupantsAt, putTerrain} from "./state.js";
+import {S, ally, cur, hidden, idx, inb, layFor, occupant, occupantsAt, putTerrain, seesTile} from "./state.js";
 import type {Card, Player, WepCard} from "./types.js";
-import {pushUndo} from "./undo.js";
+import {markIrreversible, pushUndo} from "./undo.js";
 import {redraw} from "./view.js";
 
 export function canStand(x: number, y: number): boolean {
@@ -122,6 +122,7 @@ function doSweep(bit: number, key: ActionKey, r: number, cost: number): void {
 	if (!(p.mv & bit) || p.used[key] >= S.mvUses) return;
 	const hit = sweepTiles(p, r);
 	if (!hit.length || !spend(cost)) return;
+	if (hit.some(([x, y]) => !seesTile(p, x, y))) markIrreversible();
 	p.used[key]++;
 	hit.forEach(([x, y]) => {
 		const c = S.board[idx(x, y)]!;
@@ -182,6 +183,7 @@ export function doSpread(x: number, y: number): void {
 				ny = y + dy;
 			if (!inb(nx, ny) || sealed(nx, ny)) continue;
 			const c = S.board[idx(nx, ny)]!;
+			if (!seesTile(p, nx, ny)) markIrreversible();
 			putTerrain(c, k);
 			if (k === "whirl") c.wid = S.wid++;
 			S.fx.push([idx(nx, ny), "bloom"]);
@@ -223,6 +225,7 @@ export function doUltra(): void {
 		if (c.t) dirty.push(i);
 	});
 	if (!dirty.length || !spend(COST.ultra)) return;
+	if (dirty.some((i) => !seesTile(p, i % S.dim, (i / S.dim) | 0))) markIrreversible();
 	p.used.ultra++;
 	dirty.forEach((i) => {
 		const c = S.board[i]!;
@@ -276,6 +279,7 @@ export function doMark(x: number, y: number): void {
 	if (!v || v === p || hidden(v)) return;
 	const blind = v.hand.filter((c) => !seenBy(c));
 	if (!blind.length || !spend(COST.mark)) return;
+	markIrreversible();
 	p.used.mark++;
 	const card = blind[(Math.random() * blind.length) | 0]!;
 	card.mark = true;
@@ -335,6 +339,7 @@ export function takeCard(v: Player, uid: number): void {
 		p.used.theft--;
 		return;
 	}
+	markIrreversible();
 	const wasSeen = seenBy(v.hand[at]!);
 	const [card] = v.hand.splice(at, 1);
 	if (card === undefined) return;
@@ -447,6 +452,7 @@ export function tryStep(x: number, y: number): void {
 }
 export function voidOut(p: Player): void {
 	if (!p.alive) return;
+	markIrreversible();
 	S.matchCoins += 40;
 	S.coins += 40;
 	saveSoon();
@@ -471,6 +477,7 @@ export function afterMove(p: Player): void {
 	const c = S.board[idx(p.x, p.y)]!;
 	if (!c.t) return;
 	const d = T[c.t]!;
+	if (d.hide && c.by !== p.i) markIrreversible();
 	if (d.gone) {
 		voidOut(p);
 		return;
@@ -502,6 +509,7 @@ export function settle(p: Player, dx: number, dy: number, depth: number): void {
 	if (d.scatter) {
 		const open = openTiles();
 		if (open.length) {
+			markIrreversible();
 			const [nx, ny] = open[(Math.random() * open.length) | 0]!;
 			p.x = nx;
 			p.y = ny;

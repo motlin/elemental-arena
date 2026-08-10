@@ -8,7 +8,7 @@ import {afterMove, voidOut} from "./movement.js";
 import {save} from "./save.js";
 import {S, cheb, cur, held, idx, inb, layFor, layingFor, occupant, occupantsAt, putTerrain, selCard} from "./state.js";
 import type {Card, LogEntry, Player} from "./types.js";
-import {pushUndo} from "./undo.js";
+import {markIrreversible, pushUndo} from "./undo.js";
 import {redraw, redrawCodex} from "./view.js";
 
 export const cardLabel = (c: Card): string => (c.k === "el" ? elName(c.id) : wepName(c));
@@ -81,6 +81,7 @@ function doMix(u2: number): void {
 		if (!res || !spend(COST.merge)) return;
 		made = {uid: S.uid++, k: "el", id: res};
 		if (!S.codex[res]) {
+			markIrreversible();
 			S.codex[res] = 1;
 			void save();
 			redrawCodex();
@@ -194,6 +195,7 @@ function evict(v: Player): boolean {
 				ring.push([nx, ny]);
 			}
 		if (ring.length) {
+			markIrreversible();
 			const [nx, ny] = ring[(Math.random() * ring.length) | 0]!;
 			const ox = v.x,
 				oy = v.y;
@@ -228,6 +230,7 @@ export function setTerrain(x: number, y: number, k: string): void {
 			claim(nx, ny);
 		}
 	if (!S.codex[k] && CFORGE[k]) {
+		markIrreversible();
 		S.codex[k] = 1;
 		void save();
 		redrawCodex();

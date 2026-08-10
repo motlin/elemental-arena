@@ -9,6 +9,7 @@ import {afterMove, canStand, settle} from "./movement.js";
 import {saveSoon} from "./save.js";
 import {PC, S, ally, cheb, cur, held, hidden, idx, inb, layFor, occupantsAt} from "./state.js";
 import type {Player, WeaponSpec} from "./types.js";
+import {markIrreversible} from "./undo.js";
 import {redraw} from "./view.js";
 
 export function attackTiles(p: Player, c: WeaponSpec): Offset[] {
@@ -45,6 +46,7 @@ export function doAttack(tx: number, ty: number): void {
 		S.fx.push([idx(x, y), "struck"]);
 		occupantsAt(x, y).forEach((v) => {
 			if (v === p || ally(v, p)) return;
+			if (hidden(v)) markIrreversible();
 			struck.push(v.name);
 			for (let h = 0; h < hits; h++) if (v.alive) hurt(v, dmg, p);
 			applyOnHit(p, c, v, x, y);
@@ -169,6 +171,7 @@ export function hurt(v: Player, n: number, src: Player | null): void {
 	S.coins += n;
 	saveSoon();
 	if (v.hp <= 0) {
+		markIrreversible();
 		S.matchCoins += 40;
 		S.coins += 40;
 		if (S.paint) {

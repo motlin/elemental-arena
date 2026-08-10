@@ -10,6 +10,7 @@ import {afterMove, canStand, voidOut} from "./movement.js";
 import {save, saveSoon} from "./save.js";
 import {PC, S, cheb, cur, idx, nameOf, occupant, show, teamName, teamsAlive} from "./state.js";
 import type {Player} from "./types.js";
+import {clearUndo, markIrreversible} from "./undo.js";
 import {openReplay, redraw, redrawCodex} from "./view.js";
 
 export function ringSpots(dim: number, n: number): Offset[] {
@@ -46,6 +47,7 @@ function dealOpening(p: Player): number {
 	return nEl;
 }
 export function startMatch(): void {
+	clearUndo();
 	S.board = Array.from({length: S.dim * S.dim}, () => ({t: null, el: null, life: 0, wid: 0, by: null}));
 	S.wid = 1;
 	S.uid = 1;
@@ -138,6 +140,7 @@ export function startMatch(): void {
 }
 const REFILL = 5;
 function drawCards(p: Player, n: number): void {
+	markIrreversible();
 	const wk = wsOn(p.i),
 		ek = elsOn(p.i);
 	const nEl = Math.random() < 0.5 ? Math.ceil(n / 2) : Math.floor(n / 2);
@@ -154,6 +157,7 @@ export function checkRefill(): void {
 	});
 }
 function beginTurn(): void {
+	clearUndo();
 	const p = cur();
 	const gain = S.startNrg + (S.round - 1);
 	p.cap = Math.max(0, p.bank + gain - p.drain);
@@ -369,6 +373,7 @@ export function forfeit(): void {
 		redraw();
 		return;
 	}
+	clearUndo();
 	if (quitT !== null) clearTimeout(quitT);
 	resetQuitBtn();
 	p.hp = 0;
@@ -381,6 +386,7 @@ export function forfeit(): void {
 }
 /** Walks out of the match and back to the menu, leaving everyone else where they stand. */
 export function leaveMatch(): void {
+	clearUndo();
 	void save();
 	show("menu");
 }
