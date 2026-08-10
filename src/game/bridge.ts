@@ -478,6 +478,8 @@ export interface TopbarView {
 	readonly inspecting: boolean;
 	readonly toggleInspect: () => void;
 	readonly openTable: () => void;
+	readonly canUndo: boolean;
+	readonly undo: () => void;
 	/** False while chaos mode is still waiting for a card to be thrown away. */
 	readonly canEndTurn: boolean;
 	readonly endTurn: () => void;

@@ -25,6 +25,7 @@ import {
 } from "./movement.js";
 import {S, cheb, cur, held, idx} from "./state.js";
 import type {GameEl} from "./types.js";
+import {undo} from "./undo.js";
 import {redraw} from "./view.js";
 
 /* One stable reference shared by the curtain's button and the Enter/Space shortcut, so the
@@ -128,6 +129,11 @@ addEventListener("keydown", (e) => {
 	}
 	const k = e.key.toLowerCase(),
 		p = cur();
+	if (k === "z" && (e.ctrlKey || e.metaKey)) {
+		e.preventDefault();
+		undo();
+		return;
+	}
 	if (k === "escape") {
 		S.sel = null;
 		S.mode = null;
@@ -147,6 +153,10 @@ addEventListener("keydown", (e) => {
 	}
 	if (k === "q") {
 		doSpin();
+		return;
+	}
+	if (k === "u" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+		undo();
 		return;
 	}
 	if (k === "z") {

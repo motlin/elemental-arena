@@ -308,4 +308,66 @@ describe("undoing arena actions", () => {
 
 		expect(canUndo()).toBe(false);
 	});
+
+	it("publishes a working undo action and whether it is available", () => {
+		expect(published().topbar.canUndo).toBe(false);
+
+		tryStep(5, 4);
+		const topbar = published().topbar;
+		expect(topbar.canUndo).toBe(true);
+
+		topbar.undo();
+		const republished = published();
+
+		expect({position: [S.players[0]!.x, S.players[0]!.y], canUndo: republished.topbar.canUndo}).toStrictEqual({
+			position: [4, 4],
+			canUndo: false,
+		});
+	});
+
+	it("refuses to undo while the handoff curtain is up", () => {
+		tryStep(5, 4);
+		S.handoff = true;
+
+		undo();
+
+		expect({position: [S.players[0]!.x, S.players[0]!.y], canUndo: canUndo()}).toStrictEqual({
+			position: [5, 4],
+			canUndo: true,
+		});
+	});
+
+	it("undoes with Ctrl+Z and Cmd+Z before the wipe shortcut", () => {
+		tryStep(5, 4);
+		const controlUndo = new KeyboardEvent("keydown", {key: "z", ctrlKey: true, cancelable: true});
+		window.dispatchEvent(controlUndo);
+
+		expect({
+			position: [S.players[0]!.x, S.players[0]!.y],
+			defaultPrevented: controlUndo.defaultPrevented,
+		}).toStrictEqual({
+			position: [4, 4],
+			defaultPrevented: true,
+		});
+
+		tryStep(5, 4);
+		const commandUndo = new KeyboardEvent("keydown", {key: "z", metaKey: true, cancelable: true});
+		window.dispatchEvent(commandUndo);
+
+		expect({
+			position: [S.players[0]!.x, S.players[0]!.y],
+			defaultPrevented: commandUndo.defaultPrevented,
+		}).toStrictEqual({
+			position: [4, 4],
+			defaultPrevented: true,
+		});
+	});
+
+	it("undoes with the bare U key", () => {
+		tryStep(5, 4);
+
+		window.dispatchEvent(new KeyboardEvent("keydown", {key: "u"}));
+
+		expect([S.players[0]!.x, S.players[0]!.y, canUndo()]).toStrictEqual([4, 4, false]);
+	});
 });

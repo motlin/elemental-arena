@@ -35,6 +35,7 @@ describe("MatchTopBar", () => {
 		expect(buttons(container).map((button) => button.textContent)).toStrictEqual([
 			"Inspect I",
 			"Mixing table",
+			"Undo U",
 			"End turn E",
 			"Forfeit",
 			"Menu",
@@ -68,6 +69,7 @@ describe("MatchTopBar", () => {
 			false,
 			false,
 			true,
+			true,
 			false,
 			false,
 			false,
@@ -77,7 +79,7 @@ describe("MatchTopBar", () => {
 	it("warns in orange once a second tap would drop the fighter", () => {
 		const view = topbar({forfeitLabel: "Tap again to fall", forfeitArmed: true});
 		const {container} = render(<MatchTopBar view={view} />);
-		const forfeit = buttons(container)[3];
+		const forfeit = buttons(container)[4];
 
 		expect(forfeit?.textContent).toBe("Tap again to fall");
 		expect(forfeit?.getAttribute("style")).toBe("border-color: rgb(255, 143, 107); color: rgb(255, 143, 107);");
@@ -88,6 +90,8 @@ describe("MatchTopBar", () => {
 		const view = topbar({
 			toggleInspect: () => pressed.push("inspect"),
 			openTable: () => pressed.push("table"),
+			canUndo: true,
+			undo: () => pressed.push("undo"),
 			endTurn: () => pressed.push("end"),
 			forfeit: () => pressed.push("forfeit"),
 			leave: () => pressed.push("leave"),
@@ -99,7 +103,7 @@ describe("MatchTopBar", () => {
 			for (const button of buttons(container)) button.click();
 		});
 
-		expect(pressed).toStrictEqual(["inspect", "table", "end", "forfeit", "leave", "theme"]);
+		expect(pressed).toStrictEqual(["inspect", "table", "undo", "end", "forfeit", "leave", "theme"]);
 	});
 
 	it("offers whichever theme is not already on", () => {

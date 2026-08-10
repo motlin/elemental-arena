@@ -33,6 +33,10 @@ export function MatchTopBar({view}: {readonly view: TopbarView}): ReactElement {
 			<button type="button" className="ghost" onClick={view.openTable}>
 				Mixing table
 			</button>
+			<button type="button" className="ghost" disabled={!view.canUndo} onClick={view.undo}>
+				{"Undo "}
+				<span style={{color: "var(--muted)"}}>U</span>
+			</button>
 			<button type="button" className="ghost" disabled={!view.canEndTurn} onClick={view.endTurn}>
 				{"End turn "}
 				<span style={{color: "var(--muted)"}}>E</span>

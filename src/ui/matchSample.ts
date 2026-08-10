@@ -121,6 +121,8 @@ export function sampleTopbar(): TopbarView {
 		inspecting: false,
 		toggleInspect: noop,
 		openTable: noop,
+		canUndo: false,
+		undo: noop,
 		canEndTurn: true,
 		endTurn: noop,
 		forfeitLabel: "Forfeit",

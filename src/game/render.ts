@@ -65,7 +65,7 @@ import {
 import {flipTheme, themeLabel} from "./settings.js";
 import {S, ally, blind, cheb, cur, held, hidden, idx, isLit, occupantsAt, rgba, seesTile, selCard} from "./state.js";
 import type {Card, ChatMsg, Player, WepCard} from "./types.js";
-import {auditReveal} from "./undo.js";
+import {auditReveal, canUndo, undo} from "./undo.js";
 
 /**
  * The match as it stands, or nothing at all while the setup screen has the page. Every callback in
@@ -122,6 +122,8 @@ function topbarView(p: Player): TopbarView {
 		inspecting: S.imode,
 		toggleInspect,
 		openTable,
+		canUndo: canUndo(),
+		undo,
 		canEndTurn: !S.toss,
 		endTurn,
 		forfeitLabel: armed ? "Tap again to fall" : "Forfeit",
