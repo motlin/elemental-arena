@@ -354,6 +354,7 @@ export default defineConfig({
 				main: resolve(import.meta.dirname, "index.html"),
 			},
 		},
+		// Production sourcemaps intentionally expose this open-source project's source.
 		sourcemap: true,
 	},
 	server: {
