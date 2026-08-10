@@ -12,7 +12,6 @@
 	// should come off this list by being uninstalled, not ignored.
 	"ignoreDependencies": [
 		"@chromatic-com/storybook",
-		"@sentry/vite-plugin",
 		"@storybook/addon-a11y",
 		"@storybook/addon-docs",
 		"@storybook/addon-onboarding",

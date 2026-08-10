@@ -24,21 +24,20 @@ format: install
     vp fmt {{ if ci != "" { "--check" } else { "" } }}
 
 # Run checks (format + lint + typecheck)
-check: install
-    vp check {{ if ci != "" { "" } else { "--fix" } }}
+check *args: install
+    vp run --cache check {{ if ci != "" { "" } else { "--fix" } }} {{args}}
 
 # Run tests
 test *args: install
-    {{ if ci != "" { "if test -x node_modules/.bin/playwright; then vp exec playwright install --with-deps chromium; fi" } else { "true" } }}
-    vp run test:run {{args}}
+    vp run --cache test:run {{args}}
 
 # Type-check the project
 typecheck: install
-    vp run typecheck
+    vp run --cache typecheck
 
 # Build the project
 build: install
-    vp run build
+    vp run --cache build
 
 # Apply safe Fallow fixes locally, then reject remaining dead code
 fallow: install

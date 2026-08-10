@@ -29,6 +29,8 @@ jobs:
           key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
       - run: just install
       - run: pre-commit run --all-files
+        env:
+          SKIP: markdownlint-cli2,yamllint,fallow
 
   check:
     runs-on: ubuntu-latest

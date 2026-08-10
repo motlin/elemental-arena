@@ -18,7 +18,6 @@ peerDependencyRules:
     vite: "*"
     vitest: "*"
 allowBuilds:
-  "@sentry/cli": true
   "@swc/core": true
   esbuild: true
   fallow: true

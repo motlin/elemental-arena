@@ -22,6 +22,15 @@ export default defineConfig({
 			},
 		],
 	},
+	run: {
+		tasks: {
+			"test:run": {
+				command: "node node_modules/vitest/dist/cli.js run",
+				input: [{auto: true}, "!node_modules/.experimental-vitest-cache/**"],
+				output: [],
+			},
+		},
+	},
 	staged: {
 		"*": "vp check --fix",
 	},

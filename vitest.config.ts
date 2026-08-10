@@ -9,6 +9,11 @@ export default mergeConfig(
 		test: {
 			globals: true,
 			environment: "node",
+			pool: "threads",
+			isolate: true,
+			experimental: {
+				fsModuleCache: true,
+			},
 		},
 	}),
 );
