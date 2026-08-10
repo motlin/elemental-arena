@@ -1,19 +1,25 @@
 import {saveSoon} from "./save.js";
 import {exportMatch, importMatch, type MatchSnapshot} from "./snapshot.js";
-import {S} from "./state.js";
+import {S, hidden} from "./state.js";
 import {redraw} from "./view.js";
 
 interface UndoEntry {
 	snap: MatchSnapshot;
 	coins: number;
 	framesLen: number;
+	hiddenSeats: number[];
 }
 
 const stack: UndoEntry[] = [];
 const STACK_LIMIT = 20;
 
 export function pushUndo(): void {
-	stack.push({snap: exportMatch(), coins: S.coins, framesLen: S.frames.length});
+	stack.push({
+		snap: exportMatch(),
+		coins: S.coins,
+		framesLen: S.frames.length,
+		hiddenSeats: S.players.filter(hidden).map((player) => player.i),
+	});
 	if (stack.length > STACK_LIMIT) stack.shift();
 }
 
@@ -26,6 +32,11 @@ export function clearUndo(): void {
 }
 
 export const markIrreversible = clearUndo;
+
+export function auditReveal(): void {
+	const entry = stack[stack.length - 1];
+	if (entry?.hiddenSeats.some((seat) => !hidden(S.players[seat]!))) clearUndo();
+}
 
 export function undo(): void {
 	if (!stack.length || S.phase !== "act" || S.handoff || S.toss) return;

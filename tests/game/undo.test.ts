@@ -297,4 +297,15 @@ describe("undoing arena actions", () => {
 			canUndo: false,
 		});
 	});
+
+	it("commits the stack when rendering after cover is wiped from a hidden fighter", () => {
+		const victim = S.players[1]!;
+		conceal(victim, 5, 4);
+		pushUndo();
+
+		lay(5, 4, "lava");
+		render();
+
+		expect(canUndo()).toBe(false);
+	});
 });

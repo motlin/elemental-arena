@@ -65,6 +65,7 @@ import {
 import {flipTheme, themeLabel} from "./settings.js";
 import {S, ally, blind, cheb, cur, held, hidden, idx, isLit, occupantsAt, rgba, seesTile, selCard} from "./state.js";
 import type {Card, ChatMsg, Player, WepCard} from "./types.js";
+import {auditReveal} from "./undo.js";
 
 /**
  * The match as it stands, or nothing at all while the setup screen has the page. Every callback in
@@ -78,6 +79,7 @@ export function render(): void {
 		return;
 	}
 	checkRefill();
+	auditReveal();
 	const p = cur();
 	const dark = blind(p);
 	handoffStore.set(S.handoff ? {seat: p.i, name: p.name, colour: p.c, dismiss: dropCurtain} : null);
