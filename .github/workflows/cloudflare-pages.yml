@@ -65,6 +65,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           # The runner has no standalone pnpm; wrangler-action would otherwise pick it from pnpm-lock.yaml.
           packageManager: npm
           command: pages deploy dist --project-name=elemental-arena --branch=${{ github.head_ref || github.ref_name }}
