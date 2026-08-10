@@ -11,6 +11,7 @@ import {checkAlive, nextTurn} from "./match.js";
 import {saveSoon} from "./save.js";
 import {S, ally, cur, hidden, idx, inb, layFor, occupant, occupantsAt, putTerrain} from "./state.js";
 import type {Card, Player, WepCard} from "./types.js";
+import {pushUndo} from "./undo.js";
 import {redraw} from "./view.js";
 
 export function canStand(x: number, y: number): boolean {
@@ -423,6 +424,7 @@ export function tryStep(x: number, y: number): void {
 	const c = S.board[idx(x, y)]!;
 	const cost = p.float ? 1 : c.t ? T[c.t]!.enter : 1;
 	if (cost > 50 || p.nrg < cost) return;
+	pushUndo();
 	const dx = x - p.x,
 		dy = y - p.y,
 		ox = p.x,

@@ -8,6 +8,7 @@ import {afterMove, voidOut} from "./movement.js";
 import {save} from "./save.js";
 import {S, cheb, cur, held, idx, inb, layFor, layingFor, occupant, occupantsAt, putTerrain, selCard} from "./state.js";
 import type {Card, LogEntry, Player} from "./types.js";
+import {pushUndo} from "./undo.js";
 import {redraw, redrawCodex} from "./view.js";
 
 export const cardLabel = (c: Card): string => (c.k === "el" ? elName(c.id) : wepName(c));
@@ -39,6 +40,7 @@ export function logit(t: string, who?: Player | null, say?: boolean): void {
 export function spend(n: number): boolean {
 	const p = cur();
 	if (p.nrg < n) return false;
+	pushUndo();
 	p.nrg -= n;
 	return true;
 }
@@ -107,6 +109,7 @@ function doMix(u2: number): void {
 export function doToss(uid: number): void {
 	const p = cur();
 	const c = p.hand.find((q) => q.uid === uid);
+	pushUndo();
 	if (c) logit(`threw away ${c.k === "el" ? elName(c.id) : wepName(c)}`);
 	p.hand = p.hand.filter((q) => q.uid !== uid);
 	if (p.held === uid) p.held = null;
