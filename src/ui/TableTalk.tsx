@@ -1,5 +1,6 @@
 import {useLayoutEffect, useRef, useState, type ReactElement} from "react";
 import type {ChatLine, ChatQuote, ChatView} from "../game/bridge.js";
+import {SAY_MAX} from "../game/chat.js";
 
 /** The line an answer was written to, printed above it or in the bar under the log. */
 function Quote({quote}: {readonly quote: ChatQuote}): ReactElement {
@@ -74,7 +75,7 @@ export function TableTalk({view}: {readonly view: ChatView}): ReactElement {
 			</div>
 			<div className="chatrow">
 				<input
-					maxLength={120}
+					maxLength={SAY_MAX}
 					placeholder="Say something"
 					aria-label="Message the table"
 					value={typed}

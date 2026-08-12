@@ -11,6 +11,7 @@
  * to guess which half was meant.
  */
 
+import {SAY_MAX} from "../game/chat.js";
 import {DEFAULT_SETUP, SETUP_LIMITS} from "../game/intent.js";
 import type {Intent, MatchSetup} from "../game/intent.js";
 import type {SeatState} from "../game/seat.js";
@@ -46,6 +47,28 @@ function isCount(value: unknown): value is number {
 	return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
+/** One square along one axis, or none: the only numbers a move carries that go below zero. */
+function isStep(value: unknown): value is number {
+	return value === -1 || value === 0 || value === 1;
+}
+
+/** Something said at the table. The cap is the chat box's own, so both ends hold to the same one. */
+function isLine(value: unknown): value is string {
+	return typeof value === "string" && value.length > 0 && value.length <= SAY_MAX;
+}
+
+/** What each field a move can carry has to be. A field missing from here is a field no move has. */
+const FIELD: Record<string, ((value: unknown) => boolean) | undefined> = {
+	x: isCount,
+	y: isCount,
+	uid: isCount,
+	into: isCount,
+	to: isCount,
+	dx: isStep,
+	dy: isStep,
+	text: isLine,
+};
+
 /** The fields each move carries, which is also the list nothing may be added to. */
 const INTENT_FIELDS = {
 	step: ["x", "y"],
@@ -53,6 +76,25 @@ const INTENT_FIELDS = {
 	place: ["uid", "x", "y"],
 	swing: ["x", "y"],
 	merge: ["uid", "into"],
+	jump: ["x", "y"],
+	dash: ["x", "y"],
+	leap: ["x", "y"],
+	warp: ["x", "y"],
+	spread: ["x", "y"],
+	swap: ["x", "y"],
+	mark: ["x", "y"],
+	light: ["x", "y"],
+	theft: ["x", "y"],
+	float: [],
+	spin: [],
+	wipe: [],
+	ultra: [],
+	trail: [],
+	smash: [],
+	shift: ["dx", "dy"],
+	take: ["uid"],
+	toss: ["uid"],
+	chat: ["text", "to"],
 	end: [],
 	forfeit: [],
 } as const satisfies Record<Intent["k"], readonly string[]>;
@@ -61,16 +103,21 @@ function isIntentKind(kind: unknown): kind is Intent["k"] {
 	return typeof kind === "string" && Object.hasOwn(INTENT_FIELDS, kind);
 }
 
-/** Exactly these keys, no more and no fewer, and every one of them a whole number. */
+/** Exactly these keys, no more and no fewer, and every one of them what its field has to be. */
 function shaped(value: Record<string, unknown>, fields: readonly string[]): boolean {
 	const keys = Object.keys(value).filter((key) => key !== "k");
 	if (keys.length !== fields.length) return false;
-	return fields.every((field) => isCount(value[field]));
+	return fields.every((field) => FIELD[field]?.(value[field]) === true);
 }
 
 /** A checked field, as a number. `shaped` has already said the ones a move needs are there. */
 function count(value: unknown): number {
 	return typeof value === "number" ? value : 0;
+}
+
+/** A checked field, as text. */
+function line(value: unknown): string {
+	return typeof value === "string" ? value : "";
 }
 
 /**
@@ -95,6 +142,35 @@ function parseIntent(value: unknown): Intent | null {
 			return {k, x, y};
 		case "merge":
 			return {k, uid, into: count(value["into"])};
+		case "jump":
+		case "dash":
+		case "leap":
+		case "warp":
+		case "spread":
+		case "swap":
+		case "mark":
+		case "light":
+		case "theft":
+			return {k, x, y};
+		case "float":
+		case "spin":
+		case "wipe":
+		case "ultra":
+		case "trail":
+		case "smash":
+			return {k};
+		case "shift": {
+			// the four the shift bar offers: standing still is not a direction, and nor is a diagonal
+			const dx = count(value["dx"]),
+				dy = count(value["dy"]);
+			return Math.abs(dx) + Math.abs(dy) === 1 ? {k, dx, dy} : null;
+		}
+		case "take":
+			return {k, uid};
+		case "toss":
+			return {k, uid};
+		case "chat":
+			return {k, text: line(value["text"]), to: count(value["to"])};
 		case "end":
 			return {k};
 		case "forfeit":

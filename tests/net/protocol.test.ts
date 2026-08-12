@@ -1,6 +1,6 @@
 import {describe, it, expect} from "vitest";
 import {PROTOCOL_VERSION, encode, parseClientMessage, parseSetup} from "../../src/net/protocol.js";
-import type {ClientMessage} from "../../src/net/protocol.js";
+import type {ClientMessage, Intent} from "../../src/net/protocol.js";
 
 /**
  * Everything a client can say to the match server. The server trusts none of it, so the parser is
@@ -19,16 +19,40 @@ describe("what a client may say", () => {
 		expect(said(hello)).toStrictEqual(hello);
 	});
 
+	/* Keyed by kind, so the list cannot quietly fall behind what the arena can be asked for: a move
+	   added to the protocol and not to this record is a compile error rather than a hole nobody
+	   notices until a client sends one and is turned away. */
+	const EVERY_MOVE: {readonly [K in Intent["k"]]: Intent & {readonly k: K}} = {
+		step: {k: "step", x: 4, y: 5},
+		card: {k: "card", uid: 12},
+		place: {k: "place", uid: 12, x: 0, y: 8},
+		swing: {k: "swing", x: 2, y: 2},
+		merge: {k: "merge", uid: 1, into: 2},
+		jump: {k: "jump", x: 1, y: 1},
+		dash: {k: "dash", x: 1, y: 1},
+		leap: {k: "leap", x: 1, y: 1},
+		warp: {k: "warp", x: 1, y: 1},
+		spread: {k: "spread", x: 1, y: 1},
+		swap: {k: "swap", x: 1, y: 1},
+		mark: {k: "mark", x: 1, y: 1},
+		light: {k: "light", x: 1, y: 1},
+		theft: {k: "theft", x: 1, y: 1},
+		float: {k: "float"},
+		spin: {k: "spin"},
+		wipe: {k: "wipe"},
+		ultra: {k: "ultra"},
+		trail: {k: "trail"},
+		smash: {k: "smash"},
+		shift: {k: "shift", dx: -1, dy: 0},
+		take: {k: "take", uid: 7},
+		toss: {k: "toss", uid: 7},
+		chat: {k: "chat", text: "good luck", to: 3},
+		end: {k: "end"},
+		forfeit: {k: "forfeit"},
+	};
+
 	it("round-trips every move the arena takes", () => {
-		const moves: ClientMessage[] = [
-			{k: "move", intent: {k: "step", x: 4, y: 5}},
-			{k: "move", intent: {k: "card", uid: 12}},
-			{k: "move", intent: {k: "place", uid: 12, x: 0, y: 8}},
-			{k: "move", intent: {k: "swing", x: 2, y: 2}},
-			{k: "move", intent: {k: "merge", uid: 1, into: 2}},
-			{k: "move", intent: {k: "end"}},
-			{k: "move", intent: {k: "forfeit"}},
-		];
+		const moves: ClientMessage[] = Object.values(EVERY_MOVE).map((intent) => ({k: "move", intent}));
 
 		expect(moves.map(said)).toStrictEqual(moves);
 	});
@@ -59,6 +83,31 @@ describe("what a client may say", () => {
 			{k: "move", intent: {k: "merge", uid: 1}},
 			{k: "move", intent: {k: "teleport"}},
 			{k: "move"},
+		];
+
+		expect(bad.map((m) => parseClientMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
+	});
+
+	/* A slide is one of the four the shift bar offers. Standing still is not a direction, a diagonal
+	   is not one the arena has ever drawn a button for, and two squares at once is not a slide. */
+	it("refuses a slide that is not one of the four directions", () => {
+		const bad = [
+			{k: "move", intent: {k: "shift", dx: 0, dy: 0}},
+			{k: "move", intent: {k: "shift", dx: 1, dy: 1}},
+			{k: "move", intent: {k: "shift", dx: 2, dy: 0}},
+			{k: "move", intent: {k: "shift", dx: -1}},
+		];
+
+		expect(bad.map((m) => parseClientMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
+	});
+
+	it("refuses table talk that is empty or longer than the box it is typed in", () => {
+		const bad = [
+			{k: "move", intent: {k: "chat", text: "", to: 0}},
+			{k: "move", intent: {k: "chat", text: "a".repeat(121), to: 0}},
+			{k: "move", intent: {k: "chat", text: 4, to: 0}},
+			{k: "move", intent: {k: "chat", text: "hi", to: -1}},
+			{k: "move", intent: {k: "chat", text: "hi"}},
 		];
 
 		expect(bad.map((m) => parseClientMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
