@@ -139,6 +139,20 @@ async function run() {
 	const again = await fetch(`${BASE}/api/match/${CODE}/open`, {method: "POST", body: "{}"});
 	check("the same match cannot be opened twice", again.status === 409);
 
+	/* A room that is turned down still has to take what was posted at it. Leaving the body of a
+	   refused open unread ends the room where it stands, and the player who asks for a seat next is
+	   told the connection was lost -- which looked like a flaky test for as long as one refused open
+	   per run was all that happened. Ten in a row is not something one unread body survives. */
+	let survived = 0;
+	for (let round = 0; round < 10; round += 1) {
+		const code = `${CODE}-turned-down-${round}`;
+		await fetch(`${BASE}/api/match/${code}/open`, {method: "POST", body: JSON.stringify({seats: 2, dim: 9})});
+		await fetch(`${BASE}/api/match/${code}/open`, {method: "POST", body: JSON.stringify({seats: 2, dim: 9})});
+		const after = await (await fetch(`${BASE}/api/match/${code}/join`, {method: "POST"})).json();
+		if (after.seat === 0) survived += 1;
+	}
+	check("a match outlives an open it turned down", survived === 10, `${survived}/10 rooms still answered`);
+
 	const claim = async () => (await fetch(`${BASE}/api/match/${CODE}/join`, {method: "POST"})).json();
 	const seats = [await claim(), await claim()];
 	const tokens = seats.map((one) => one.token);

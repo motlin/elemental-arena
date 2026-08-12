@@ -98,10 +98,19 @@ export class MatchRoom {
 	}
 
 	// the Workers runtime calls this, not the rest of the codebase
-	// fallow-ignore-next-line unused-class-member
 	async fetch(request: Request): Promise<Response> {
+		/* Whatever was posted is taken here, before any door below decides whether it wants it. A door
+		   that answers without reading the body -- a second open on a match that already exists is the
+		   one that bites -- leaves the stream unread, and the runtime ends the room over it with
+		   "can't read from request stream after response has been sent". The room is gone by the time
+		   the next player asks for a seat, and what they are told is that the connection was lost. */
+		const sent: unknown = request.body === null ? null : await request.json().catch(() => null);
+		return this.#answer(request, sent);
+	}
+
+	async #answer(request: Request, sent: unknown): Promise<Response> {
 		const {pathname} = new URL(request.url);
-		if (pathname.endsWith("/open")) return this.#open(request);
+		if (pathname.endsWith("/open")) return this.#open(sent);
 		if (pathname.endsWith("/join")) return this.#join();
 		if (pathname.endsWith("/socket")) return this.#socket(request);
 		return json({error: "no such door"}, 404);
@@ -112,10 +121,9 @@ export class MatchRoom {
 	 * fistful of tokens in their hands would be a host who could sit down as anybody. Seats are
 	 * asked for one at a time below, so a token only ever exists in the hands of the seat it claims.
 	 */
-	async #open(request: Request): Promise<Response> {
+	async #open(sent: unknown): Promise<Response> {
 		if (await this.#ctx.storage.get<MatchSnapshot>(MATCH)) return json({error: "already open"}, 409);
-		const body: unknown = await request.json().catch(() => null);
-		const setup = parseSetup(body ?? {});
+		const setup = parseSetup(sent ?? {});
 		if (!setup) return json({error: "that is not a setup"}, 400);
 		await this.#ctx.storage.put(MATCH, openMatch(setup));
 		await this.#ctx.storage.put(
@@ -157,7 +165,6 @@ export class MatchRoom {
 	}
 
 	// the Workers runtime calls this, not the rest of the codebase
-	// fallow-ignore-next-line unused-class-member
 	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
 		// before the bytes are so much as read, because reading them is part of what is being rationed
 		if (!this.#allowed(ws)) return;
@@ -180,7 +187,6 @@ export class MatchRoom {
 	}
 
 	// the Workers runtime calls this, not the rest of the codebase
-	// fallow-ignore-next-line unused-class-member
 	async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
 		// 1005 means the peer sent no code at all, which is not one a close frame may carry back
 		ws.close(code === 1005 ? 1000 : code, reason);
@@ -194,7 +200,6 @@ export class MatchRoom {
 	 * costs a storage write rather than a write and an alarm.
 	 */
 	// the Workers runtime calls this, not the rest of the codebase
-	// fallow-ignore-next-line unused-class-member
 	async alarm(): Promise<void> {
 		const touched = (await this.#ctx.storage.get<number>(TOUCHED)) ?? 0;
 		if (Date.now() - touched < IDLE_MS) {

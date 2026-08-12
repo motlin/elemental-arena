@@ -148,6 +148,30 @@ describe("seats, dealt one at a time", () => {
 		expect(JSON.parse(await answer.text())).toStrictEqual({seats: 2});
 	});
 
+	/* A door that answers without reading what was posted through it leaves the request's body
+	   unread, and the runtime ends the room over it -- after which the next player to ask for a seat
+	   is told the connection was lost instead. Turning a request down is not a reason to leave it
+	   half-read. */
+	it("takes what was posted at it even when it turns the request down", async () => {
+		const ctx = new FakeRoomState();
+		const room = new MatchRoom(ctx as unknown as DurableObjectState);
+		await room.fetch(
+			new Request("https://arena.test/api/match/quiet-forge/open", {
+				method: "POST",
+				body: JSON.stringify({seats: 2, dim: 9}),
+			}),
+		);
+
+		const again = new Request("https://arena.test/api/match/quiet-forge/open", {
+			method: "POST",
+			body: JSON.stringify({seats: 2, dim: 9}),
+		});
+		const answer = await room.fetch(again);
+
+		expect(answer.status).toBe(409);
+		expect(again.bodyUsed).toBe(true);
+	});
+
 	it("gives each player a seat of their own, and a token nobody else was told", async () => {
 		const ctx = new FakeRoomState();
 		const room = new MatchRoom(ctx as unknown as DurableObjectState);
