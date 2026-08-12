@@ -171,6 +171,20 @@ describe("what the room may say back", () => {
 
 		expect(bad.map((m) => parseServerMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
 	});
+
+	/* The log only ever comes at the end, and the room is the one thing on this wire that is not a
+	   stranger, so the entries are taken as given the way a seat view is. */
+	it("round-trips the match log the room lets go of at the end", () => {
+		const log = [{r: 1, who: "Rose", c: "#e2657a", t: "laid Spring", say: false}];
+
+		expect(parseServerMessage(encode({k: "over", log}))).toStrictEqual({k: "over", log});
+	});
+
+	it("hears nothing at all in an ending that carries no log", () => {
+		const bad = [{k: "over"}, {k: "over", log: "it went well"}, {k: "over", log: ["it went well"]}];
+
+		expect(bad.map((m) => parseServerMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
+	});
 });
 
 describe("the setup a host opens a match on", () => {

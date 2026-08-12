@@ -18,23 +18,29 @@
  * nothing here to put back, and the aim stays up exactly as it does in hot-seat when you click a
  * square a move will not reach.
  *
- * Three things are hot-seat's alone for now, each because it reaches for something a client does not
- * hold: the keyboard in src/game/input.ts, which bails on any screen but `game` and so is inert
- * here; the animations a move leaves behind, which are worked out where the move is worked; and
- * undo, which rewinds a match this device does not own. The game-over screen and the replay are
- * absent for a reason of a different kind -- both are written from the match log, which narrates
- * concealed moves by name, so neither can be sent while the match is still being played.
+ * Three things are hot-seat's alone, each because it reaches for something a client does not hold:
+ * the keyboard in src/game/input.ts, which bails on any screen but `game` and so is inert here; the
+ * animations a move leaves behind, which are worked out where the move is worked; and undo, which
+ * rewinds a match this device does not own.
+ *
+ * The end of the match comes from two different places, for the same reason. The log is written by
+ * `logit`, which narrates concealed moves by name and square, so the room keeps it until the match
+ * is played out and then sends it whole -- and the game-over screen is written from it here. The
+ * replay cannot wait for that, because there is no censored version of it to send at all, so this
+ * device keeps its own as it goes: see src/game/record.ts.
  */
 
-import {matchStore, seatStore} from "./bridge.js";
-import {codexLine, openTable} from "./menu.js";
+import {matchStore, overStore, replayStore, seatStore} from "./bridge.js";
+import {closeReplay, codexLine, openTable} from "./menu.js";
+import {forget, keep, kept} from "./record.js";
 import {matchView} from "./render.js";
 import {flipTheme, themeLabel} from "./settings.js";
-import {show} from "./state.js";
+import {NOCOLOUR, show} from "./state.js";
 import {leave, sendIntent, sit} from "../net/client.js";
 import type {Invite} from "../net/client.js";
 import type {Intent} from "./intent.js";
 import type {Local, MatchActions} from "./render.js";
+import type {LogEntry} from "./types.js";
 
 /** The half of `Local` this device owns, which is every part of it no rule has an opinion about. */
 type Aim = Pick<Local, "mode" | "sel" | "mixFrom" | "tossPick" | "imode" | "look" | "reach" | "replyTo">;
@@ -76,6 +82,44 @@ function local(): Local {
 function draw(): void {
 	const v = seatStore.get();
 	matchStore.set(v === null ? null : matchView(v, local(), ACTIONS));
+}
+
+/** Every arena the room sends: one more frame of this seat's replay, and then the screen. */
+function heard(): void {
+	const v = seatStore.get();
+	if (v !== null) keep(v);
+	draw();
+}
+
+/** The replay of what this seat watched, which is the only replay it is in a position to have. */
+function watchAgain(): void {
+	replayStore.set({frames: kept(), dim: seatStore.get()?.dim ?? 0, close: closeReplay});
+}
+
+/**
+ * The end of the match, written from the last arena the room sent and the log it let go of once
+ * there was nothing left to keep. Nothing is banked: an online match is dealt from the base arsenal
+ * and pays into nobody's save (src/game/lobby.ts), so the line hot-seat spends on coins says so.
+ */
+function ended(log: readonly LogEntry[]): void {
+	const v = seatStore.get();
+	if (v === null) return;
+	const won = v.fighters.filter((who) => who.alive);
+	const first = won[0];
+	overStore.set({
+		seat: first?.seat ?? v.seat,
+		colour: first?.colour ?? NOCOLOUR,
+		headline:
+			first === undefined
+				? "Nobody walks out"
+				: won.length === 1
+					? `${first.name} holds the arena`
+					: `${won.map((who) => who.name).join(" and ")} hold the arena`,
+		earn: "Nothing is banked from an online match",
+		log,
+		openReplay: watchAgain,
+		back: goOffline,
+	});
 }
 
 /**
@@ -144,20 +188,25 @@ export function playOnline(invite: Invite): void {
 	stop?.();
 	aim = FRESH;
 	armed = false;
-	stop = seatStore.subscribe(draw);
-	sit(invite, settle);
+	forget();
+	overStore.set(null);
+	stop = seatStore.subscribe(heard);
+	sit(invite, settle, ended);
 	// hot-seat's own match, if this device was in one, goes down with the setup screen
 	show("online");
 	draw();
 }
 
-/** Gets up from an online match and goes back to the setup screen. */
+/** Gets up from an online match and goes back to the setup screen, however it ended. */
 export function goOffline(): void {
 	stop?.();
 	stop = null;
 	leave();
 	aim = FRESH;
 	armed = false;
+	forget();
 	matchStore.set(null);
+	overStore.set(null);
+	replayStore.set(null);
 	show("menu");
 }

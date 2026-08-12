@@ -17,14 +17,22 @@
  * are told meanwhile that somebody has gone quiet. A match nothing happens in is let go by an
  * alarm rather than kept forever. And a socket is allowed to talk only about as fast as a person
  * could click, because every move it asks for loads and stores the whole match.
+ *
+ * Two things the room alone decides. Which seat somebody plays: seats are dealt one at a time to
+ * whoever asks, so the link that goes round names the match and nobody holds a seat that is not
+ * theirs. And when the match log may be spoken aloud, which is once the match is over and not one
+ * move before it.
  */
 
-import {applyIntent, openMatch} from "../src/game/intent.js";
-import {seatState} from "../src/game/seat.js";
+import {applyIntent, matchOver, openMatch} from "../src/game/intent.js";
+import {matchLog, seatState} from "../src/game/seat.js";
 import {exportMatch, importMatch} from "../src/game/snapshot.js";
 import type {MatchSnapshot} from "../src/game/snapshot.js";
 import {PROTOCOL_VERSION, encode, parseClientMessage, parseSetup} from "../src/net/protocol.js";
 import type {ServerMessage} from "../src/net/protocol.js";
+
+/** One seat's claim on the match, or null for a seat nobody has asked for yet. */
+type Seat = string | null;
 
 /** Where the room keeps what it owns: the match, who may play which seat, and when it last stirred. */
 const MATCH = "match";
@@ -94,28 +102,52 @@ export class MatchRoom {
 	async fetch(request: Request): Promise<Response> {
 		const {pathname} = new URL(request.url);
 		if (pathname.endsWith("/open")) return this.#open(request);
-		if (pathname.endsWith("/socket")) return this.#join(request);
+		if (pathname.endsWith("/join")) return this.#join();
+		if (pathname.endsWith("/socket")) return this.#socket(request);
 		return json({error: "no such door"}, 404);
 	}
 
 	/**
-	 * Deals the match and hands back one token per seat. Whoever opened the room is trusted with
-	 * every token and has to get them to the right people; a token is the only thing that says a
-	 * socket is the player who was invited to that seat.
+	 * Deals the match. Nobody is seated by it: whoever opened the room only chose the numbers, and a
+	 * fistful of tokens in their hands would be a host who could sit down as anybody. Seats are
+	 * asked for one at a time below, so a token only ever exists in the hands of the seat it claims.
 	 */
 	async #open(request: Request): Promise<Response> {
 		if (await this.#ctx.storage.get<MatchSnapshot>(MATCH)) return json({error: "already open"}, 409);
 		const body: unknown = await request.json().catch(() => null);
 		const setup = parseSetup(body ?? {});
 		if (!setup) return json({error: "that is not a setup"}, 400);
-		const tokens = Array.from({length: setup.seats}, () => crypto.randomUUID());
 		await this.#ctx.storage.put(MATCH, openMatch(setup));
-		await this.#ctx.storage.put(TOKENS, tokens);
+		await this.#ctx.storage.put(
+			TOKENS,
+			Array.from({length: setup.seats}, (): Seat => null),
+		);
 		await this.#touch();
-		return json({seats: setup.seats, tokens});
+		return json({seats: setup.seats});
 	}
 
-	async #join(request: Request): Promise<Response> {
+	/**
+	 * Hands out the next free seat, and the token that claims it. First come, first seated: the link
+	 * that goes round names the match and nothing else, so which seat somebody plays is settled here
+	 * rather than by whoever pasted the link to them, and two tabs of one browser following the same
+	 * link are dealt two different seats.
+	 *
+	 * Reading the seats and writing a token back cannot interleave with another join. A Durable
+	 * Object takes one message at a time, and the runtime holds the next one while this one is
+	 * waiting on its own storage.
+	 */
+	async #join(): Promise<Response> {
+		if (!(await this.#ctx.storage.get<MatchSnapshot>(MATCH))) return json({error: "no match here"}, 404);
+		const tokens = (await this.#ctx.storage.get<Seat[]>(TOKENS)) ?? [];
+		const seat = tokens.indexOf(null);
+		if (seat < 0) return json({error: "that match is full"}, 409);
+		const token = crypto.randomUUID();
+		await this.#ctx.storage.put(TOKENS, [...tokens.slice(0, seat), token, ...tokens.slice(seat + 1)]);
+		await this.#touch();
+		return json({seat, token});
+	}
+
+	async #socket(request: Request): Promise<Response> {
 		if (request.headers.get("upgrade") !== "websocket") return json({error: "websockets only"}, 426);
 		if (!(await this.#ctx.storage.get<MatchSnapshot>(MATCH))) return json({error: "no match here"}, 404);
 		const pair = new WebSocketPair();
@@ -204,7 +236,7 @@ export class MatchRoom {
 	 * dropped, which is exactly the case reconnecting exists for.
 	 */
 	async #seat(ws: WebSocket, seat: number, token: string): Promise<void> {
-		const tokens = (await this.#ctx.storage.get<string[]>(TOKENS)) ?? [];
+		const tokens = (await this.#ctx.storage.get<Seat[]>(TOKENS)) ?? [];
 		if (tokens[seat] !== token) {
 			this.#hangUp(ws, "that seat is not yours");
 			return;
@@ -238,15 +270,22 @@ export class MatchRoom {
 	/**
 	 * Hands every seated socket the arena as its own seat sees it. The match is loaded once and each
 	 * view is built from it in turn, so no socket is ever passed a view addressed to another.
+	 *
+	 * The match log goes out behind the arena, and only once the match is played out. It is the one
+	 * thing every seat is told alike, because by then there is nothing left to keep it from them --
+	 * see matchLog in src/game/seat.ts. It follows a seat sitting back down as readily as a move, so
+	 * somebody who dropped in the last round is still shown how it ended.
 	 */
 	async #tellEverybody(): Promise<void> {
 		const snap = await this.#ctx.storage.get<MatchSnapshot>(MATCH);
 		if (!snap) return;
 		importMatch(snap);
+		const log = matchOver() ? matchLog() : null;
 		for (const ws of this.#ctx.getWebSockets()) {
 			const seat = seatOf(ws);
 			if (seat === null) continue;
 			send(ws, {k: "state", state: seatState(seat)});
+			if (log !== null) send(ws, {k: "over", log});
 		}
 	}
 
@@ -258,7 +297,7 @@ export class MatchRoom {
 	 * `gone` is the socket being closed as this is sent, which the runtime may still be handing back.
 	 */
 	async #tellPresence(gone?: WebSocket): Promise<void> {
-		const tokens = (await this.#ctx.storage.get<string[]>(TOKENS)) ?? [];
+		const tokens = (await this.#ctx.storage.get<Seat[]>(TOKENS)) ?? [];
 		const sitting = this.#ctx.getWebSockets().filter((ws) => ws !== gone && seatOf(ws) !== null);
 		const here = tokens.map((_, seat) => sitting.some((ws) => seatOf(ws) === seat));
 		for (const ws of sitting) send(ws, {k: "presence", here});

@@ -9,12 +9,10 @@
  */
 import {drawCodex, drawMenu, openReplay} from "./menu.js";
 import {render} from "./hotseat.js";
-import {drawLobby} from "./lobby.js";
-import {playOnline} from "./online.js";
+import {drawLobby, followHere} from "./lobby.js";
 import {load} from "./save.js";
 import {applyTheme} from "./settings.js";
 import {setView} from "./view.js";
-import {inviteFrom} from "../net/client.js";
 
 setView({
 	redraw: render,
@@ -32,9 +30,8 @@ export const boot = load().then(() => {
 	drawMenu();
 	drawCodex();
 	drawLobby();
-	// a tab opened on an invite link sits straight down in the seat the link names
-	const invite = inviteFrom(globalThis.location.href);
-	if (invite !== null) playOnline(invite);
+	// a tab opened on a link to a match goes straight there, in whichever seat the room deals it
+	followHere();
 });
 
 export type {

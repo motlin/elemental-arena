@@ -17,7 +17,7 @@ type Story = StoryObj<typeof meta>;
 /** Before anything has been opened: one button, and a box for somebody else's link. */
 export const NothingOpenYet: Story = {};
 
-/** A match dealt and waiting: one link per seat, either to copy or to sit down in. */
+/** A match dealt and waiting: one link to send round, and a seat to take in it. */
 export const AMatchOpened: Story = {args: sampleLobby("quiet-forge")};
 
 /** The host request in flight, which spends the button until the server answers. */

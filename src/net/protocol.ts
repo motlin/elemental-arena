@@ -15,11 +15,12 @@ import {SAY_MAX} from "../game/chat.js";
 import {DEFAULT_SETUP, SETUP_LIMITS} from "../game/intent.js";
 import type {Intent, MatchSetup} from "../game/intent.js";
 import type {SeatState} from "../game/seat.js";
+import type {LogEntry} from "../game/types.js";
 
 export type {Intent, MatchSetup};
 
 /** Bumped whenever a message changes shape, so an old tab is turned away rather than half-served. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export type ClientMessage =
 	/** Claims a seat. The token is what says this socket is the player who was invited to it. */
@@ -34,6 +35,13 @@ export type ServerMessage =
 	 * same whether the player of a seat is thinking or has closed the tab.
 	 */
 	| {readonly k: "presence"; readonly here: readonly boolean[]}
+	/**
+	 * The match is played out, and here is the log of it. It comes at the end and only at the end:
+	 * `logit` narrates every move by name and square, concealed ones included, so a log sent while
+	 * the match was live would hand a seat everything the rest of this wire keeps from it. Once the
+	 * match is decided there is nothing left to keep -- see matchLog in src/game/seat.ts.
+	 */
+	| {readonly k: "over"; readonly log: readonly LogEntry[]}
 	/** The move was not taken, and why. The state that follows is still the truth. */
 	| {readonly k: "refused"; readonly why: string}
 	/** The socket is being shut, and why. */
@@ -249,6 +257,11 @@ function carriesArena(value: Record<string, unknown>): value is {readonly state:
 	return isRecord(state) && isCount(state["seat"]) && isRecord(state["you"]) && isRecord(state["legal"]);
 }
 
+/** Whether a message is one carrying the match log, whose entries are the room's own as above. */
+function carriesLog(value: Record<string, unknown>): value is {readonly log: readonly LogEntry[]} {
+	return Array.isArray(value["log"]) && value["log"].every(isRecord);
+}
+
 /** One flag per seat: whether anybody is sitting in it at the moment. */
 function isRollCall(value: unknown): value is readonly boolean[] {
 	return Array.isArray(value) && value.every((one) => typeof one === "boolean");
@@ -268,6 +281,7 @@ export function parseServerMessage(raw: string): ServerMessage | null {
 		return {k: "seated", v: PROTOCOL_VERSION, seat: parsed["seat"]};
 	if (kind === "state" && carriesArena(parsed)) return {k: "state", state: parsed.state};
 	if (kind === "presence" && isRollCall(parsed["here"])) return {k: "presence", here: parsed["here"]};
+	if (kind === "over" && carriesLog(parsed)) return {k: "over", log: parsed.log};
 	if ((kind === "refused" || kind === "closed") && typeof parsed["why"] === "string")
 		return {k: kind, why: parsed["why"]};
 	return null;

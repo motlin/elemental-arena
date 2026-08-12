@@ -86,17 +86,31 @@ function asSocket(ws: FakeSocket): WebSocket {
 	return ws as unknown as WebSocket;
 }
 
-/** One room, opened, with its tokens. */
+/** What the room answers somebody asking for a seat with: a seat and its token, or a refusal. */
+interface Dealt {
+	readonly seat?: number;
+	readonly token?: string;
+	readonly error?: string;
+}
+
+/** Asks a room for a seat, the way a tab that followed the match link does. */
+async function claim(room: MatchRoom): Promise<Dealt> {
+	const answer = await room.fetch(new Request("https://arena.test/api/match/quiet-forge/join", {method: "POST"}));
+	return JSON.parse(await answer.text()) as Dealt;
+}
+
+/** One room, opened, with every seat of it claimed in turn, which is what a full match looks like. */
 async function openRoom(seats = 2): Promise<{room: MatchRoom; ctx: FakeRoomState; tokens: string[]}> {
 	const ctx = new FakeRoomState();
 	const room = new MatchRoom(ctx as unknown as DurableObjectState);
-	const answer = await room.fetch(
+	await room.fetch(
 		new Request("https://arena.test/api/match/quiet-forge/open", {
 			method: "POST",
 			body: JSON.stringify({seats, dim: 9}),
 		}),
 	);
-	const {tokens} = JSON.parse(await answer.text()) as {tokens: string[]};
+	const tokens: string[] = [];
+	for (let seat = 0; seat < seats; seat++) tokens.push((await claim(room)).token!);
 	return {room, ctx, tokens};
 }
 
@@ -115,6 +129,54 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.useRealTimers();
+});
+
+/* Nobody is handed a seat by whoever opened the match. The room deals them one at a time to
+   whoever turns up, which is what keeps the host from holding a seat that is not theirs. */
+describe("seats, dealt one at a time", () => {
+	it("hands nobody a seat for merely opening the match", async () => {
+		const ctx = new FakeRoomState();
+		const room = new MatchRoom(ctx as unknown as DurableObjectState);
+
+		const answer = await room.fetch(
+			new Request("https://arena.test/api/match/quiet-forge/open", {
+				method: "POST",
+				body: JSON.stringify({seats: 2, dim: 9}),
+			}),
+		);
+
+		expect(JSON.parse(await answer.text())).toStrictEqual({seats: 2});
+	});
+
+	it("gives each player a seat of their own, and a token nobody else was told", async () => {
+		const ctx = new FakeRoomState();
+		const room = new MatchRoom(ctx as unknown as DurableObjectState);
+		await room.fetch(
+			new Request("https://arena.test/api/match/quiet-forge/open", {
+				method: "POST",
+				body: JSON.stringify({seats: 2, dim: 9}),
+			}),
+		);
+
+		const first = await claim(room);
+		const second = await claim(room);
+
+		expect([first.seat, second.seat]).toStrictEqual([0, 1]);
+		expect(first.token).not.toBe(second.token);
+	});
+
+	it("turns the next one away once every seat is taken", async () => {
+		const {room} = await openRoom();
+
+		expect((await claim(room)).error).toBe("that match is full");
+	});
+
+	it("seats nobody in a match that was never opened", async () => {
+		const ctx = new FakeRoomState();
+		const room = new MatchRoom(ctx as unknown as DurableObjectState);
+
+		expect((await claim(room)).error).toBe("no match here");
+	});
 });
 
 describe("who is in the room", () => {
@@ -174,6 +236,47 @@ describe("who is in the room", () => {
 		const intruder = await sit(room, ctx, 0, "not-the-token");
 
 		expect(intruder.latest("closed")?.why).toBe("that seat is not yours");
+	});
+});
+
+/* The log narrates every move by name and square, the concealed ones included, so it is the one
+   thing a seat is never sent while there is anything left to conceal. */
+describe("the end of a match", () => {
+	/** Plays the match out: in a two-seat match, one of them giving up settles it. */
+	async function playOut(room: MatchRoom, ws: FakeSocket): Promise<void> {
+		await room.webSocketMessage(asSocket(ws), JSON.stringify({k: "move", intent: {k: "forfeit"}}));
+	}
+
+	it("says nothing of the log while the match is still being played", async () => {
+		const {room, ctx, tokens} = await openRoom();
+		const first = await sit(room, ctx, 0, tokens[0]!);
+
+		await room.webSocketMessage(asSocket(first), JSON.stringify({k: "move", intent: {k: "end"}}));
+
+		expect(first.latest("over")).toBeUndefined();
+	});
+
+	it("hands every seat the same log once it is over", async () => {
+		const {room, ctx, tokens} = await openRoom();
+		const first = await sit(room, ctx, 0, tokens[0]!);
+		const second = await sit(room, ctx, 1, tokens[1]!);
+
+		await playOut(room, first);
+
+		expect(first.latest("over")?.log.at(-1)?.t).toContain("took the arena");
+		expect(second.latest("over")?.log).toStrictEqual(first.latest("over")?.log);
+	});
+
+	it("hands it to a seat that only sits back down after the end", async () => {
+		const {room, ctx, tokens} = await openRoom();
+		const first = await sit(room, ctx, 0, tokens[0]!);
+		const dropped = await sit(room, ctx, 1, tokens[1]!);
+		await room.webSocketClose(asSocket(dropped), 1006, "");
+		await playOut(room, first);
+
+		const again = await sit(room, ctx, 1, tokens[1]!);
+
+		expect(again.latest("over")?.log.at(-1)?.t).toContain("took the arena");
 	});
 });
 

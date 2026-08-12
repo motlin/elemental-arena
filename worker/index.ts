@@ -19,7 +19,7 @@ export interface Env {
 }
 
 /** A match code: what a player pastes to their opponent, so it has to be safe in a URL. */
-const DOOR = /^\/api\/match\/([A-Za-z0-9_-]{4,64})\/(open|socket)$/;
+const DOOR = /^\/api\/match\/([A-Za-z0-9_-]{4,64})\/(open|join|socket)$/;
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {

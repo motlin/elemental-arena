@@ -78,17 +78,8 @@ function sameOnline(a: OnlineView | null, b: OnlineView | null): boolean {
 
 export const onlineStore = createStore<OnlineView | null>(null, sameOnline);
 
-/** One seat's way into a match that has been opened: the link to hand whoever is playing it. */
-export interface InviteLink {
-	readonly seat: number;
-	/** The colour that seat plays, which is how the host tells one link from another. */
-	readonly name: string;
-	/** The whole address, ready to paste: the match, the seat, and the token that claims it. */
-	readonly url: string;
-}
-
 /**
- * The online panel on the setup screen: opening a match, the links it deals, and the way into
+ * The online panel on the setup screen: opening a match, the link it deals, and the way into
  * somebody else's.
  */
 export interface LobbyView {
@@ -98,23 +89,24 @@ export interface LobbyView {
 	readonly opening: boolean;
 	/** Why the last thing tried did not work, or null. */
 	readonly error: string | null;
-	/** One per seat, in seat order, and empty until a match has been opened. */
-	readonly links: readonly InviteLink[];
+	/**
+	 * The one link to hand round, or null until a match has been opened. It names no seat: whoever
+	 * follows it is dealt whichever seat is still free, so the same link goes to everybody.
+	 */
+	readonly link: string | null;
+	/** How many seats that match was dealt, which is how many people the link is good for. */
+	readonly seats: number;
 	readonly host: () => void;
-	/** Sits this device down in that seat of the match it just opened. */
-	readonly sit: (seat: number) => void;
-	/** Follows an invite link, wherever it came from. */
+	/** Asks the match this device opened for a seat, which is how the host plays in it. */
+	readonly sit: () => void;
+	/** Follows a link, wherever it came from. */
 	readonly join: (link: string) => void;
 }
 
 function sameLobby(a: LobbyView | null, b: LobbyView | null): boolean {
 	if (a === null || b === null) return a === b;
 	return (
-		a.code === b.code &&
-		a.opening === b.opening &&
-		a.error === b.error &&
-		a.links.length === b.links.length &&
-		a.links.every((link, i) => link.url === b.links[i]?.url)
+		a.code === b.code && a.opening === b.opening && a.error === b.error && a.link === b.link && a.seats === b.seats
 	);
 }
 

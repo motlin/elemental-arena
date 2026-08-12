@@ -15,7 +15,8 @@
  * the filtering actually happens on the far side of a socket rather than on the way into a screen.
  * The same goes for the room outliving a socket -- presence, sitting back down, and a client told
  * to slow down: tests/net/room.test.ts pins the bookkeeping against fakes, and this runs it on the
- * hibernation API the bookkeeping is kept in.
+ * hibernation API the bookkeeping is kept in. It ends by playing the match out, which is the one
+ * moment the room may say anything about the match as a whole: the log, and not one move earlier.
  *
  * It reads dist/, so `just multiplayer-check` builds first.
  */
@@ -49,7 +50,7 @@ const PORT = Number(process.env.MULTIPLAYER_PORT ?? freeServe);
 const INSPECTOR_PORT = Number(process.env.MULTIPLAYER_INSPECTOR_PORT ?? freeInspect);
 const BASE = `http://127.0.0.1:${PORT}`;
 const CODE = `smoke-${Math.random().toString(36).slice(2, 10)}`;
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 
 const results = [];
 const check = (what, ok, detail = "") => results.push({what, ok, detail});
@@ -128,11 +129,25 @@ async function run() {
 		headers: {"content-type": "application/json"},
 		body: JSON.stringify({seats: 2, dim: 9}),
 	});
-	const {tokens} = await opened.json();
-	check("a match opens and deals one token per seat", opened.status === 200 && tokens?.length === 2);
+	const dealt = await opened.json();
+	check(
+		"a match opens without seating anybody",
+		opened.status === 200 && dealt.seats === 2 && !("tokens" in dealt),
+		JSON.stringify(dealt),
+	);
 
 	const again = await fetch(`${BASE}/api/match/${CODE}/open`, {method: "POST", body: "{}"});
 	check("the same match cannot be opened twice", again.status === 409);
+
+	const claim = async () => (await fetch(`${BASE}/api/match/${CODE}/join`, {method: "POST"})).json();
+	const seats = [await claim(), await claim()];
+	const tokens = seats.map((one) => one.token);
+	check(
+		"each player who turns up is dealt a seat of their own",
+		seats[0].seat === 0 && seats[1].seat === 1 && tokens[0] !== tokens[1],
+		JSON.stringify(seats.map((one) => one.seat)),
+	);
+	check("and the next one is told the match is full", (await claim()).error === "that match is full");
 
 	const first = await sit(0, tokens[0]);
 	const second = await sit(1, tokens[1]);
@@ -212,6 +227,20 @@ async function run() {
 	check(
 		"a socket without the seat's token is turned away",
 		intruder.latest("closed")?.why === "that seat is not yours",
+	);
+
+	// the log narrates concealed moves by name, so it is the last thing over the wire and never earlier
+	check(
+		"no seat is handed the match log while the match is still being played",
+		first.said("over").length === 0 && back.said("over").length === 0,
+	);
+
+	await first.move({k: "forfeit"});
+	check(
+		"every seat is handed the log once the match is over",
+		first.latest("over")?.log?.at(-1)?.t?.includes("took the arena") === true &&
+			back.latest("over")?.log?.length === first.latest("over")?.log?.length,
+		JSON.stringify(first.latest("over")?.log?.at(-1) ?? null),
 	);
 
 	for (const player of [first, back, intruder]) player.ws.close();

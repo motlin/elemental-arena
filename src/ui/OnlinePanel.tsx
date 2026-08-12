@@ -1,5 +1,5 @@
 import {useState, type ReactElement} from "react";
-import type {InviteLink, LobbyView} from "../game/bridge.js";
+import type {LobbyView} from "../game/bridge.js";
 
 /**
  * Puts a link on the clipboard where there is one. A page served over plain http has none, and nor
@@ -14,59 +14,44 @@ function copy(url: string): void {
 	}
 }
 
-/** One seat of an opened match: the link that claims it, and the button that claims it here. */
-function Invite({link, sit}: {readonly link: InviteLink; readonly sit: (seat: number) => void}): ReactElement {
-	return (
-		<div className="invite">
-			<input className="numbox" readOnly value={link.url} aria-label={`Invite link for ${link.name}`} />
-			<button
-				type="button"
-				className="buy"
-				onClick={() => {
-					copy(link.url);
-				}}
-			>
-				Copy
-			</button>
-			<button
-				type="button"
-				className="buy"
-				onClick={() => {
-					sit(link.seat);
-				}}
-			>
-				Sit here
-			</button>
-		</div>
-	);
-}
-
 /**
  * The online panel, posed from plain props so Storybook and tests can look at it without a match
  * server behind it.
  */
-export function OnlinePanel({code, opening, error, links, host, sit, join}: LobbyView): ReactElement {
-	const [link, setLink] = useState("");
+export function OnlinePanel({code, opening, error, link, seats, host, sit, join}: LobbyView): ReactElement {
+	const [pasted, setPasted] = useState("");
 
 	return (
 		<div className="card-panel">
 			<h2>Play online</h2>
 			<p className="loadhint">
-				Open a match, then send each player their own link. A link carries the seat it opens, so two tabs of one
-				browser can hold two different seats.
+				Open a match, then send everybody the same link. Whoever follows it is dealt whichever seat is still
+				free, so two tabs of one browser hold two different seats.
 			</p>
 			<button type="button" className="ghost menubtn" disabled={opening} onClick={host}>
 				{opening ? "Opening a match..." : "Host a match"}
 			</button>
-			{code !== null && (
+			{code !== null && link !== null && (
 				<div className="field">
 					<label>
 						<span className="lname">Match {code}</span>
-						<span className="lval">{links.length} seats</span>
+						<span className="lval">{seats} seats</span>
 					</label>
-					{links.map((invite) => (
-						<Invite key={invite.seat} link={invite} sit={sit} />
-					))}
+					<div className="invite">
+						<input className="numbox" readOnly value={link} aria-label="Link to this match" />
+						<button
+							type="button"
+							className="buy"
+							onClick={() => {
+								copy(link);
+							}}
+						>
+							Copy
+						</button>
+						<button type="button" className="buy" onClick={sit}>
+							Sit down
+						</button>
+					</div>
 				</div>
 			)}
 			<div className="field">
@@ -76,19 +61,19 @@ export function OnlinePanel({code, opening, error, links, host, sit, join}: Lobb
 				<div className="invite">
 					<input
 						className="numbox"
-						value={link}
+						value={pasted}
 						placeholder="Paste an invite link"
 						aria-label="Invite link to join"
 						onChange={(e) => {
-							setLink(e.target.value);
+							setPasted(e.target.value);
 						}}
 					/>
 					<button
 						type="button"
 						className="buy"
-						disabled={link.trim().length === 0}
+						disabled={pasted.trim().length === 0}
 						onClick={() => {
-							join(link);
+							join(pasted);
 						}}
 					>
 						Join
