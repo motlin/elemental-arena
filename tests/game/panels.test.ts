@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {describe, it, expect, beforeAll, vi} from "vitest";
+import {describe, it, expect, beforeAll, beforeEach, vi} from "vitest";
 import {
 	designStore,
 	handoffStore,
@@ -10,8 +10,11 @@ import {
 	simStore,
 	tableStore,
 	type ActionBarView,
+	type ChatView,
+	type HandCard,
 	type MatchView,
 	type MenuView,
+	type WeaponView,
 } from "../../src/game/bridge.js";
 import {BASE, EL, MV, T, W, WBASE} from "../../src/game/data/index.js";
 import {mvOwnedMask} from "../../src/game/lookups.js";
@@ -263,6 +266,240 @@ describe("match panels in every mode", () => {
 		const tiles = match().board.tiles;
 		expect(tiles.length).toBe(S.dim * S.dim);
 		expect(strings(tiles).filter((text) => BROKEN.test(text))).toStrictEqual([]);
+	});
+});
+
+describe("the weapon panel", () => {
+	beforeEach(() => {
+		startedMatch();
+	});
+
+	/** Puts one weapon in this fighter's hands and republishes, which is all the panel is about. */
+	function holding(els: string[]): WeaponView {
+		const p = armCurrentPlayer();
+		S.mode = null;
+		p.hand = [{uid: WEAPON_UID, k: "w", ids: ["dagger"], els}];
+		p.held = WEAPON_UID;
+		render();
+		const weapon = match().weapon;
+		expect(weapon).not.toBeNull();
+		return weapon!;
+	}
+
+	it("names the weapon, what it swings for, and what the swing costs", () => {
+		const weapon = holding(["steam"]);
+
+		expect([weapon.name, weapon.damage, weapon.cost]).toStrictEqual(["Steam Dagger", "17 x 2", 3]);
+	});
+
+	it("asks nothing about leavings while the weapon leaves nothing behind", () => {
+		expect(holding([]).rows).toStrictEqual([]);
+	});
+
+	it("asks a row per side once there is a choice on it, with the first of each already taken", () => {
+		const weapon = holding(["steam", "fire", "spring", "orchard"]);
+
+		expect(
+			weapon.rows.map((row) => ({
+				label: row.label,
+				options: row.options.map((option) => [option.key, option.name, option.colour, option.on]),
+			})),
+		).toStrictEqual([
+			{
+				label: "Leaves under them:",
+				options: [
+					["steam", "Steam", "#dbe9f2", true],
+					["fire", "Fire", "#ff5a1e", false],
+				],
+			},
+			{
+				label: "Lays under you:",
+				options: [
+					["spring", "Spring", "#8fe8d8", true],
+					["orchard", "Orchard", "#84c47a", false],
+				],
+			},
+		]);
+	});
+
+	it("takes the other leaving through the option it published", () => {
+		const weapon = holding(["steam", "fire", "spring", "orchard"]);
+
+		weapon.rows[0]!.options[1]!.choose();
+
+		expect(match().weapon?.rows[0]?.options.map((option) => option.on)).toStrictEqual([false, true]);
+	});
+
+	it("counts the squares a swing would find somebody visible on", () => {
+		const p = armCurrentPlayer();
+		const foe = S.players.find((q) => q !== p)!;
+		foe.x = p.x + 1;
+		foe.y = p.y;
+
+		expect(holding(["steam"]).hint).toBe("1 square you can see someone on. You may swing anywhere in reach.");
+	});
+
+	it("offers the swing anyway when nobody in reach can be seen", () => {
+		expect(holding(["steam"]).hint).toBe("Nobody visible in reach. Swing anyway to sweep for someone hidden.");
+	});
+
+	it("tells a blinded fighter to swing where they think somebody is", () => {
+		armCurrentPlayer().darkTurns = 2;
+
+		expect(holding(["steam"]).hint).toBe("Blinded. Swing where you think they are.");
+	});
+
+	it("spends the swing when the turn cannot pay for it", () => {
+		holding(["steam"]);
+		cur().nrg = 0;
+
+		render();
+
+		const weapon = match().weapon;
+		expect([weapon?.disabled, weapon?.hint]).toStrictEqual([true, "Not enough energy this turn."]);
+	});
+
+	it("marks the panel while the board is waiting for a square to swing at", () => {
+		expect(holding(["steam"]).aiming).toBe(false);
+
+		S.mode = "attack";
+		render();
+
+		expect(match().weapon?.aiming).toBe(true);
+	});
+});
+
+describe("the hand", () => {
+	beforeEach(() => {
+		startedMatch();
+		armCurrentPlayer();
+		S.mode = null;
+		S.handoff = false;
+	});
+
+	/** This seat's hand as the screen last published it. */
+	function cards(): readonly HandCard[] {
+		render();
+		return match().hand.cards;
+	}
+
+	it("dresses every card in its kind, its place in the hand, its name and its colour", () => {
+		expect(cards().map((card) => [card.kind, card.number, card.name, card.colour])).toStrictEqual([
+			["ELEMENT", 1, "Fire", "#ff5a1e"],
+			["WEAPON", 2, "Steam Dagger", "#9fb4cc"],
+			["ELEMENT", 3, "Water", "#2f9dff"],
+		]);
+	});
+
+	it("marks the element that is selected and the weapon that is held", () => {
+		S.sel = EL_UID;
+		cur().held = WEAPON_UID;
+
+		expect(cards().map((card) => card.on)).toStrictEqual([true, true, false]);
+	});
+
+	it("marks every card the merge under way could take", () => {
+		S.sel = EL_UID;
+		S.mixFrom = EL_UID;
+		S.mode = "mix";
+
+		expect(cards().map((card) => card.mixable)).toStrictEqual([false, true, true]);
+	});
+
+	it("marks every card while a chaos throw is still asking which one", () => {
+		S.toss = true;
+		S.tossPick = null;
+
+		expect(cards().map((card) => card.mixable)).toStrictEqual([true, true, true]);
+	});
+
+	it("dooms the card the chaos throw has been pointed at, and lets the rest alone", () => {
+		S.toss = true;
+		S.tossPick = WEAPON_UID;
+
+		expect(cards().map((card) => [card.mixable, card.doomed])).toStrictEqual([
+			[false, false],
+			[false, true],
+			[false, false],
+		]);
+	});
+
+	it("cannot be dragged at all from behind the handoff curtain", () => {
+		S.handoff = true;
+		render();
+		expect(match().hand.draggable).toBe(false);
+
+		S.handoff = false;
+		render();
+
+		expect(match().hand.draggable).toBe(true);
+	});
+});
+
+describe("table talk", () => {
+	beforeEach(() => {
+		startedMatch();
+		armCurrentPlayer();
+		S.mode = null;
+	});
+
+	/** What has been said, as the screen last published it. */
+	function talk(): ChatView {
+		render();
+		return match().chat;
+	}
+
+	it("prints what was said under whoever said it, in the round it was said in", () => {
+		const p = cur();
+
+		talk().say("the middle is mine");
+
+		expect(
+			talk().lines.map((line) => [line.id, line.who, line.colour, line.round, line.text, line.quote]),
+		).toStrictEqual([[1, p.name, p.c, S.round, "the middle is mine", null]]);
+	});
+
+	it("hangs an answer off the line it answers, cut to the room the quote has", () => {
+		talk().say("the middle is mine and I intend to keep every square of it");
+		talk().lines[0]!.reply();
+
+		talk().say("not for long");
+
+		expect(talk().lines.map((line) => line.quote?.text ?? null)).toStrictEqual([
+			null,
+			"the middle is mine and I intend to keep ever…",
+		]);
+	});
+
+	it("names the line the next message answers, cut shorter still", () => {
+		talk().say("the middle is mine and I intend to keep every square of it");
+
+		talk().lines[0]!.reply();
+
+		expect(talk().replyingTo?.text).toBe("the middle is mine and I inten…");
+	});
+
+	it("answers nobody until a line has been picked to answer", () => {
+		talk().say("the middle is mine");
+
+		expect(talk().replyingTo).toBeNull();
+	});
+
+	it("drops the line it was answering when the reply is called off", () => {
+		talk().say("the middle is mine");
+		talk().lines[0]!.reply();
+
+		talk().cancelReply();
+
+		expect(talk().replyingTo).toBeNull();
+	});
+
+	it("adds a line to the log by saying something through the view it published", () => {
+		talk().say("the middle is mine");
+
+		talk().say("not for long");
+
+		expect(talk().lines.map((line) => line.text)).toStrictEqual(["the middle is mine", "not for long"]);
 	});
 });
 
