@@ -128,10 +128,6 @@ export const selCard = (p: Player): ElCard | null => {
 	const c = p.hand.find((q) => q.uid === S.sel);
 	return c?.k === "el" ? c : null;
 };
-export function rgba(h: string, a: number): string {
-	const n = parseInt(h.slice(1), 16);
-	return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-}
 
 let placedBy: number | null = null;
 

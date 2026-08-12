@@ -3,7 +3,7 @@ import {describe, it, expect} from "vitest";
 import {matchStore, type MatchView, type TileView} from "../../src/game/bridge.js";
 import {T} from "../../src/game/data/index.js";
 import {startMatch} from "../../src/game/match.js";
-import {render} from "../../src/game/render.js";
+import {render} from "../../src/game/hotseat.js";
 import {S, blind, hidden, idx, isLit, seesTile} from "../../src/game/state.js";
 import type {Player} from "../../src/game/types.js";
 
@@ -87,6 +87,10 @@ describe("what the published view gives away", () => {
 		expect([tileAt(5, 4).colour, tileAt(5, 4).terrain]).toStrictEqual([T["lava"]!.c, true]);
 	});
 
+	/* The readout used to end this square with "someone you cannot see", which was the leak the whole
+	   design exists to stop: clicking a square and being told somebody is on it is exactly what the
+	   cover is there to prevent, and it made Inspect a way of sweeping the board for hiders. Drawn
+	   from the seat view there is nobody on the square to say anything about, so it says nothing. */
 	it("keeps the concealed fighter out of the readout and out of the reach chooser", () => {
 		const {watcher, hider} = twoSeats();
 		conceal(hider, 4, 4);
@@ -96,9 +100,7 @@ describe("what the published view gives away", () => {
 		render();
 
 		const inspect = published().inspect;
-		expect(inspect.tile?.facts.find((fact) => fact.label === "Standing on it")?.value).toBe(
-			"someone you cannot see",
-		);
+		expect(inspect.tile?.facts.map((fact) => fact.label)).toStrictEqual(["Square"]);
 		expect(inspect.chooser?.chips.map((chip) => chip.seat)).toStrictEqual([watcher.i]);
 	});
 

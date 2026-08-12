@@ -3,7 +3,7 @@
  * what mixes into what. Nothing here changes the game; it only reads it.
  */
 
-import {CFORGE, COST, EL, FORGE, FUSE, MV, PAT, T, W, fkey} from "./data/index.js";
+import {CFORGE, COST, EL, FORGE, FUSE, MV, PAT, T, W, boon, fkey} from "./data/index.js";
 import type {ActionKey, ForgeDef, MoveDef, TerrainDef, WeaponDef} from "./data/index.js";
 import {S} from "./state.js";
 import type {WeaponSpec} from "./types.js";
@@ -103,3 +103,19 @@ export const mixesIntoKeys = (e: string): string[] =>
 	Object.entries(FUSE)
 		.filter(([k]) => k.split("|").includes(e))
 		.map(([, v]) => v);
+
+// which forged elements would leave ground behind, and which one you have chosen
+const groundEls = (c: WeaponSpec): string[] => [...new Set(c.els.filter((e) => isComp(e) || e === "fire"))];
+// ground under you and ground under them are separate squares, so each gets its own pick
+export const selfEls = (c: WeaponSpec): string[] => groundEls(c).filter((e) => boon(e));
+export const foeEls = (c: WeaponSpec): string[] => groundEls(c).filter((e) => !boon(e));
+const pickFrom = (opts: string[], chosen: string | undefined): string | undefined =>
+	chosen && opts.includes(chosen) ? chosen : opts[0];
+export const leaveSelf = (c: WeaponSpec): string | undefined => pickFrom(selfEls(c), c.leaveSelf);
+export const leaveFoe = (c: WeaponSpec): string | undefined => pickFrom(foeEls(c), c.leaveFoe);
+
+/** One of the arena's colours at a given translucency, which is how every glow on a screen is made. */
+export function rgba(h: string, a: number): string {
+	const n = parseInt(h.slice(1), 16);
+	return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}

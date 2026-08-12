@@ -1,8 +1,7 @@
 import {useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement} from "react";
 import {designStore, type DesignView, type SpawnSpot} from "../game/bridge.js";
 import type {TerrainDef} from "../game/data/index.js";
-import {elColor, elName, terrOf} from "../game/lookups.js";
-import {rgba} from "../game/state.js";
+import {elColor, elName, terrOf, rgba} from "../game/lookups.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
 type TileStyle = CSSProperties & {"--tc"?: string; "--tcs"?: string};

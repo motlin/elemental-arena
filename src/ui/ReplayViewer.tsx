@@ -1,7 +1,7 @@
 import {useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactElement} from "react";
 import {replayStore, type ReplayView} from "../game/bridge.js";
 import {T} from "../game/data/index.js";
-import {rgba} from "../game/state.js";
+import {rgba} from "../game/lookups.js";
 import type {Frame} from "../game/types.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */

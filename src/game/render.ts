@@ -1,9 +1,56 @@
 /**
- * The match screen, described afresh from `S` after every move. Nothing here touches the page: it
- * builds a plain account of what the arena looks like and publishes it, and React paints that.
+ * The match screen, described from one seat's view of the arena and from nothing else.
+ *
+ * This used to read the live match: `S` in ninety-eight places, and a call into the rules every
+ * time it wanted to know whether a square was worth lighting up. That works while the person
+ * clicking is the person whose turn it is and the whole board is sitting in the same process.
+ * Online neither is true. A seat is handed a censored arena, so the rules cannot be asked -- and a
+ * client that tried to answer for itself would give the arena away by greying out the one square
+ * somebody is hiding on.
+ *
+ * So the drawing takes a `SeatState` from src/game/seat.ts, which has already worked out both what
+ * this seat may see and what it may do, and turns it into a `MatchView` for React. Hot-seat comes
+ * through the same door: src/game/hotseat.ts builds a `SeatState` for whoever is to move and hands
+ * it over. One account of what a screen may show, drawn by both modes, so a leak is a bug in the
+ * one that is easy to look at rather than only in the one that goes over a socket.
+ *
+ * The buttons split the same way, and that half is the one worth saying out loud. A click used to
+ * *be* the rule: the view carried `doJump` and `doSmash` and `endTurn`, bound and ready to change
+ * the match. Online a click is a request a server may refuse. So every callback here is one of
+ * three things:
+ *
+ *   - a **move**, which becomes an `Intent` handed to `act.submit`. Hot-seat applies it on the
+ *     spot; a client sends it and waits.
+ *   - **local UI** -- the move being aimed, the square Inspect is reading, the line a reply hangs
+ *     off -- which becomes `act.patch`. No rule has an opinion about any of it.
+ *   - a **door out of the match**: undo, leaving, the theme, the codex table. Those belong to the
+ *     machine rather than to the arena, so the caller supplies them.
+ *
+ * Which of the three each button gets is written down callback by callback in
+ * tests/game/matchView.test.ts, because getting one wrong is silent: a move filed as local UI works
+ * perfectly in hot-seat and only stops working once there is a server entitled to say no.
  */
 
-import {handoffStore, matchStore} from "./bridge.js";
+import {COST, EL, MV, T} from "./data/index.js";
+import {
+	elColor,
+	elName,
+	foeEls,
+	forgeOf,
+	isComp,
+	leaveFoe,
+	leaveSelf,
+	rgba,
+	selfEls,
+	wColor,
+	wCost,
+	wDesc,
+	wHits,
+	wRing,
+	wStrip,
+	wepDmg,
+	wepName,
+} from "./lookups.js";
 import type {
 	ActionBarView,
 	ActionButton,
@@ -27,237 +74,325 @@ import type {
 	TopbarView,
 	WeaponView,
 } from "./bridge.js";
-import {badPlace, cardLabel, clickCard, doToss, lethalRaw, mixPartners, sealed, startMix} from "./cards.js";
-import {chatById, say} from "./chat.js";
-import {attackTiles, foeEls, leaveFoe, leaveSelf, liveTargets, selfEls, smashMult, startAttack} from "./combat.js";
-import {COST, EL, MV, T} from "./data/index.js";
 import type {ActionKey} from "./data/index.js";
-import {dropCurtain, onTile, toggleInspect} from "./input.js";
-import {elColor, elName, forgeOf, isComp, wColor, wCost, wDesc, wHits, wStrip, wepDmg, wepName} from "./lookups.js";
-import {checkRefill, endTurn, forfeit, forfeitArmed, leaveMatch} from "./match.js";
-import {codexLine, openTable} from "./menu.js";
-import {
-	canEnter,
-	dashTargets,
-	doFloat,
-	doShift,
-	doSmash,
-	doSpin,
-	doTrail,
-	doUltra,
-	doWipe,
-	jumpTargets,
-	leapTargets,
-	lightTargets,
-	markTargets,
-	moveBudget,
-	reachMap,
-	seenBy,
-	smashable,
-	spinTiles,
-	spreadTargets,
-	swapTargets,
-	takeCard,
-	theftTargets,
-	warpTargets,
-	whirlList,
-	wipeTiles,
-} from "./movement.js";
-import {flipTheme, themeLabel} from "./settings.js";
-import {S, ally, blind, cheb, cur, held, hidden, idx, isLit, occupantsAt, rgba, seesTile, selCard} from "./state.js";
-import type {Card, Player, WepCard} from "./types.js";
-import {auditReveal, canUndo, undo} from "./undo.js";
+import type {Intent} from "./intent.js";
+import type {SeatFighter, SeatReach, SeatState, SeatSteal} from "./seat.js";
+import type {ElCard, WepCard} from "./types.js";
 
 /**
- * The match as it stands, or nothing at all while the setup screen has the page. Every callback in
- * the view is built fresh here, which costs nothing: a move always changes something, so React is
- * told to repaint whatever it was already showing.
+ * What the match screen knows that the arena never tells it: the move being aimed, the card picked
+ * up, the square Inspect is reading. None of it is a rule, none of it goes on the wire, and two
+ * people watching the same match hold different versions of all of it.
+ *
+ * Hot-seat keeps this in `S` rather than beside it, because the rules write to the same fields as
+ * they go -- laying a card that will not lay leaves the board in `place` mode, starting a merge
+ * puts it in `mix` -- and the keyboard writes them too. Reading them back out every redraw is what
+ * keeps hot-seat playing exactly as it did. A client online keeps its own.
  */
-export function render(): void {
-	if (!S.players.length || S.screen !== "game") {
-		matchStore.set(null);
-		handoffStore.set(null);
-		return;
-	}
-	checkRefill();
-	auditReveal();
-	const p = cur();
-	const dark = blind(p);
-	handoffStore.set(S.handoff ? {seat: p.i, name: p.name, colour: p.c, dismiss: dropCurtain} : null);
-	matchStore.set(matchView(p, dark));
+export interface Local {
+	/** The move the board is waiting for a square for, or null while it is waiting for nothing. */
+	readonly mode: string | null;
+	/** `uid` of the element card picked up, which is the one a lay would lay. */
+	readonly sel: number | null;
+	/** `uid` of the card a merge started from, which is what the highlighted cards would join. */
+	readonly mixFrom: number | null;
+	/** `uid` of the card a chaos throw has picked but not yet confirmed. */
+	readonly tossPick: number | null;
+	readonly imode: boolean;
+	/** Board index Inspect is reading, or null while it is reading none. */
+	readonly look: number | null;
+	/** Seats the reach overlay is drawn for, which are the chips ticked under the readout. */
+	readonly reach: readonly number[];
+	/** `id` of the message the next thing said answers, or null. */
+	readonly replyTo: number | null;
+	/** True while a second tap on Forfeit would drop this fighter. */
+	readonly forfeitArmed: boolean;
+	readonly canUndo: boolean;
+	readonly themeLabel: string;
+	/** How much of the fusion codex the save has turned up, which is the device's own business. */
+	readonly codex: string;
+	/**
+	 * The animations the move just made left behind, handed over once and then forgotten by
+	 * whatever ran the move: `S.fx` in hot-seat, the server's message online.
+	 */
+	readonly fx: readonly FxHit[];
+	/** True while the handoff curtain is up, which is what stops the hand being dragged. */
+	readonly handoff: boolean;
 }
 
-function matchView(p: Player, dark: boolean): MatchView {
+/** What a click does. Which of the three a given button gets is the whole of the split. */
+export interface MatchActions {
+	/** A move: a request the rules may turn down, and say so. */
+	readonly submit: (intent: Intent) => void;
+	/** A change to this screen's own state, which no rule has an opinion about. */
+	readonly patch: (next: Partial<Local>) => void;
+	readonly undo: () => void;
+	readonly leave: () => void;
+	/** Arms on the first tap and drops this fighter on the second, which is two different things. */
+	readonly forfeit: () => void;
+	readonly toggleTheme: () => void;
+	readonly openTable: () => void;
+	/** Shuts the hand a theft opened without taking anything out of it. */
+	readonly cancelSteal: () => void;
+}
+
+/** The match screen as it stands after the move just made. */
+export function matchView(v: SeatState, local: Local, act: MatchActions): MatchView {
 	return {
-		topbar: topbarView(p),
-		board: boardView(p, dark),
-		footwork: footworkView(p),
-		weapon: weaponView(p, dark),
-		actions: actionsView(p),
-		roster: rosterView(),
-		hand: handView(p),
-		chat: chatView(),
-		inspect: inspectView(p, dark),
-		codex: codexLine(),
+		topbar: topbarView(v, local, act),
+		board: boardView(v, local, act),
+		footwork: footworkView(v, local, act),
+		weapon: weaponView(v, local, act),
+		actions: actionsView(v, local, act),
+		roster: rosterView(v),
+		hand: handView(v, local, act),
+		chat: chatView(v, local, act),
+		inspect: inspectView(v, local, act),
+		codex: local.codex,
 	};
+}
+
+const index = (v: SeatState, x: number, y: number): number => y * v.dim + x;
+const cheb = (a: number, b: number, c: number, d: number): number => Math.max(Math.abs(a - c), Math.abs(b - d));
+
+/** The element card picked up, or null: only an element is ever selected, only a weapon ever held. */
+function selected(v: SeatState, local: Local): ElCard | null {
+	const c = v.you.hand.find((q) => q.uid === local.sel);
+	return c?.k === "el" ? c : null;
+}
+
+function weapon(v: SeatState): WepCard | null {
+	const c = v.you.hand.find((q) => q.uid === v.you.held);
+	return c?.k === "w" ? c : null;
+}
+
+/** What the card `uid` merges with, out of the block the seat was handed. */
+function mixWith(v: SeatState, uid: number | null): readonly number[] {
+	if (uid == null) return [];
+	return v.legal.mix.find((m) => m.uid === uid)?.with ?? [];
+}
+
+/** Whoever this seat can see standing on a square, in seat order. */
+function standingAt(v: SeatState, x: number, y: number): SeatFighter[] {
+	return v.fighters.filter((f) => f.at?.[0] === x && f.at[1] === y);
 }
 
 /* The strip along the top: whose turn it is, and every door out of the match. */
 
-function topbarView(p: Player): TopbarView {
-	const paint = S.paint ? "  ·  PAINTBALL" : "";
-	const smash = S.smash ? `  ·  SMASH MODE x${smashMult()}` : "";
-	const chaos = S.chaos
-		? S.round >= S.chaosRound
+function topbarView(v: SeatState, local: Local, act: MatchActions): TopbarView {
+	const me = v.fighters[v.you.seat]!;
+	const paint = v.paint ? "  ·  PAINTBALL" : "";
+	const smash = v.smash ? `  ·  SMASH MODE x${v.smashMult}` : "";
+	const chaos = v.chaos
+		? v.round >= v.chaosRound
 			? "  ·  CHAOS MODE"
-			: S.round >= S.chaosRound - 3
-				? `  ·  CHAOS IN ${S.chaosRound - S.round}`
+			: v.round >= v.chaosRound - 3
+				? `  ·  CHAOS IN ${v.chaosRound - v.round}`
 				: ""
 		: "";
-	const armed = forfeitArmed();
 	return {
-		seat: p.i,
-		name: p.name,
-		colour: p.c,
-		round: `ROUND ${S.round}  ·  ${p.nrg}/${p.cap} ENERGY${p.bank ? `  ·  ${p.bank} CARRIED` : ""}${smash}${paint}${chaos}`,
-		inspecting: S.imode,
-		toggleInspect,
-		openTable,
-		canUndo: canUndo(),
-		undo,
-		canEndTurn: !S.toss,
-		endTurn,
-		forfeitLabel: armed ? "Tap again to fall" : "Forfeit",
-		forfeitArmed: armed,
-		forfeit,
-		leave: leaveMatch,
-		themeLabel: themeLabel(),
-		toggleTheme: flipTheme,
+		seat: me.seat,
+		name: me.name,
+		colour: me.colour,
+		round: `ROUND ${v.round}  ·  ${v.you.nrg}/${v.you.cap} ENERGY${v.you.bank ? `  ·  ${v.you.bank} CARRIED` : ""}${smash}${paint}${chaos}`,
+		inspecting: local.imode,
+		// turning Inspect off puts down the square it was reading, and the chips ticked under it
+		toggleInspect: () => {
+			act.patch(local.imode ? {imode: false, look: null, reach: []} : {imode: true});
+		},
+		openTable: act.openTable,
+		canUndo: local.canUndo,
+		undo: act.undo,
+		canEndTurn: !v.toss,
+		endTurn: () => {
+			act.submit({k: "end"});
+		},
+		forfeitLabel: local.forfeitArmed ? "Tap again to fall" : "Forfeit",
+		forfeitArmed: local.forfeitArmed,
+		forfeit: act.forfeit,
+		leave: act.leave,
+		themeLabel: local.themeLabel,
+		toggleTheme: act.toggleTheme,
 	};
 }
 
-/* The board. Anything this seat cannot see is left out here rather than drawn and hidden, so the
-   published view carries no answer React could give away. */
+/* The board. Everything this seat cannot see was left out before the view was built, so there is
+   nothing here for React to be careful with. */
 
-/** The squares the move being aimed can land on, and the ones with a visible fighter already there. */
-function aimSquares(p: Player, dark: boolean): {aim: Set<string>; sure: Set<string>} {
-	const aim = new Set<string>(),
-		sure = new Set<string>();
-	if (S.phase !== "act") return {aim, sure};
-	const mark = (list: [number, number][]): void => {
-		list.forEach(([x, y]) => aim.add(x + "," + y));
-	};
-	if (S.mode === "place") {
-		const sc = selCard(p);
-		for (let y = 0; y < S.dim; y++)
-			for (let x = 0; x < S.dim; x++) {
-				const d = cheb(p.x, p.y, x, y);
-				if (d > 0 && d <= 4 && !sealed(x, y) && !badPlace(sc ? sc.id : "", x, y)) aim.add(x + "," + y);
-			}
-	} else if (S.mode === "jump") mark(jumpTargets(p));
-	else if (S.mode === "dash") mark(dashTargets(p));
-	else if (S.mode === "leap") mark(leapTargets(p));
-	else if (S.mode === "light") mark(lightTargets());
-	else if (S.mode === "mark") mark(markTargets());
-	else if (S.mode === "swap") mark(swapTargets());
-	else if (S.mode === "theft") mark(theftTargets());
-	else if (S.mode === "warp") mark(warpTargets(p));
-	else if (S.mode === "spread") mark(spreadTargets());
-	else if (S.mode === "attack") {
-		const c = held(p);
-		if (c) {
-			mark(attackTiles(p, c));
-			liveTargets(p, c).forEach(([x, y]) => {
-				if (!dark || occupantsAt(x, y).some((q) => q.lit && q !== p && !ally(q, p))) sure.add(x + "," + y);
-			});
-		}
+/** The footwork that is aimed at a square, by the mode the board is waiting in. */
+type AimedMove = "jump" | "dash" | "leap" | "warp" | "spread" | "swap" | "mark" | "light" | "theft";
+
+const AIMED: Record<string, AimedMove | undefined> = {
+	jump: "jump",
+	dash: "dash",
+	leap: "leap",
+	warp: "warp",
+	spread: "spread",
+	swap: "swap",
+	mark: "mark",
+	light: "light",
+	theft: "theft",
+};
+
+/** The squares the move being aimed can land on, and the ones with somebody visible already there. */
+function aimSquares(v: SeatState, local: Local): {aim: Set<number>; sure: Set<number>} {
+	const L = v.legal;
+	const nothing = {aim: new Set<number>(), sure: new Set<number>()};
+	if (local.mode === null) return nothing;
+	if (local.mode === "place") {
+		const sc = selected(v, local);
+		// ground that kills on contact is turned down on a square somebody is standing on
+		const bad = sc && L.lethal.includes(sc.uid) ? new Set(L.taken) : new Set<number>();
+		return {aim: new Set(L.place.filter((i) => !bad.has(i))), sure: new Set<number>()};
 	}
-	return {aim, sure};
+	if (local.mode === "attack") return {aim: new Set(L.swing), sure: new Set(L.foes)};
+	const aimed = AIMED[local.mode];
+	return aimed ? {aim: new Set(L[aimed]), sure: new Set<number>()} : nothing;
 }
 
-function boardView(p: Player, dark: boolean): BoardView {
-	const {aim, sure} = aimSquares(p, dark);
-	const rmap = S.imode && S.reach.length ? reachMap() : null;
-	const wl = whirlList();
-	const tiles: TileView[] = [];
-	for (let y = 0; y < S.dim; y++)
-		for (let x = 0; x < S.dim; x++) {
-			const i = idx(x, y),
-				c = S.board[i]!,
-				key = x + "," + y;
-			const ground = c.t && seesTile(p, x, y) ? T[c.t]! : null;
-			// a fighter reaches the view only when nothing is keeping them out of this seat's sight
-			const here = occupantsAt(x, y).filter((o) => o === p || o.lit || (!dark && !hidden(o)));
-			let step = false;
-			if (
-				!aim.size &&
-				S.phase === "act" &&
-				!S.mode &&
-				!S.sel &&
-				!p.rootTurns &&
-				cheb(p.x, p.y, x, y) === 1 &&
-				canEnter(x, y, p)
-			) {
-				const cost = p.float ? 1 : c.t ? T[c.t]!.enter : 1;
-				step = cost <= p.nrg && cost < 50;
-			}
-			tiles.push({
-				colour: ground ? ground.c : null,
-				shadow: ground ? rgba(ground.c, 0.44) : null,
-				terrain: !!ground,
-				solid: !!ground?.solid,
-				dead: !!ground?.dead,
-				gone: !!ground?.gone,
-				whirl:
-					ground && c.t === "whirl" ? String.fromCharCode(65 + (wl.findIndex((a) => a[1] === i) >> 1)) : null,
-				aim: aim.has(key) ? (sure.has(key) ? "aimsure" : "aim") : null,
-				step,
-				warn: S.warn === i,
-				litsq: isLit(x, y),
-				look: S.look === i,
-				reach: reachStripes(rmap?.get(i)),
-				// whoever is standing here has the last word on what the square says it is
-				title: here.length
-					? here.map((o) => `${o.name}: ${o.hp} HP`).join("  ·  ")
-					: ground
-						? `${ground.n}: ${ground.d}`
-						: "",
-				occupants: here.map((o, k) => tileFighter(o, p, k, here.length)),
-				stack: here.length > 2 ? here.length : null,
-			});
-		}
-	// the animations are handed over once and then forgotten, so each one plays on exactly one screen
-	const fx: FxHit[] = S.fx.map(([index, animation]) => ({index, animation}));
-	S.fx = [];
-	return {dim: S.dim, tiles, click: onTile, fx};
+/** The letter each whirlpool is paired by, which is its place in the list twinned ones sit next to. */
+function whirlLetters(v: SeatState): Map<number, string> {
+	const all: [number, number][] = [];
+	v.tiles.forEach((t, i) => {
+		if (t.t === "whirl") all.push([t.wid, i]);
+	});
+	all.sort((a, b) => a[0] - b[0]);
+	const out = new Map<number, string>();
+	all.forEach(([, i], pos) => out.set(i, String.fromCharCode(65 + (pos >> 1))));
+	return out;
 }
 
-function tileFighter(o: Player, p: Player, k: number, crowd: number): TileFighter {
-	return {
-		seat: o.i,
-		colour: o.c,
-		active: o === p,
-		lit: !!o.lit && o !== p, // the lit fighter is never shown their own glow
-		// shoulder to shoulder
-		inset: crowd > 1 ? (k ? "34% 8% 8% 34%" : "8% 34% 34% 8%") : null,
-		z: crowd > 1 ? (o === p ? 2 : 1) : null,
-	};
+/** The fighters the reach overlay is actually drawn for, which is the chips ticked while Inspect is on. */
+function drawnReach(v: SeatState, local: Local): readonly SeatReach[] {
+	if (!local.imode) return [];
+	return v.reachable.filter((r) => local.reach.includes(r.seat));
+}
+
+/** Which of the ticked fighters could reach each square, in seat order, worked out in one pass. */
+function reachMap(drawn: readonly SeatReach[]): Map<number, number[]> {
+	const out = new Map<number, number[]>();
+	drawn.forEach((r) => {
+		r.tiles.forEach((i) => {
+			const who = out.get(i);
+			if (who) who.push(r.seat);
+			else out.set(i, [r.seat]);
+		});
+	});
+	return out;
 }
 
 /** One band per fighter who could reach the square, or null while nobody has been asked about it. */
-function reachStripes(who: Player[] | undefined): string | null {
+function reachStripes(v: SeatState, who: readonly number[] | undefined): string | null {
 	if (!who?.length) return null;
-	if (who.length === 1) return `linear-gradient(${rgba(who[0]!.c, 0.34)},${rgba(who[0]!.c, 0.34)})`;
-	return `repeating-linear-gradient(135deg,${who
-		.map((q, z) => `${rgba(q.c, 0.4)} ${z * 7}px,${rgba(q.c, 0.4)} ${(z + 1) * 7}px`)
+	const cols = who.map((seat) => v.fighters[seat]!.colour);
+	if (cols.length === 1) return `linear-gradient(${rgba(cols[0]!, 0.34)},${rgba(cols[0]!, 0.34)})`;
+	return `repeating-linear-gradient(135deg,${cols
+		.map((c, z) => `${rgba(c, 0.4)} ${z * 7}px,${rgba(c, 0.4)} ${(z + 1) * 7}px`)
 		.join(",")})`;
+}
+
+function boardView(v: SeatState, local: Local, act: MatchActions): BoardView {
+	const {aim, sure} = aimSquares(v, local);
+	const rmap = reachMap(drawnReach(v, local));
+	const whirls = whirlLetters(v);
+	// the walk-one-square highlight is only an offer while nothing else is being aimed or held
+	const steps = new Set(!aim.size && local.mode === null && local.sel == null ? v.legal.step : []);
+	const lit = new Set(v.litsq);
+	const tiles: TileView[] = v.tiles.map((t, i) => {
+		const x = i % v.dim,
+			y = (i / v.dim) | 0;
+		const ground = t.t ? T[t.t]! : null;
+		const here = standingAt(v, x, y);
+		return {
+			colour: ground ? ground.c : null,
+			shadow: ground ? rgba(ground.c, 0.44) : null,
+			terrain: !!ground,
+			solid: !!ground?.solid,
+			dead: !!ground?.dead,
+			gone: !!ground?.gone,
+			whirl: t.t === "whirl" ? (whirls.get(i) ?? null) : null,
+			aim: aim.has(i) ? (sure.has(i) ? "aimsure" : "aim") : null,
+			step: steps.has(i),
+			warn: v.warn === i,
+			litsq: lit.has(i),
+			look: local.look === i,
+			reach: reachStripes(v, rmap.get(i)),
+			// whoever is standing here has the last word on what the square says it is
+			title: here.length
+				? here.map((f) => `${f.name}: ${f.hp} HP`).join("  ·  ")
+				: ground
+					? `${ground.n}: ${ground.d}`
+					: "",
+			occupants: here.map((f, k) => tileFighter(v, f, k, here.length)),
+			stack: here.length > 2 ? here.length : null,
+		};
+	});
+	return {
+		dim: v.dim,
+		tiles,
+		click: (x, y) => {
+			onSquare(v, local, act, x, y);
+		},
+		fx: local.fx,
+	};
+}
+
+function tileFighter(v: SeatState, f: SeatFighter, k: number, crowd: number): TileFighter {
+	const active = f.seat === v.turn;
+	return {
+		seat: f.seat,
+		colour: f.colour,
+		active,
+		lit: f.lit,
+		// shoulder to shoulder
+		inset: crowd > 1 ? (k ? "34% 8% 8% 34%" : "8% 34% 34% 8%") : null,
+		z: crowd > 1 ? (active ? 2 : 1) : null,
+	};
+}
+
+/**
+ * What clicking a square asks for. Inspect reads it instead of playing it, and otherwise the move
+ * the board is waiting for decides: a square is the second half of a move whose first half was a
+ * button, or, when nothing is being aimed, a step onto the square next door.
+ */
+function onSquare(v: SeatState, local: Local, act: MatchActions, x: number, y: number): void {
+	if (v.phase !== "act" || v.toss) return;
+	const i = index(v, x, y);
+	if (local.imode) {
+		act.patch({look: local.look === i ? null : i});
+		return;
+	}
+	if (local.mode === "place") {
+		if (local.sel != null) act.submit({k: "place", uid: local.sel, x, y});
+		return;
+	}
+	const aimed = local.mode === null ? undefined : AIMED[local.mode];
+	if (aimed) {
+		act.submit({k: aimed, x, y});
+		return;
+	}
+	if (local.mode === "attack") {
+		if (v.legal.swing.includes(i)) act.submit({k: "swing", x, y});
+		return;
+	}
+	if (local.sel == null && cheb(v.you.x, v.you.y, x, y) === 1) act.submit({k: "step", x, y});
 }
 
 /* The footwork rail: one button per special move this fighter was given. A move can be offered,
    spent, or already running, and each of the three reads differently. */
 
-function liveMove(key: ActionKey, used: number, disabled: boolean, click: () => void, aiming: boolean): FootworkButton {
-	return {key, label: MV[key]!.n, cost: COST[key], left: S.mvUses - used, tip: MV[key]!.d, aiming, disabled, click};
+/** The footwork that needs nothing from the board, so the button is the whole move. */
+type PlainMove = "float" | "spin" | "wipe" | "ultra" | "trail" | "smash";
+
+function liveMove(
+	v: SeatState,
+	key: ActionKey,
+	used: number,
+	disabled: boolean,
+	click: () => void,
+	aiming: boolean,
+): FootworkButton {
+	return {key, label: MV[key]!.n, cost: COST[key], left: v.mvUses - used, tip: MV[key]!.d, aiming, disabled, click};
 }
 
 function spentMove(key: ActionKey): FootworkButton {
@@ -278,52 +413,59 @@ function runningMove(key: ActionKey, label: string): FootworkButton {
 	return {key, label, cost: null, left: null, tip: MV[key]!.d, aiming: true, disabled: true, click: null};
 }
 
-/** Puts the board into a mode, or back out of the one it is already waiting in. */
-function aimAt(mode: string): () => void {
-	return () => {
-		S.mode = S.mode === mode ? null : mode;
-		S.sel = null;
-		render();
-	};
-}
-
-function footworkView(p: Player): FootworkView {
-	const rooted = p.rootTurns > 0;
+function footworkView(v: SeatState, local: Local, act: MatchActions): FootworkView {
+	const you = v.you,
+		L = v.legal,
+		rooted = you.rootTurns > 0;
 	const buttons: FootworkButton[] = [];
 	const add = (has: number, key: ActionKey, disabled: boolean, click: () => void, aiming: boolean): void => {
 		if (!has) return;
-		buttons.push(p.used[key] >= S.mvUses ? spentMove(key) : liveMove(key, p.used[key], disabled, click, aiming));
+		buttons.push(
+			you.used[key] >= v.mvUses ? spentMove(key) : liveMove(v, key, you.used[key], disabled, click, aiming),
+		);
 	};
-	add(p.mv & 1, "jump", rooted || p.nrg < COST.jump || !jumpTargets(p).length, aimAt("jump"), S.mode === "jump");
-	add(p.mv & 2, "dash", rooted || p.nrg < COST.dash || !dashTargets(p).length, aimAt("dash"), S.mode === "dash");
-	add(p.mv & 4, "leap", rooted || p.nrg < COST.leap || !leapTargets(p).length, aimAt("leap"), S.mode === "leap");
-	if (p.mv & 8 && p.float) buttons.push(runningMove("float", "Floating"));
-	else add(p.mv & 8, "float", p.nrg < COST.float, doFloat, false);
-	add(p.mv & 16, "spin", p.nrg < COST.spin || !spinTiles(p).length, doSpin, false);
-	add(p.mv & 32, "wipe", p.nrg < COST.wipe || !wipeTiles(p).length, doWipe, false);
-	add(p.mv & 64, "warp", rooted || p.nrg < COST.warp || !warpTargets(p).length, aimAt("warp"), S.mode === "warp");
-	if (p.mv & 512 && p.trail) buttons.push(runningMove("trail", `Trailing ${T[p.trail]!.n}`));
-	else add(p.mv & 512, "trail", p.nrg < COST.trail || !S.board[idx(p.x, p.y)]!.t, doTrail, false);
-	add(p.mv & 128, "ultra", p.nrg < COST.ultra || !S.board.some((c) => c.t), doUltra, false);
-	add(p.mv & 256, "spread", p.nrg < COST.spread || !spreadTargets().length, aimAt("spread"), S.mode === "spread");
-	add(p.mv & 32768, "light", p.nrg < COST.light || !lightTargets().length, aimAt("light"), S.mode === "light");
-	add(p.mv & 16384, "mark", p.nrg < COST.mark || !markTargets().length, aimAt("mark"), S.mode === "mark");
-	add(p.mv & 8192, "swap", rooted || p.nrg < COST.swap || !swapTargets().length, aimAt("swap"), S.mode === "swap");
-	add(p.mv & 4096, "theft", p.nrg < COST.theft || !theftTargets().length, aimAt("theft"), S.mode === "theft");
-	add(p.mv & 2048, "smash", p.nrg < COST.smash || !smashable(p), doSmash, false);
-	add(p.mv & 1024, "shift", p.nrg < COST.shift, aimAt("shift"), S.mode === "shift");
-	return {any: !!p.mv, floating: p.float, rooted, buttons};
+	/** Puts the board into a mode, or back out of the one it is already waiting in. */
+	const aimAt =
+		(mode: string): (() => void) =>
+		() => {
+			act.patch({mode: local.mode === mode ? null : mode, sel: null});
+		};
+	const move =
+		(k: PlainMove): (() => void) =>
+		() => {
+			act.submit({k});
+		};
+	const under = v.tiles[index(v, you.x, you.y)]!.t;
+	add(you.mv & 1, "jump", rooted || !L.afford.jump || !L.jump.length, aimAt("jump"), local.mode === "jump");
+	add(you.mv & 2, "dash", rooted || !L.afford.dash || !L.dash.length, aimAt("dash"), local.mode === "dash");
+	add(you.mv & 4, "leap", rooted || !L.afford.leap || !L.leap.length, aimAt("leap"), local.mode === "leap");
+	if (you.mv & 8 && you.float) buttons.push(runningMove("float", "Floating"));
+	else add(you.mv & 8, "float", !L.afford.float, move("float"), false);
+	add(you.mv & 16, "spin", !L.afford.spin || !L.spin.length, move("spin"), false);
+	add(you.mv & 32, "wipe", !L.afford.wipe || !L.wipe.length, move("wipe"), false);
+	add(you.mv & 64, "warp", rooted || !L.afford.warp || !L.warp.length, aimAt("warp"), local.mode === "warp");
+	if (you.mv & 512 && you.trail) buttons.push(runningMove("trail", `Trailing ${T[you.trail]!.n}`));
+	else add(you.mv & 512, "trail", !L.afford.trail || !under, move("trail"), false);
+	add(you.mv & 128, "ultra", !L.afford.ultra || !L.ultra.length, move("ultra"), false);
+	add(you.mv & 256, "spread", !L.afford.spread || !L.spread.length, aimAt("spread"), local.mode === "spread");
+	add(you.mv & 32768, "light", !L.afford.light || !L.light.length, aimAt("light"), local.mode === "light");
+	add(you.mv & 16384, "mark", !L.afford.mark || !L.mark.length, aimAt("mark"), local.mode === "mark");
+	add(you.mv & 8192, "swap", rooted || !L.afford.swap || !L.swap.length, aimAt("swap"), local.mode === "swap");
+	add(you.mv & 4096, "theft", !L.afford.theft || !L.theft.length, aimAt("theft"), local.mode === "theft");
+	add(you.mv & 2048, "smash", !L.afford.smash || !L.smash, move("smash"), false);
+	add(you.mv & 1024, "shift", !L.afford.shift, aimAt("shift"), local.mode === "shift");
+	return {any: !!you.mv, floating: you.float, rooted, buttons};
 }
 
 /* The weapon panel, which is only ever about the one card being held. */
 
 /** A row of leavings, or nothing at all when the weapon carries no choice to make. */
 function leaveRow(
-	c: WepCard,
 	label: string,
 	opts: string[],
 	pick: string | undefined,
-	key: "leaveSelf" | "leaveFoe",
+	row: "self" | "foe",
+	act: MatchActions,
 ): LeaveRow[] {
 	if (opts.length < 2) return [];
 	return [
@@ -334,27 +476,44 @@ function leaveRow(
 				name: elName(e),
 				colour: EL[e] ? EL[e].c : T[e]!.c,
 				on: e === pick,
+				// what a weapon leaves behind is written on the card, so it is the match's business
 				choose: () => {
-					c[key] = e;
-					render();
+					act.submit({k: "leaving", row, el: e});
 				},
 			})),
 		},
 	];
 }
 
-function weaponView(p: Player, dark: boolean): WeaponView | null {
-	const c = held(p);
+/**
+ * Swinging, which is two different things wearing one button. A weapon with a pattern needs a
+ * square, so the button only puts the board into the mode that asks for one. A weapon that sweeps
+ * has nowhere to be pointed, so the button is the whole swing.
+ */
+function swing(v: SeatState, local: Local, act: MatchActions, c: WepCard, poor: boolean): void {
+	if (poor) return;
+	if (local.mode === "attack") {
+		act.patch({mode: null});
+		return;
+	}
+	if (wRing(c)) {
+		act.patch({sel: null});
+		act.submit({k: "swing", x: v.you.x, y: v.you.y});
+		return;
+	}
+	act.patch({mode: "attack", sel: null});
+}
+
+function weaponView(v: SeatState, local: Local, act: MatchActions): WeaponView | null {
+	const c = weapon(v);
 	if (!c) return null;
 	const dmg = wepDmg(c),
 		cost = wCost(c),
 		hits = wHits(c);
 	const uniq = [...new Set(c.els.map((e: string) => forgeOf(e).fx))];
-	// a square only counts as a target when somebody this seat can actually see is standing on it
-	const tg = liveTargets(p, c).filter(
-		([x, y]) => !dark || occupantsAt(x, y).some((q) => q.lit && q !== p && !ally(q, p)),
-	).length;
-	const poor = p.nrg < cost;
+	// the seat was handed the squares its swing would land on, already read down to what it can see
+	const tg = v.legal.foes.length;
+	const poor = v.you.nrg < cost;
 	return {
 		name: wepName(c),
 		colour: wColor(c),
@@ -363,16 +522,18 @@ function weaponView(p: Player, dark: boolean): WeaponView | null {
 		onHit: uniq.length ? uniq.join(", ") : null,
 		strip: wStrip(c),
 		rows: [
-			...leaveRow(c, "Leaves under them:", foeEls(c), leaveFoe(c), "leaveFoe"),
-			...leaveRow(c, "Lays under you:", selfEls(c), leaveSelf(c), "leaveSelf"),
+			...leaveRow("Leaves under them:", foeEls(c), leaveFoe(c), "foe", act),
+			...leaveRow("Lays under you:", selfEls(c), leaveSelf(c), "self", act),
 		],
 		cost,
-		aiming: S.mode === "attack",
+		aiming: local.mode === "attack",
 		disabled: poor,
-		swing: startAttack,
+		swing: () => {
+			swing(v, local, act, c, poor);
+		},
 		hint: poor
 			? "Not enough energy this turn."
-			: dark
+			: v.blind
 				? "Blinded. Swing where you think they are."
 				: tg
 					? `${tg} square${tg === 1 ? "" : "s"} you can see someone on. You may swing anywhere in reach.`
@@ -403,29 +564,34 @@ function press(key: string, label: string, click: () => void, disabled = false):
 	return {key, label, disabled, facedown: false, click};
 }
 
-function actionsView(p: Player): ActionBarView {
-	if (MODEHINT[S.mode!]) return saying(`${MODEHINT[S.mode!]} Esc to cancel.`);
-	if (S.mode === "attack") return saying("Pick a tile to strike. Esc to cancel.");
-	if (S.mode === "place") {
-		const sc = selCard(p);
+/** What a card is called, which for the seat holding it is never a secret. */
+const nameOfCard = (c: ElCard | WepCard): string => (c.k === "el" ? elName(c.id) : wepName(c));
+
+function actionsView(v: SeatState, local: Local, act: MatchActions): ActionBarView {
+	if (MODEHINT[local.mode!]) return saying(`${MODEHINT[local.mode!]} Esc to cancel.`);
+	if (local.mode === "attack") return saying("Pick a tile to strike. Esc to cancel.");
+	if (local.mode === "place") {
+		const sc = selected(v, local);
 		const lethal =
-			sc && lethalRaw(sc.id) ? ` ${elName(sc.id)} cannot be laid on a square someone is standing on.` : "";
+			sc && v.legal.lethal.includes(sc.uid)
+				? ` ${elName(sc.id)} cannot be laid on a square someone is standing on.`
+				: "";
 		return saying(`Pick a tile within 4.${lethal} Esc to cancel.`);
 	}
-	if (S.steal != null) return stealBar(S.steal);
-	if (S.toss) return tossBar(p);
-	if (S.mode === "shift") return shiftBar();
-	if (S.mode === "mix") return saying("Click any highlighted card to merge with. Esc to cancel.");
-	const c = selCard(p),
-		h = held(p),
+	if (v.steal !== null) return stealBar(v.steal, act);
+	if (v.toss) return tossBar(v, local, act);
+	if (local.mode === "shift") return shiftBar(act);
+	if (local.mode === "mix") return saying("Click any highlighted card to merge with. Esc to cancel.");
+	const c = selected(v, local),
+		h = weapon(v),
 		active = c || h;
 	if (!active)
 		return saying(
-			p.rootTurns > 0
+			v.you.rootTurns > 0
 				? "Stuck in the mud. You cannot move until this turn ends."
 				: "Click a card, or step onto a highlighted tile.",
 		);
-	const parts = mixPartners(p, active).length;
+	const parts = mixWith(v, active.uid).length;
 	const buttons: ActionButton[] = [];
 	if (c)
 		buttons.push(
@@ -433,10 +599,9 @@ function actionsView(p: Player): ActionBarView {
 				"place",
 				`Lay on a tile · ${COST.place}`,
 				() => {
-					S.mode = "place";
-					render();
+					act.patch({mode: "place"});
 				},
-				p.nrg < COST.place,
+				!v.legal.afford.place,
 			),
 		);
 	buttons.push(
@@ -444,9 +609,9 @@ function actionsView(p: Player): ActionBarView {
 			"merge",
 			`Merge · ${COST.merge}`,
 			() => {
-				startMix(active.uid);
+				act.patch({mode: "mix", mixFrom: active.uid});
 			},
-			p.nrg < COST.merge || !parts,
+			!v.legal.afford.merge || !parts,
 		),
 	);
 	return {
@@ -459,36 +624,28 @@ function actionsView(p: Player): ActionBarView {
 	};
 }
 
-/** The hand being robbed, with every card this seat has not been shown offered face down. */
-function stealBar(seat: number): ActionBarView {
-	const v = S.players[seat]!;
-	const buttons: ActionButton[] = v
-		? v.hand.map((c: Card, i: number) => ({
-				key: String(c.uid),
-				label: seenBy(c) ? cardLabel(c) : `Card ${i + 1}`,
-				disabled: false,
-				facedown: !seenBy(c),
-				click: () => {
-					takeCard(v, c.uid);
-				},
-			}))
-		: [];
-	buttons.push(
-		press("cancel", "Cancel", () => {
-			S.steal = null;
-			render();
-		}),
-	);
+/** The hand being robbed, already read down to the slots this seat is entitled to read. */
+function stealBar(steal: SeatSteal, act: MatchActions): ActionBarView {
+	const buttons: ActionButton[] = steal.cards.map((c) => ({
+		key: String(c.uid),
+		label: c.label,
+		disabled: false,
+		facedown: c.facedown,
+		click: () => {
+			act.submit({k: "take", uid: c.uid});
+		},
+	}));
+	buttons.push(press("cancel", "Cancel", act.cancelSteal));
 	return {
-		hint: [{text: `Take a card from ${v ? v.name : "them"}:`, strong: false}],
+		hint: [{text: `Take a card from ${steal.name}:`, strong: false}],
 		alarm: false,
 		buttons,
 		tail: null,
 	};
 }
 
-function tossBar(p: Player): ActionBarView {
-	const pick = p.hand.find((q) => q.uid === S.tossPick);
+function tossBar(v: SeatState, local: Local, act: MatchActions): ActionBarView {
+	const pick = v.you.hand.find((q) => q.uid === local.tossPick);
 	if (!pick)
 		return {
 			hint: [
@@ -504,27 +661,26 @@ function tossBar(p: Player): ActionBarView {
 	return {
 		hint: [
 			{text: "Throw away ", strong: false},
-			{text: cardLabel(pick), strong: true},
+			{text: nameOfCard(pick), strong: true},
 			{text: "?", strong: false},
 		],
 		alarm: true,
 		buttons: [
 			press("toss", "Yes, bin it", () => {
-				doToss(pick.uid);
+				act.submit({k: "toss", uid: pick.uid});
 			}),
 			press("another", "Pick another", () => {
-				S.tossPick = null;
-				render();
+				act.patch({tossPick: null});
 			}),
 		],
 		tail: null,
 	};
 }
 
-function shiftBar(): ActionBarView {
+function shiftBar(act: MatchActions): ActionBarView {
 	const slide = (key: string, label: string, dx: number, dy: number): ActionButton =>
 		press(key, label, () => {
-			doShift(dx, dy);
+			act.submit({k: "shift", dx, dy});
 		});
 	return {
 		hint: [{text: "Slide everyone:", strong: false}],
@@ -541,29 +697,28 @@ function shiftBar(): ActionBarView {
 
 /* The roster down the left: one card per seat, read from where this seat is sitting. */
 
-function rosterView(): RosterCard[] {
-	return S.players.map((p) => {
-		const c = held(p),
-			mine = p === cur(),
-			open = !S.priv;
-		const line =
-			mine || open
-				? `${c ? `${wepName(c)} · ${wepDmg(c)} dmg` : "unarmed"} · ${p.hand.length} in hand`
-				: `${p.hand.length} in hand`;
-		const mates = S.players.filter((q) => q !== p && q.team === p.team && q.alive);
-		const seen = mine ? [] : p.hand.filter((q) => seenBy(q));
+function rosterView(v: SeatState): RosterCard[] {
+	return v.fighters.map((f) => {
+		// what this card may say is settled by who is reading it, which is not always who is playing
+		const mine = f.seat === v.seat;
+		const line = f.weapon
+			? `${f.weapon} · ${f.weaponDamage} dmg · ${f.cards} in hand`
+			: mine || !v.priv
+				? `unarmed · ${f.cards} in hand`
+				: `${f.cards} in hand`;
+		const mates = v.fighters.filter((q) => q.seat !== f.seat && q.team === f.team && q.alive);
 		return {
-			seat: p.i,
-			name: p.name,
-			colour: p.c,
-			alive: p.alive,
+			seat: f.seat,
+			name: f.name,
+			colour: f.colour,
+			alive: f.alive,
 			allies: mates.length,
-			hp: p.hp,
-			health: p.hp / p.max,
+			hp: f.hp,
+			health: f.hp / f.max,
 			// a cap too big to draw as pips reads as a line instead
-			energy: p.cap > 12 ? `${mine ? p.nrg : p.cap} / ${p.cap} energy` : null,
-			pips: p.cap > 12 ? null : {total: p.cap, filled: mine ? p.nrg : 0},
-			seen: seen.length ? seen.map(cardLabel).join(", ") : null,
+			energy: f.cap > 12 ? `${mine ? f.nrg : f.cap} / ${f.cap} energy` : null,
+			pips: f.cap > 12 ? null : {total: f.cap, filled: mine ? (f.nrg ?? 0) : 0},
+			seen: f.seen.length ? f.seen.join(", ") : null,
 			line,
 		};
 	});
@@ -571,7 +726,7 @@ function rosterView(): RosterCard[] {
 
 /* The hand: the cards this seat is holding, in whatever order they have been left in. */
 
-function handCard(p: Player, c: Card, i: number): HandCard {
+function handCard(v: SeatState, local: Local, c: ElCard | WepCard, i: number, merges: readonly number[]): HandCard {
 	const el = c.k === "el",
 		comp = el && isComp(c.id);
 	const colour = el ? elColor(c.id) : wColor(c);
@@ -587,96 +742,118 @@ function handCard(p: Player, c: Card, i: number): HandCard {
 		desc,
 		colour,
 		strip: el ? colour : wStrip(c),
-		on: el ? S.sel === c.uid : p.held === c.uid,
-		mixable: (S.toss && S.tossPick == null) || (S.mode === "mix" && mixPartners(p).some((q) => q.uid === c.uid)),
-		doomed: S.toss && S.tossPick === c.uid,
+		on: el ? local.sel === c.uid : v.you.held === c.uid,
+		mixable: (v.toss && local.tossPick == null) || (local.mode === "mix" && merges.includes(c.uid)),
+		doomed: v.toss && local.tossPick === c.uid,
 	};
 }
 
-function handView(p: Player): HandView {
+/**
+ * What clicking a card asks for. A chaos throw picks first and confirms second, so the first tap is
+ * this screen's own business and only the second is a move. Everything else is one.
+ */
+function onCard(v: SeatState, local: Local, act: MatchActions, uid: number): void {
+	if (v.phase !== "act") return;
+	if (v.toss) {
+		if (local.tossPick === uid) {
+			act.submit({k: "toss", uid});
+		} else {
+			act.patch({tossPick: uid});
+		}
+		return;
+	}
+	if (local.mode === "mix" && local.mixFrom != null && mixWith(v, local.mixFrom).includes(uid)) {
+		act.submit({k: "merge", uid: local.mixFrom, into: uid});
+		return;
+	}
+	act.submit({k: "card", uid});
+}
+
+function handView(v: SeatState, local: Local, act: MatchActions): HandView {
+	const merges = local.mode === "mix" ? mixWith(v, local.mixFrom) : [];
 	return {
-		cards: p.hand.map((c, i) => handCard(p, c, i)),
-		click: clickCard,
+		cards: v.you.hand.map((c, i) => handCard(v, local, c, i, merges)),
+		click: (uid: number) => {
+			onCard(v, local, act, uid);
+		},
 		// `to` counts the cards the dragged one left behind, which is where it lands among them
 		reorder: (uid: number, to: number) => {
-			const from = p.hand.findIndex((q) => q.uid === uid);
-			if (from >= 0) {
-				const [card] = p.hand.splice(from, 1);
-				if (card) p.hand.splice(to, 0, card);
-			}
-			render();
+			act.submit({k: "reorder", uid, to});
 		},
-		draggable: S.phase === "act" && !S.handoff,
+		draggable: v.phase === "act" && !local.handoff,
 	};
 }
 
 /* Table talk. */
 
 /** The line an answer hangs off, cut to whatever length the place it is shown in has room for. */
-function quoteOf(id: number | null, cut: number): ChatQuote | null {
-	const m = id ? chatById(id) : null;
+function quoteOf(v: SeatState, id: number | null, cut: number): ChatQuote | null {
+	const m = id ? v.chat.find((q) => q.id === id) : null;
 	if (!m) return null;
 	return {who: m.who, colour: m.c, text: m.t.length > cut ? m.t.slice(0, cut) + "…" : m.t};
 }
 
-function chatView(): ChatView {
+function chatView(v: SeatState, local: Local, act: MatchActions): ChatView {
 	return {
-		lines: S.chat.map((m) => ({
+		lines: v.chat.map((m) => ({
 			id: m.id,
 			who: m.who,
 			colour: m.c,
 			round: m.r,
 			text: m.t,
-			quote: quoteOf(m.to, 44),
+			quote: quoteOf(v, m.to, 44),
 			reply: () => {
-				S.replyTo = m.id;
-				render();
+				act.patch({replyTo: m.id});
 			},
 		})),
-		replyingTo: quoteOf(S.replyTo, 30),
+		replyingTo: quoteOf(v, local.replyTo, 30),
 		cancelReply: () => {
-			S.replyTo = null;
-			render();
+			act.patch({replyTo: null});
 		},
-		say,
+		say: (text: string) => {
+			act.submit({k: "chat", text, to: local.replyTo ?? 0});
+		},
 	};
 }
 
 /* The tile inspector down the right, and the reach overlay offered under it. */
 
-function reachChooser(p: Player, dark: boolean): ReachChooser {
-	const list = S.players.filter((q) => q.alive && (q === p || q.lit || (!dark && !hidden(q))));
+function reachChooser(v: SeatState, local: Local, act: MatchActions): ReachChooser {
 	return {
-		chips: list.map((q) => ({
-			seat: q.i,
-			name: q.name,
-			colour: q.c,
-			budget: moveBudget(q),
-			on: S.reach.includes(q.i),
-			toggle: () => {
-				const at = S.reach.indexOf(q.i);
-				if (at >= 0) S.reach.splice(at, 1);
-				else S.reach.push(q.i);
-				render();
-			},
-		})),
-		blinded: dark,
+		chips: v.reachable.map((r) => {
+			const f = v.fighters[r.seat]!;
+			const on = local.reach.includes(r.seat);
+			return {
+				seat: r.seat,
+				name: f.name,
+				colour: f.colour,
+				budget: r.budget,
+				on,
+				toggle: () => {
+					act.patch({
+						reach: on ? local.reach.filter((s) => s !== r.seat) : [...local.reach, r.seat],
+					});
+				},
+			};
+		}),
+		blinded: v.blind,
 	};
 }
 
 /** Who can reach the square being read, or nothing at all while nobody has been asked. */
-function reachFact(i: number, p: Player, dark: boolean): TileFact[] {
-	if (!S.imode || !S.reach.length) return [];
-	const who = reachMap().get(i);
-	if (!who?.length) return [{label: "In reach of", value: "nobody selected"}];
-	return [{label: "In reach of", value: who.map((q) => (q === p || !dark ? q.name : "someone hidden")).join(", ")}];
+function reachFact(v: SeatState, local: Local, i: number): TileFact[] {
+	const drawn = drawnReach(v, local);
+	if (!drawn.length) return [];
+	const who = drawn.filter((r) => r.tiles.includes(i));
+	if (!who.length) return [{label: "In reach of", value: "nobody selected"}];
+	return [{label: "In reach of", value: who.map((r) => v.fighters[r.seat]!.name).join(", ")}];
 }
 
-function tileReadout(p: Player, dark: boolean, i: number): TileReadout {
-	const x = i % S.dim,
-		y = (i / S.dim) | 0,
-		c = S.board[i]!;
-	const t = c.t && seesTile(p, x, y) ? T[c.t] : null;
+function tileReadout(v: SeatState, local: Local, i: number): TileReadout {
+	const x = i % v.dim,
+		y = (i / v.dim) | 0;
+	const key = v.tiles[i]!.t;
+	const t = key ? T[key]! : null;
 	const facts: TileFact[] = [];
 	if (t) {
 		if (t.enter > 50) facts.push({label: "Entering", value: "impossible"});
@@ -693,20 +870,13 @@ function tileReadout(p: Player, dark: boolean, i: number): TileReadout {
 		if (t.gone) facts.push({label: "Touching it", value: "you are gone"});
 		facts.push({label: "Lasts", value: t.life > 900 ? "permanent" : t.life + " more rounds"});
 	}
-	// the same rule the board reads by: cover keeps a fighter out of the readout as well as off the
-	// square, or Inspect would name whoever the ground is busy hiding
-	const all = occupantsAt(x, y),
-		shown = all.filter((q) => q === p || q.lit || (!dark && !hidden(q)));
-	if (all.length)
-		facts.push({
-			label: "Standing on it",
-			value: shown.length
-				? shown.map((q) => `${q.name}, ${q.hp} HP`).join(" and ") +
-					(shown.length < all.length ? " and someone you cannot see" : "")
-				: "someone you cannot see",
-		});
+	// whoever the ground is hiding was never in the view to be read out of it, which is the point:
+	// clicking a square and being told somebody is on it is what the concealment is there to stop
+	const here = standingAt(v, x, y);
+	if (here.length)
+		facts.push({label: "Standing on it", value: here.map((f) => `${f.name}, ${f.hp} HP`).join(" and ")});
 	facts.push({label: "Square", value: `${x + 1}, ${y + 1}`});
-	facts.push(...reachFact(i, p, dark));
+	facts.push(...reachFact(v, local, i));
 	return {
 		name: t ? t.n : "Bare ground",
 		colour: t ? t.c : null,
@@ -715,17 +885,16 @@ function tileReadout(p: Player, dark: boolean, i: number): TileReadout {
 	};
 }
 
-function inspectView(p: Player, dark: boolean): InspectView {
-	if (!S.imode) S.reach = [];
-	const chooser = S.imode ? reachChooser(p, dark) : null;
-	if (S.look == null)
+function inspectView(v: SeatState, local: Local, act: MatchActions): InspectView {
+	const chooser = local.imode ? reachChooser(v, local, act) : null;
+	if (local.look == null)
 		return {
-			inspecting: S.imode,
-			hint: S.imode
+			inspecting: local.imode,
+			hint: local.imode
 				? "Click any square to read it. Press I or Escape to go back to playing."
 				: "Turn on Inspect to read any square without moving.",
 			tile: null,
 			chooser,
 		};
-	return {inspecting: S.imode, hint: null, tile: tileReadout(p, dark, S.look), chooser};
+	return {inspecting: local.imode, hint: null, tile: tileReadout(v, local, local.look), chooser};
 }

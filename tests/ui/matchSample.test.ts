@@ -3,7 +3,7 @@ import {describe, it, expect, beforeAll, vi} from "vitest";
 import {matchStore, type MatchView} from "../../src/game/bridge.js";
 import {mvOwnedMask} from "../../src/game/lookups.js";
 import {startMatch} from "../../src/game/match.js";
-import {render} from "../../src/game/render.js";
+import {render} from "../../src/game/hotseat.js";
 import {S, cur, idx} from "../../src/game/state.js";
 import {sampleMatch} from "../../src/ui/matchSample.js";
 

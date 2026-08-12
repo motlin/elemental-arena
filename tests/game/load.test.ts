@@ -90,7 +90,7 @@ describe("the game module", () => {
 		const where = {
 			state: readGameModule("state.ts").includes("export const S: GameState = {"),
 			match: readGameModule("match.ts").includes("export function startMatch(): void {"),
-			render: readGameModule("render.ts").includes("export function render(): void {"),
+			render: readGameModule("hotseat.ts").includes("export function render(): void {"),
 		};
 
 		expect(where).toStrictEqual({state: true, match: true, render: true});
@@ -104,7 +104,7 @@ describe("the game module", () => {
 	   would import each other, and the load order would decide which half of the game existed
 	   first. src/game/view.ts is the seam: the rules call it, and game.ts wires the real drawing in. */
 	it("keeps the rules from importing the screens that draw them", () => {
-		const screens = ["board", "input", "menu", "render"];
+		const screens = ["board", "hotseat", "input", "menu", "render"];
 		const rules = gameModules().filter((name) => !screens.includes(name.replace(".ts", "")) && name !== "game.ts");
 
 		const reaching = rules.filter((name) =>

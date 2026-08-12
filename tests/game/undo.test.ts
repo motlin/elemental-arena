@@ -6,7 +6,7 @@ import {doAttack} from "../../src/game/combat.js";
 import {T} from "../../src/game/data/index.js";
 import {endTurn, startMatch} from "../../src/game/match.js";
 import {doMark, takeCard, tryStep} from "../../src/game/movement.js";
-import {render} from "../../src/game/render.js";
+import {render} from "../../src/game/hotseat.js";
 import {S, idx} from "../../src/game/state.js";
 import type {Player} from "../../src/game/types.js";
 import {canUndo, clearUndo, pushUndo, undo} from "../../src/game/undo.js";

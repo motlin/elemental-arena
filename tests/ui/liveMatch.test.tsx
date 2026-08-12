@@ -3,7 +3,7 @@ import {describe, it, expect, beforeEach, vi} from "vitest";
 import {act, fireEvent, render as paint, screen} from "@testing-library/react";
 import {mvOwnedMask} from "../../src/game/lookups.js";
 import {startMatch} from "../../src/game/match.js";
-import {render} from "../../src/game/render.js";
+import {render} from "../../src/game/hotseat.js";
 import {S} from "../../src/game/state.js";
 import {MatchScreen} from "../../src/ui/MatchScreen.js";
 
