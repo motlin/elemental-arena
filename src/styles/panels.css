@@ -510,6 +510,10 @@
 .netstrip.gone .netstate::before {
 	background: #ff4d8d;
 }
+/* A seat with nobody in it, which the arena below cannot show: it looks like a seat thinking. */
+.netaway {
+	color: #ff9a4d;
+}
 .netnotice {
 	display: flex;
 	align-items: center;

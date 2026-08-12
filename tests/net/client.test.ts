@@ -193,6 +193,32 @@ describe("a socket in a seat", () => {
 		expect(onlineStore.get()?.status).toBe("playing");
 	});
 
+	it("says which of the other seats has gone quiet", () => {
+		sit(INVITE, vi.fn());
+		FakeSocket.last?.fire("open", {});
+		FakeSocket.last?.say({k: "seated", v: PROTOCOL_VERSION, seat: 1});
+
+		expect(onlineStore.get()?.away).toStrictEqual([]);
+
+		FakeSocket.last?.say({k: "presence", here: [false, true]});
+
+		expect(onlineStore.get()?.away).toStrictEqual([0]);
+
+		FakeSocket.last?.say({k: "presence", here: [true, true]});
+
+		expect(onlineStore.get()?.away).toStrictEqual([]);
+	});
+
+	/* This device's own seat is never one of the missing: the socket that would report it gone is
+	   the socket that would have to be there to report anything. */
+	it("does not count itself away when the roll call is stale about its own seat", () => {
+		sit(INVITE, vi.fn());
+		FakeSocket.last?.fire("open", {});
+		FakeSocket.last?.say({k: "presence", here: [true, false]});
+
+		expect(onlineStore.get()?.away).toStrictEqual([]);
+	});
+
 	it("says so when the room shuts the socket, rather than going quiet", () => {
 		sit(INVITE, vi.fn());
 		FakeSocket.last?.fire("open", {});
@@ -211,5 +237,76 @@ describe("a socket in a seat", () => {
 		expect(seatStore.get()).toBeNull();
 		expect(onlineStore.get()).toBeNull();
 		expect(FakeSocket.last?.closed).toBe(1000);
+	});
+});
+
+/**
+ * A wire that drops is not the room saying no. The seat belongs to the token rather than to the
+ * connection, so the tab sits back down in it by itself, and the arena stays on screen meanwhile --
+ * stale, and the strip says so, which is a better thing to look at than an empty page.
+ */
+describe("a socket the wire takes away", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	/** A tab already sat down and playing, with the room's first arena on screen. */
+	function playing(): void {
+		sit(INVITE, vi.fn());
+		FakeSocket.last?.fire("open", {});
+		FakeSocket.last?.say({k: "seated", v: PROTOCOL_VERSION, seat: 1});
+		FakeSocket.last?.say({k: "state", state: arena(1)});
+	}
+
+	it("sits back down in the same seat, with the same token", () => {
+		playing();
+		const dropped = FakeSocket.last;
+
+		dropped?.fire("close", {});
+
+		expect(onlineStore.get()?.status).toBe("joining");
+
+		vi.advanceTimersByTime(1000);
+		FakeSocket.last?.fire("open", {});
+
+		expect(FakeSocket.last).not.toBe(dropped);
+		expect(FakeSocket.last?.said()).toStrictEqual([{k: "hello", v: PROTOCOL_VERSION, seat: 1, token: "a-token"}]);
+	});
+
+	it("keeps the arena on screen while it is finding the room again", () => {
+		playing();
+		const showing = seatStore.get();
+
+		FakeSocket.last?.fire("close", {});
+
+		expect(seatStore.get()).toBe(showing);
+	});
+
+	it("does not go back to a room that hung up on purpose", () => {
+		playing();
+		const dropped = FakeSocket.last;
+
+		dropped?.say({k: "closed", why: "that seat is not yours"});
+		dropped?.fire("close", {});
+		vi.advanceTimersByTime(60_000);
+
+		expect(FakeSocket.last).toBe(dropped);
+		expect(onlineStore.get()).toMatchObject({status: "gone", notice: "that seat is not yours"});
+	});
+
+	/* A tab that says "joining" forever is lying about a match that is not coming back. */
+	it("gives up eventually, and says so instead of trying for ever", () => {
+		playing();
+
+		for (let i = 0; i < 12; i++) {
+			FakeSocket.last?.fire("close", {});
+			vi.advanceTimersByTime(20_000);
+		}
+
+		expect(onlineStore.get()).toMatchObject({status: "gone", notice: "the match server did not come back"});
 	});
 });

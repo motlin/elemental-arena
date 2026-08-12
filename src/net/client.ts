@@ -6,6 +6,10 @@
  * the arena on screen is always the last one the room sent -- never one this side guessed at. That
  * is what makes a refusal harmless: a move the room turns down changed nothing here to put back.
  *
+ * A seat belongs to the token in the link, not to the socket holding it, so a wire that drops is
+ * not the end of a match: the tab sits back down by itself, with the arena still on screen and the
+ * strip saying it is stale. Only the room hanging up and saying why ends anything.
+ *
  * Joining is by link rather than by anything kept on the device, and that is the whole reason it
  * looks the way it does. Two ordinary tabs of one browser share local storage, so a token left
  * there would have the second tab opened take the first tab's seat. The address bar is the one
@@ -139,8 +143,40 @@ let notice: string | null = null;
  */
 let pending: Intent | null = null;
 
+/**
+ * Sitting back down after the wire drops: how long to wait, how far that grows while the room stays
+ * away, and how many goes before a tab still saying "joining" would be lying to whoever is watching
+ * it. Roughly a minute and a half of trying, after which the link in the address bar is still good
+ * and reloading the tab is one more go.
+ */
+const FIRST_WAIT = 1000;
+const LONGEST_WAIT = 15_000;
+const TRIES = 8;
+
+let retry: ReturnType<typeof setTimeout> | null = null;
+let wait = FIRST_WAIT;
+let tries = 0;
+/** Whether the room hung up rather than the wire dropping, which is the difference that matters. */
+let shutOut = false;
+
+/**
+ * Which seats the room last said had somebody in them. It is empty until the room says, and a seat
+ * nobody has been reported in is not reported gone -- an empty roll call means the room has not
+ * spoken yet, not that the match is deserted.
+ */
+let sitting: readonly boolean[] = [];
+
+/** The other seats with nobody in them. This device's own is never one: it is the one asking. */
+function away(mine: number): readonly number[] {
+	return sitting.flatMap((there, seat) => (there || seat === mine ? [] : [seat]));
+}
+
 function post(): void {
-	onlineStore.set(seated === null ? null : {code: seated.code, seat: seated.seat, status, notice, dismiss});
+	onlineStore.set(
+		seated === null
+			? null
+			: {code: seated.code, seat: seated.seat, status, notice, away: away(seated.seat), dismiss},
+	);
 }
 
 function dismiss(): void {
@@ -153,6 +189,14 @@ function hear(raw: string): void {
 	if (said === null) return;
 	if (said.k === "seated") {
 		status = "playing";
+		// sat down again, so the next drop starts its patience over rather than continuing this one
+		wait = FIRST_WAIT;
+		tries = 0;
+		post();
+		return;
+	}
+	if (said.k === "presence") {
+		sitting = said.here;
 		post();
 		return;
 	}
@@ -167,17 +211,18 @@ function hear(raw: string): void {
 	// a refusal changed nothing, so there is nothing to put back: only something to say
 	pending = null;
 	notice = said.why;
-	if (said.k === "closed") status = "gone";
+	if (said.k === "closed") {
+		shutOut = true;
+		status = "gone";
+	}
 	post();
 }
 
-/** Opens a socket, claims the seat the invite names, and starts drawing whatever comes back. */
-export function sit(invite: Invite, onTook: Took): void {
-	leave();
-	seated = invite;
-	took = onTook;
-	status = "joining";
-	post();
+/** Opens a socket and claims the seat, which is the same thing whether it is the first time or not. */
+function connect(): void {
+	const invite = seated;
+	if (invite === null) return;
+	retry = null;
 	const ws = new WebSocket(socketUrl(invite.code));
 	socket = ws;
 	ws.addEventListener("open", () => {
@@ -189,10 +234,44 @@ export function sit(invite: Invite, onTook: Took): void {
 	ws.addEventListener("close", () => {
 		if (socket !== ws) return;
 		socket = null;
+		again();
+	});
+}
+
+/**
+ * What to do about a socket that has gone. A room that hung up said why and meant it, so that is
+ * the end of the match; anything else is the wire, and the seat is still this token's to sit back
+ * down in. The arena on screen is left exactly where it was throughout: it is still the last thing
+ * the room said, and a stale arena under a strip that says so beats an empty page.
+ */
+function again(): void {
+	if (shutOut || seated === null) {
 		status = "gone";
 		notice ??= "the match server hung up";
 		post();
-	});
+		return;
+	}
+	if (tries >= TRIES) {
+		status = "gone";
+		notice ??= "the match server did not come back";
+		post();
+		return;
+	}
+	tries += 1;
+	status = "joining";
+	post();
+	retry = setTimeout(connect, wait);
+	wait = Math.min(wait * 2, LONGEST_WAIT);
+}
+
+/** Opens a socket, claims the seat the invite names, and starts drawing whatever comes back. */
+export function sit(invite: Invite, onTook: Took): void {
+	leave();
+	seated = invite;
+	took = onTook;
+	status = "joining";
+	post();
+	connect();
 }
 
 /**
@@ -212,10 +291,16 @@ export function sendIntent(intent: Intent): void {
 /** Gets up: shuts the socket, and puts down everything that was only true while it was open. */
 export function leave(): void {
 	const ws = socket;
+	if (retry !== null) clearTimeout(retry);
+	retry = null;
+	wait = FIRST_WAIT;
+	tries = 0;
+	shutOut = false;
 	socket = null;
 	seated = null;
 	took = () => {};
 	pending = null;
+	sitting = [];
 	status = "gone";
 	notice = null;
 	seatStore.set(null);

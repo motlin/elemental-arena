@@ -1,5 +1,5 @@
 import {describe, it, expect} from "vitest";
-import {PROTOCOL_VERSION, encode, parseClientMessage, parseSetup} from "../../src/net/protocol.js";
+import {PROTOCOL_VERSION, encode, parseClientMessage, parseServerMessage, parseSetup} from "../../src/net/protocol.js";
 import type {ClientMessage, Intent} from "../../src/net/protocol.js";
 
 /**
@@ -155,6 +155,21 @@ describe("what a client may say", () => {
 	it("refuses a move dressed up with fields it was never given", () => {
 		expect(parseClientMessage(JSON.stringify({k: "move", intent: {k: "end"}, seat: 4}))).toBeNull();
 		expect(parseClientMessage(JSON.stringify({k: "move", intent: {k: "step", x: 1, y: 1, z: 1}}))).toBeNull();
+	});
+});
+
+describe("what the room may say back", () => {
+	it("round-trips who is still in the room", () => {
+		expect(parseServerMessage(encode({k: "presence", here: [true, false]}))).toStrictEqual({
+			k: "presence",
+			here: [true, false],
+		});
+	});
+
+	it("hears nothing at all in a roll call that is not one", () => {
+		const bad = [{k: "presence"}, {k: "presence", here: "both"}, {k: "presence", here: [1, 0]}];
+
+		expect(bad.map((m) => parseServerMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
 	});
 });
 

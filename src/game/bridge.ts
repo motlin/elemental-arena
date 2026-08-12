@@ -64,13 +64,16 @@ export interface OnlineView {
 	readonly status: NetStatus;
 	/** Why the last move was turned down, or why the socket went, and null while neither happened. */
 	readonly notice: string | null;
+	/** The other seats of this match with nobody in them, which is a match waiting on somebody. */
+	readonly away: readonly number[];
 	/** Puts the notice away. The move it was about is already over either way. */
 	readonly dismiss: () => void;
 }
 
 function sameOnline(a: OnlineView | null, b: OnlineView | null): boolean {
 	if (a === null || b === null) return a === b;
-	return a.code === b.code && a.seat === b.seat && a.status === b.status && a.notice === b.notice;
+	if (a.code !== b.code || a.seat !== b.seat || a.status !== b.status || a.notice !== b.notice) return false;
+	return a.away.length === b.away.length && a.away.every((seat, i) => seat === b.away[i]);
 }
 
 export const onlineStore = createStore<OnlineView | null>(null, sameOnline);
