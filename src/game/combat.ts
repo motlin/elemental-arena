@@ -72,6 +72,20 @@ const pickFrom = (opts: string[], chosen: string | undefined): string | undefine
 	chosen && opts.includes(chosen) ? chosen : opts[0];
 export const leaveSelf = (c: WeaponSpec): string | undefined => pickFrom(selfEls(c), c.leaveSelf);
 export const leaveFoe = (c: WeaponSpec): string | undefined => pickFrom(foeEls(c), c.leaveFoe);
+/**
+ * Sets which of the leavings the forge offers the held weapon actually drops, for the row the pick
+ * was made in. A weapon nobody is holding has no leavings to set, and neither row takes ground the
+ * other was offered: a gift only ever goes under your own feet, a punishment only ever under theirs.
+ */
+export function setLeaving(row: "self" | "foe", el: string): void {
+	const c = held(cur());
+	if (!c) return;
+	const mine = row === "self";
+	if (!(mine ? selfEls(c) : foeEls(c)).includes(el)) return;
+	if (mine) c.leaveSelf = el;
+	else c.leaveFoe = el;
+	redraw();
+}
 function applyOnHit(p: Player, c: WeaponSpec, v: Player, x: number, y: number): void {
 	layFor(p.i);
 	const bite = wepDmg(c);

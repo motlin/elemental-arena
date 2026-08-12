@@ -57,6 +57,22 @@ function isLine(value: unknown): value is string {
 	return typeof value === "string" && value.length > 0 && value.length <= SAY_MAX;
 }
 
+/** Which of a weapon's two rows of leavings a pick was made in: under you, or under them. */
+function isRow(value: unknown): value is "self" | "foe" {
+	return value === "self" || value === "foe";
+}
+
+/** Longer than any ground the arena has a name for, which is all the parser needs to know of one. */
+const KEY_MAX = 24;
+
+/**
+ * A piece of ground, by key. Whether the weapon in hand actually leaves that ground is a rule, and
+ * the rules refuse it themselves, so all the parser owes them is a word short enough to be a key.
+ */
+function isKey(value: unknown): value is string {
+	return typeof value === "string" && value.length > 0 && value.length <= KEY_MAX;
+}
+
 /** What each field a move can carry has to be. A field missing from here is a field no move has. */
 const FIELD: Record<string, ((value: unknown) => boolean) | undefined> = {
 	x: isCount,
@@ -67,14 +83,18 @@ const FIELD: Record<string, ((value: unknown) => boolean) | undefined> = {
 	dx: isStep,
 	dy: isStep,
 	text: isLine,
+	row: isRow,
+	el: isKey,
 };
 
 /** The fields each move carries, which is also the list nothing may be added to. */
 const INTENT_FIELDS = {
 	step: ["x", "y"],
 	card: ["uid"],
+	reorder: ["uid", "to"],
 	place: ["uid", "x", "y"],
 	swing: ["x", "y"],
+	leaving: ["row", "el"],
 	merge: ["uid", "into"],
 	jump: ["x", "y"],
 	dash: ["x", "y"],
@@ -120,6 +140,11 @@ function line(value: unknown): string {
 	return typeof value === "string" ? value : "";
 }
 
+/** A checked field, as one of the two rows a weapon leaves ground in. */
+function row(value: unknown): "self" | "foe" {
+	return value === "foe" ? "foe" : "self";
+}
+
 /**
  * A move, rebuilt field by field rather than waved through. Building the move here rather than
  * casting the message into one is what keeps a client from smuggling a field past the parser.
@@ -136,10 +161,14 @@ function parseIntent(value: unknown): Intent | null {
 			return {k, x, y};
 		case "card":
 			return {k, uid};
+		case "reorder":
+			return {k, uid, to: count(value["to"])};
 		case "place":
 			return {k, uid, x, y};
 		case "swing":
 			return {k, x, y};
+		case "leaving":
+			return {k, row: row(value["row"]), el: line(value["el"])};
 		case "merge":
 			return {k, uid, into: count(value["into"])};
 		case "jump":
