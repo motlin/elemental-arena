@@ -16,9 +16,9 @@
  * never filled in there, which is exactly the seam that makes running the game headless free.
  */
 
-import {clickCard, doPlace, doToss, startMix} from "./cards.js";
+import {clickCard, doPlace, doToss, moveCard, startMix} from "./cards.js";
 import {say} from "./chat.js";
-import {doAttack} from "./combat.js";
+import {doAttack, setLeaving} from "./combat.js";
 import {BASE, COST, MV, WBASE} from "./data/index.js";
 import type {ActionKey} from "./data/index.js";
 import {checkRefill, dropOut, endTurn, startMatch} from "./match.js";
@@ -105,8 +105,16 @@ export type Intent =
 	| {readonly k: "step"; readonly x: number; readonly y: number}
 	/** Picks a card up or puts it down, which is what selects an element or holds a weapon. */
 	| {readonly k: "card"; readonly uid: number}
+	/**
+	 * Where a dragged card comes to rest in the hand, `to` counting the cards it left behind. Hand
+	 * order belongs to the match rather than to the screen it is dragged on: it travels in the
+	 * snapshot, and it is the numbering the keyboard picks cards by.
+	 */
+	| {readonly k: "reorder"; readonly uid: number; readonly to: number}
 	| {readonly k: "place"; readonly uid: number; readonly x: number; readonly y: number}
 	| {readonly k: "swing"; readonly x: number; readonly y: number}
+	/** Which ground the held weapon leaves, `row` saying whether it is under you or under them. */
+	| {readonly k: "leaving"; readonly row: "self" | "foe"; readonly el: string}
 	| {readonly k: "merge"; readonly uid: number; readonly into: number}
 	| {readonly k: AimedMove; readonly x: number; readonly y: number}
 	| {readonly k: PlainMove}
@@ -199,11 +207,17 @@ function dispatch(intent: Intent): void {
 		case "card":
 			clickCard(intent.uid);
 			return;
+		case "reorder":
+			moveCard(intent.uid, intent.to);
+			return;
 		case "place":
 			place(intent.uid, intent.x, intent.y);
 			return;
 		case "swing":
 			doAttack(intent.x, intent.y);
+			return;
+		case "leaving":
+			setLeaving(intent.row, intent.el);
 			return;
 		case "merge":
 			merge(intent.uid, intent.into);

@@ -315,6 +315,158 @@ describe("footwork off a socket", () => {
 	});
 });
 
+describe("the weapon's leavings off a socket", () => {
+	/* Two boons and two banes forged onto one weapon, so each row has a choice worth asking for:
+	   the pick would default to `spring` under the wielder and `steam` under whoever is hit. */
+	function forged(): Player["hand"][number] {
+		return {uid: 101, k: "w", ids: ["dagger"], els: ["spring", "haven", "steam", "mud"]};
+	}
+
+	it("sets the ground the weapon lays under whoever swings it", () => {
+		const {p} = armed();
+		holding(p, [forged()]);
+		p.held = 101;
+
+		expect(applyIntent(p.i, {k: "leaving", row: "self", el: "haven"})).toStrictEqual({ok: true});
+		expect(p.hand[0]).toStrictEqual({
+			uid: 101,
+			k: "w",
+			ids: ["dagger"],
+			els: ["spring", "haven", "steam", "mud"],
+			leaveSelf: "haven",
+		});
+	});
+
+	it("sets the ground the weapon leaves under whoever it hits", () => {
+		const {p} = armed();
+		holding(p, [forged()]);
+		p.held = 101;
+
+		expect(applyIntent(p.i, {k: "leaving", row: "foe", el: "mud"})).toStrictEqual({ok: true});
+		expect(p.hand[0]).toStrictEqual({
+			uid: 101,
+			k: "w",
+			ids: ["dagger"],
+			els: ["spring", "haven", "steam", "mud"],
+			leaveFoe: "mud",
+		});
+	});
+
+	it("refuses a seat whose turn it is not", () => {
+		const {foe} = armed();
+		holding(foe, [forged()]);
+		foe.held = 101;
+
+		expect(applyIntent(foe.i, {k: "leaving", row: "self", el: "haven"})).toStrictEqual({
+			ok: false,
+			why: "not your turn",
+		});
+	});
+
+	it("refuses a seat holding no weapon, even with one sitting in the hand", () => {
+		const {p} = armed();
+		holding(p, [forged()]);
+		const before = exportMatch();
+
+		expect(applyIntent(p.i, {k: "leaving", row: "self", el: "haven"})).toStrictEqual({
+			ok: false,
+			why: "the arena will not take that move",
+		});
+		expect(exportMatch()).toStrictEqual(before);
+	});
+
+	/* A row only offers what the forge put in it, and the two rows never share: ground that is a
+	   gift goes under your own feet, and only ground that is a punishment goes under theirs. */
+	it("refuses ground this weapon does not leave, and ground meant for the other row", () => {
+		const {p} = armed();
+		holding(p, [forged()]);
+		p.held = 101;
+		const before = exportMatch();
+
+		expect(applyIntent(p.i, {k: "leaving", row: "self", el: "steam"})).toStrictEqual({
+			ok: false,
+			why: "the arena will not take that move",
+		});
+		expect(applyIntent(p.i, {k: "leaving", row: "foe", el: "wildfire"})).toStrictEqual({
+			ok: false,
+			why: "the arena will not take that move",
+		});
+		expect(exportMatch()).toStrictEqual(before);
+	});
+});
+
+describe("the hand's order off a socket", () => {
+	/** Three cards in a known order, which is the order the keyboard picks them by. */
+	function three(p: Player): void {
+		holding(p, [
+			{uid: 1, k: "el", id: "fire"},
+			{uid: 2, k: "el", id: "water"},
+			{uid: 3, k: "el", id: "earth"},
+		]);
+	}
+
+	/* `to` counts the cards the dragged one left behind, so it is read against the hand with the
+	   card already lifted out of it rather than against the hand as it stood. */
+	it("drops a dragged card among the cards it left behind", () => {
+		const {p} = armed();
+		three(p);
+
+		expect(applyIntent(p.i, {k: "reorder", uid: 1, to: 2})).toStrictEqual({ok: true});
+		expect(p.hand.map((c) => c.uid)).toStrictEqual([2, 3, 1]);
+	});
+
+	it("drops one back among the cards ahead of it", () => {
+		const {p} = armed();
+		three(p);
+
+		expect(applyIntent(p.i, {k: "reorder", uid: 3, to: 1})).toStrictEqual({ok: true});
+		expect(p.hand.map((c) => c.uid)).toStrictEqual([1, 3, 2]);
+	});
+
+	it("refuses a seat whose turn it is not", () => {
+		const {foe} = armed();
+		three(foe);
+
+		expect(applyIntent(foe.i, {k: "reorder", uid: 1, to: 2})).toStrictEqual({ok: false, why: "not your turn"});
+		expect(foe.hand.map((c) => c.uid)).toStrictEqual([1, 2, 3]);
+	});
+
+	it("refuses a card that is not in the hand", () => {
+		const {p} = armed();
+		three(p);
+
+		expect(applyIntent(p.i, {k: "reorder", uid: 4, to: 0})).toStrictEqual({
+			ok: false,
+			why: "the arena will not take that move",
+		});
+		expect(p.hand.map((c) => c.uid)).toStrictEqual([1, 2, 3]);
+	});
+
+	it("refuses a slot the hand does not have", () => {
+		const {p} = armed();
+		three(p);
+
+		expect(applyIntent(p.i, {k: "reorder", uid: 1, to: 3})).toStrictEqual({
+			ok: false,
+			why: "the arena will not take that move",
+		});
+		expect(p.hand.map((c) => c.uid)).toStrictEqual([1, 2, 3]);
+	});
+
+	/* Dropping a card back where it was rearranges nothing, and a move that changes nothing is a
+	   move the arena did not take -- which the client hears as a refusal, and is welcome to ignore. */
+	it("refuses a drag that puts the card back where it started", () => {
+		const {p} = armed();
+		three(p);
+
+		expect(applyIntent(p.i, {k: "reorder", uid: 2, to: 1})).toStrictEqual({
+			ok: false,
+			why: "the arena will not take that move",
+		});
+		expect(p.hand.map((c) => c.uid)).toStrictEqual([1, 2, 3]);
+	});
+});
+
 describe("table talk off a socket", () => {
 	it("says something at the table", () => {
 		const {p} = armed();
@@ -399,5 +551,24 @@ describe("what a refusal is allowed to say", () => {
 
 		expect(verdict).toStrictEqual({ok: false, why: "the arena will not take that move"});
 		expect([p.x, p.y]).toStrictEqual([4, 4]);
+	});
+
+	/* Neither of the two moves the match screen makes without a button costs anything, so neither
+	   has a price the seat could be told it cannot meet. Both fall through to the flat answer, which
+	   is the whole of what a refused leaving or a refused reorder is ever allowed to say. */
+	it("says nothing at all about the weapon in hand or the card that was dragged", () => {
+		const {p} = armed();
+		holding(p, [{uid: 101, k: "w", ids: ["dagger"], els: ["spring", "haven"]}]);
+		p.held = 101;
+
+		const verdicts = [
+			applyIntent(p.i, {k: "leaving", row: "foe", el: "steam"}),
+			applyIntent(p.i, {k: "reorder", uid: 55, to: 0}),
+		];
+
+		expect(verdicts).toStrictEqual([
+			{ok: false, why: "the arena will not take that move"},
+			{ok: false, why: "the arena will not take that move"},
+		]);
 	});
 });

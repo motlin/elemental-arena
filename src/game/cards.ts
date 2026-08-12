@@ -120,6 +120,21 @@ export function doToss(uid: number): void {
 	S.mode = null;
 	redraw();
 }
+/**
+ * Moves a card in the hand to where a drag let go of it. `to` counts the cards the dragged one left
+ * behind, which is where it lands among them, so it is read against the hand with that card already
+ * lifted out rather than against the hand as it stood. Hand order is the arena's own business and
+ * not the screen's: it travels in the snapshot, and it is what the keyboard numbers the cards by.
+ */
+export function moveCard(uid: number, to: number): void {
+	const p = cur();
+	const from = p.hand.findIndex((q) => q.uid === uid);
+	if (from < 0 || to < 0 || to >= p.hand.length) return;
+	const c = p.hand[from]!;
+	p.hand.splice(from, 1);
+	p.hand.splice(to, 0, c);
+	redraw();
+}
 export function clickCard(uid: number): void {
 	if (S.phase !== "act") return;
 	const p = cur(),

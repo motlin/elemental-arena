@@ -47,6 +47,8 @@ describe("what a client may say", () => {
 		take: {k: "take", uid: 7},
 		toss: {k: "toss", uid: 7},
 		chat: {k: "chat", text: "good luck", to: 3},
+		leaving: {k: "leaving", row: "self", el: "spring"},
+		reorder: {k: "reorder", uid: 12, to: 3},
 		end: {k: "end"},
 		forfeit: {k: "forfeit"},
 	};
@@ -108,6 +110,41 @@ describe("what a client may say", () => {
 			{k: "move", intent: {k: "chat", text: 4, to: 0}},
 			{k: "move", intent: {k: "chat", text: "hi", to: -1}},
 			{k: "move", intent: {k: "chat", text: "hi"}},
+		];
+
+		expect(bad.map((m) => parseClientMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
+	});
+
+	/* The row is one of two words and the ground is a key, not a sentence. Whether the weapon in
+	   hand actually offers that ground is the rules' business; all the parser owes them is a word. */
+	it("refuses a leaving that names neither a row nor a piece of ground", () => {
+		const bad = [
+			{k: "move", intent: {k: "leaving", row: "them", el: "spring"}},
+			{k: "move", intent: {k: "leaving", row: "Self", el: "spring"}},
+			{k: "move", intent: {k: "leaving", row: 0, el: "spring"}},
+			{k: "move", intent: {k: "leaving", row: "self", el: ""}},
+			{k: "move", intent: {k: "leaving", row: "self", el: "a".repeat(25)}},
+			{k: "move", intent: {k: "leaving", row: "self", el: 4}},
+			{k: "move", intent: {k: "leaving", row: "self"}},
+			{k: "move", intent: {k: "leaving", el: "spring"}},
+			{k: "move", intent: {k: "leaving", row: "self", el: "spring", uid: 1}},
+		];
+
+		expect(bad.map((m) => parseClientMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
+	});
+
+	/* Both halves of a reorder are places in a hand: a card that is in it, and a slot it may land
+	   in. Neither is ever a fraction, a negative, or a number too big to be a place at all. */
+	it("refuses a reorder that is not two whole numbers", () => {
+		const bad = [
+			{k: "move", intent: {k: "reorder", uid: 1, to: -1}},
+			{k: "move", intent: {k: "reorder", uid: 1, to: 1.5}},
+			{k: "move", intent: {k: "reorder", uid: -1, to: 1}},
+			{k: "move", intent: {k: "reorder", uid: "1", to: 1}},
+			{k: "move", intent: {k: "reorder", uid: 1, to: null}},
+			{k: "move", intent: {k: "reorder", uid: 1}},
+			{k: "move", intent: {k: "reorder", to: 1}},
+			{k: "move", intent: {k: "reorder", uid: 1, to: 1, x: 0}},
 		];
 
 		expect(bad.map((m) => parseClientMessage(JSON.stringify(m)))).toStrictEqual(bad.map(() => null));
