@@ -1,29 +1,16 @@
-/** Turning clicks and keys into moves. */
+/**
+ * Turning keys into moves. The board's own clicks left with the drawing: src/game/render.ts decides
+ * what a square means now, because that decision has to be the same one a client makes online. The
+ * shortcuts stay here and stay direct, because they are hot-seat's and no client will load them.
+ */
 
 import {replayStore, simStore, tableStore} from "./bridge.js";
-import {clickCard, doPlace} from "./cards.js";
-import {attackTiles, doAttack, startAttack} from "./combat.js";
+import {clickCard} from "./cards.js";
+import {startAttack} from "./combat.js";
 import {endTurn} from "./match.js";
 import {closeReplay, closeSim, closeTable} from "./menu.js";
-import {
-	doDash,
-	doFloat,
-	doJump,
-	doLeap,
-	doLight,
-	doMark,
-	doSmash,
-	doSpin,
-	doSpread,
-	doSwap,
-	doTheft,
-	doTrail,
-	doUltra,
-	doWarp,
-	doWipe,
-	tryStep,
-} from "./movement.js";
-import {S, cheb, cur, held, idx} from "./state.js";
+import {doFloat, doSmash, doSpin, doTrail, doUltra, doWipe, tryStep} from "./movement.js";
+import {S, cur} from "./state.js";
 import type {GameEl} from "./types.js";
 import {undo} from "./undo.js";
 import {redraw} from "./view.js";
@@ -34,69 +21,17 @@ export function dropCurtain(): void {
 	S.handoff = false;
 	redraw();
 }
-function inspect(x: number, y: number): void {
-	const i = idx(x, y);
-	S.look = S.look === i ? null : i;
-	redraw();
-}
-export function onTile(x: number, y: number): void {
-	if (S.phase !== "act" || S.toss) return;
-	const p = cur();
-	if (S.imode) {
-		inspect(x, y);
-		return;
-	}
-	if (S.mode === "place") {
-		doPlace(x, y);
-		return;
-	}
-	if (S.mode === "jump") {
-		doJump(x, y);
-		return;
-	}
-	if (S.mode === "dash") {
-		doDash(x, y);
-		return;
-	}
-	if (S.mode === "leap") {
-		doLeap(x, y);
-		return;
-	}
-	if (S.mode === "light") {
-		doLight(x, y);
-		return;
-	}
-	if (S.mode === "mark") {
-		doMark(x, y);
-		return;
-	}
-	if (S.mode === "swap") {
-		doSwap(x, y);
-		return;
-	}
-	if (S.mode === "theft") {
-		doTheft(x, y);
-		return;
-	}
-	if (S.mode === "warp") {
-		doWarp(x, y);
-		return;
-	}
-	if (S.mode === "spread") {
-		doSpread(x, y);
-		return;
-	}
-	if (S.mode === "attack") {
-		const c = held(p);
-		if (c && attackTiles(p, c).some(([a, b]) => a === x && b === y)) doAttack(x, y);
-		return;
-	}
-	if (!S.sel && cheb(p.x, p.y, x, y) === 1) tryStep(x, y);
-}
-/** Reads a square without moving, which the topbar and the I key both ask for. */
+/**
+ * Reads a square without moving, which the topbar and the I key both ask for. Turning it off puts
+ * down the square it was reading and the reach chips ticked under it: the drawing used to clear
+ * those on its way past, and now that it only describes, whoever turns Inspect off has to.
+ */
 export function toggleInspect(): void {
 	S.imode = !S.imode;
-	if (!S.imode) S.look = null;
+	if (!S.imode) {
+		S.look = null;
+		S.reach = [];
+	}
 	redraw();
 }
 const typing = (e: Event): boolean => {
@@ -139,6 +74,7 @@ addEventListener("keydown", (e) => {
 		S.mode = null;
 		S.imode = false;
 		S.look = null;
+		S.reach = [];
 		S.tossPick = null;
 		redraw();
 		return;

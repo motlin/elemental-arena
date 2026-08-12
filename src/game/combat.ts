@@ -3,7 +3,19 @@
 import {logit, place, setTerrain, spend} from "./cards.js";
 import {PAT, T, W, boon} from "./data/index.js";
 import type {Offset} from "./data/index.js";
-import {forgeOf, isComp, wCost, wHits, wRing, wepDmg, wepName} from "./lookups.js";
+import {
+	foeEls,
+	forgeOf,
+	isComp,
+	leaveFoe,
+	leaveSelf,
+	selfEls,
+	wCost,
+	wHits,
+	wRing,
+	wepDmg,
+	wepName,
+} from "./lookups.js";
 import {checkAlive} from "./match.js";
 import {afterMove, canStand, settle} from "./movement.js";
 import {saveSoon} from "./save.js";
@@ -63,15 +75,6 @@ export function doAttack(tx: number, ty: number): void {
 	redraw();
 	checkAlive();
 }
-// which forged elements would leave ground behind, and which one you have chosen
-const groundEls = (c: WeaponSpec): string[] => [...new Set(c.els.filter((e) => isComp(e) || e === "fire"))];
-// ground under you and ground under them are separate squares, so each gets its own pick
-export const selfEls = (c: WeaponSpec): string[] => groundEls(c).filter((e) => boon(e));
-export const foeEls = (c: WeaponSpec): string[] => groundEls(c).filter((e) => !boon(e));
-const pickFrom = (opts: string[], chosen: string | undefined): string | undefined =>
-	chosen && opts.includes(chosen) ? chosen : opts[0];
-export const leaveSelf = (c: WeaponSpec): string | undefined => pickFrom(selfEls(c), c.leaveSelf);
-export const leaveFoe = (c: WeaponSpec): string | undefined => pickFrom(foeEls(c), c.leaveFoe);
 /**
  * Sets which of the leavings the forge offers the held weapon actually drops, for the row the pick
  * was made in. A weapon nobody is holding has no leavings to set, and neither row takes ground the

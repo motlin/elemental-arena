@@ -8,7 +8,7 @@
  * of that and loads this module for its side effects alone.
  */
 import {drawCodex, drawMenu, openReplay} from "./menu.js";
-import {render} from "./render.js";
+import {render} from "./hotseat.js";
 import {load} from "./save.js";
 import {applyTheme} from "./settings.js";
 import {setView} from "./view.js";
@@ -49,6 +49,8 @@ export {
 	elColor,
 	elName,
 	forgeOf,
+	leaveFoe,
+	leaveSelf,
 	mvOwnedMask,
 	terrOf,
 	wColor,
@@ -76,8 +78,9 @@ export {
 	boardWidth,
 } from "./board.js";
 export {forfeit, leaveMatch, startMatch} from "./match.js";
-export {attackTiles, leaveFoe, leaveSelf} from "./combat.js";
+export {attackTiles} from "./combat.js";
 export {codexLine, drawCodex, drawMenu, openTable} from "./menu.js";
 export {say} from "./chat.js";
-export {MODEHINT, render} from "./render.js";
+export {MODEHINT} from "./render.js";
+export {render} from "./hotseat.js";
 export {toggleInspect} from "./input.js";

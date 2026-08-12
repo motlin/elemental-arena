@@ -1,7 +1,8 @@
 import {describe, it, expect} from "vitest";
-import {attackTiles, leaveFoe, leaveSelf} from "../../src/game/combat.js";
-import {CFORGE, EL, FUSE, PAT, T, W} from "../../src/game/data/index.js";
+import {attackTiles} from "../../src/game/combat.js";
 import {
+	leaveFoe,
+	leaveSelf,
 	elColor,
 	elName,
 	forgeOf,
@@ -14,6 +15,7 @@ import {
 	wepDmg,
 	wepName,
 } from "../../src/game/lookups.js";
+import {CFORGE, EL, FUSE, PAT, T, W} from "../../src/game/data/index.js";
 import type {Player, WeaponSpec} from "../../src/game/types.js";
 import {fighter} from "./fighter.js";
 

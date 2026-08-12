@@ -20,7 +20,9 @@ import {BASE, EL, MV, T, W, WBASE} from "../../src/game/data/index.js";
 import {mvOwnedMask} from "../../src/game/lookups.js";
 import {forfeit, leaveMatch, startMatch} from "../../src/game/match.js";
 import {drawCodex, drawMenu} from "../../src/game/menu.js";
-import {MODEHINT, render} from "../../src/game/render.js";
+import {render} from "../../src/game/hotseat.js";
+import {MODEHINT} from "../../src/game/render.js";
+import {toggleInspect} from "../../src/game/input.js";
 import {S, cur, idx, show} from "../../src/game/state.js";
 import type {Card, Player} from "../../src/game/types.js";
 
@@ -224,6 +226,20 @@ describe("match panels in every mode", () => {
 		S.imode = false;
 		S.look = null;
 		S.reach = [];
+	});
+
+	/* The drawing used to empty the reach chips on its way past, back when it read the live game and
+	   could write to it. It only describes now, so turning Inspect off is what puts them down -- and
+	   it has to, or Inspect would come back on with whoever was ticked last time already ticked. */
+	it("puts the reach chips down along with Inspect, however Inspect was turned off", () => {
+		armCurrentPlayer();
+		S.imode = true;
+		S.reach = S.players.map((q) => q.i);
+
+		toggleInspect();
+
+		expect([S.imode, S.look, S.reach]).toStrictEqual([false, null, []]);
+		expect(match().inspect.chooser).toBeNull();
 	});
 
 	it("publishes the handoff curtain for React to paint", () => {
