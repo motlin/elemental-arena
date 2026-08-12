@@ -111,10 +111,12 @@ Skip it and the event is missing from both the match log and the replay.
 Playable. One Durable Object per match, WebSockets, server-authoritative: a client sends the move
 it would like to make and is sent back only the arena its own seat is allowed to see.
 
-Host a match from the setup screen and you get one invite link per seat. A link carries the seat it
-opens, deliberately in the URL rather than in storage, because two tabs of one browser share local
-storage and would otherwise fight over a single seat -- so two plain tabs can play each other with
-no incognito window involved.
+Host a match from the setup screen and you get one link to send round. It names the match and no
+seat of it: whoever follows it is dealt the next free seat by the room, which is then written into
+their address bar -- deliberately there rather than in storage, because two tabs of one browser
+share local storage and would otherwise fight over a single seat. So two plain tabs can play each
+other with no incognito window involved, and a reload sits back down rather than asking for another
+seat.
 
 ```sh
 just multiplayer         # the site and the match server on miniflare, no Cloudflare account involved
@@ -127,6 +129,12 @@ publishes the seat views it is sent. It applies nothing itself, so a move the ro
 the screen exactly where it was. `src/game/online.ts` draws that seat view through the same
 `src/game/render.ts` hot-seat uses, which is why a leak would show up in the mode sitting on the
 desk rather than only over a socket.
+
+The match log is the one thing the room holds back for the whole match and then sends whole:
+`logit()` narrates concealed moves by name and square, so it only goes over once the match is
+decided, and the online game-over screen is written from it. The replay cannot wait for that, so
+each client keeps its own out of the arenas it was sent (`src/game/record.ts`) -- a replay of what
+that seat could actually see while it was deciding.
 
 `src/game/seat.ts` is the boundary that matters. It builds everything one seat may be told, asking
 the same `hidden()`/`seesTile()`/`blind()` the match screen asks, and it is the only thing the room

@@ -15,11 +15,16 @@
  * there would have the second tab opened take the first tab's seat. The address bar is the one
  * thing two tabs of the same profile hold different copies of, so the seat and its token ride in
  * the URL and two tabs can play each other with no incognito window in sight.
+ *
+ * The link that goes round names only the match. A seat is asked for on arrival and written into
+ * the address bar afterwards, so nobody has to be handed a seat by whoever opened the match, and
+ * whoever opened it cannot sit down as somebody else.
  */
 
 import {onlineStore, seatStore} from "../game/bridge.js";
 import {PROTOCOL_VERSION, encode, parseServerMessage} from "./protocol.js";
 import type {NetStatus} from "../game/bridge.js";
+import type {LogEntry} from "../game/types.js";
 import type {Intent, MatchSetup} from "./protocol.js";
 
 /** Everything a seat needs to sit down: which match, which seat of it, and what claims the seat. */
@@ -31,6 +36,12 @@ export interface Invite {
 
 /** What the screen asked to be told: a move of its own was taken, so what it was aiming is spent. */
 export type Took = (intent: Intent) => void;
+
+/**
+ * What the screen asked to be told when the match is played out, which is the one time the room
+ * sends the log. The screen is welcome to it: by then it is a record rather than a leak.
+ */
+export type Ended = (log: readonly LogEntry[]) => void;
 
 /** `WebSocket.OPEN`, spelled out, because a socket stubbed in a test has no class constants. */
 const OPEN = 1;
@@ -70,13 +81,39 @@ function socketUrl(code: string): string {
 	return url.toString();
 }
 
-/** The link a seat follows to sit down, which is this page with the seat and its token on it. */
-export function inviteLink(invite: Invite): string {
+/**
+ * The link that goes round, which is this page and the match to join at it. It names no seat: the
+ * room deals those one at a time, so the same link can go to everybody and still seat them apart.
+ */
+export function matchLink(code: string): string {
 	const url = here();
-	url.searchParams.set("code", invite.code);
+	url.searchParams.set("code", code);
+	return url.toString();
+}
+
+/**
+ * The link a seat is already sitting in, which is the match link with the seat and its token on it.
+ * Nobody is sent one of these: it is what `claimSeat` writes into the address bar once the room has
+ * dealt a seat, so that reloading the tab is that seat sitting back down rather than asking for
+ * another one.
+ */
+export function inviteLink(invite: Invite): string {
+	const url = new URL(matchLink(invite.code));
 	url.searchParams.set("seat", String(invite.seat));
 	url.searchParams.set("token", invite.token);
 	return url.toString();
+}
+
+/** The match a link names, whether or not it carries a seat of it, or null for anything else. */
+export function codeFrom(href: string): string | null {
+	let url: URL;
+	try {
+		url = new URL(href, here());
+	} catch {
+		return null;
+	}
+	const code = url.searchParams.get("code");
+	return code !== null && CODE.test(code) ? code : null;
 }
 
 /** The invite a link carries, or null for anything that is not one. */
@@ -111,28 +148,54 @@ function complaint(body: unknown): string | null {
 	return typeof error === "string" ? error : null;
 }
 
+/** Why the room would not do what was asked of it, or the bare fact that it would not. */
+function refusal(answer: Response, body: unknown): Error {
+	return new Error(complaint(body) ?? `the match server answered ${answer.status}`);
+}
+
 /**
- * Opens a match and comes back with one token per seat. Whoever opened it holds all of them and has
- * to get each one to the right person, which is what the invite links are for. Handing out one
- * token per join instead would be both friendlier and less trusting -- see the design note, which
- * has it as the lobby, and as work this phase deliberately does not do.
+ * Opens a match and comes back with the number of seats it was dealt. No token comes back with
+ * them: whoever opens a match holds no more of it than anybody else does, and gets a seat the same
+ * way everybody else does, by asking for one.
  */
-export async function openRoom(code: string, setup: MatchSetup): Promise<readonly string[]> {
+export async function openRoom(code: string, setup: MatchSetup): Promise<number> {
 	const answer = await fetch(`/api/match/${code}/open`, {
 		method: "POST",
 		headers: {"content-type": "application/json"},
 		body: JSON.stringify(setup),
 	});
 	const body: unknown = await answer.json().catch(() => null);
-	if (!answer.ok) throw new Error(complaint(body) ?? `the match server answered ${answer.status}`);
-	const tokens: unknown = isRecord(body) ? body["tokens"] : null;
-	if (!Array.isArray(tokens) || !tokens.every(isToken)) throw new Error("the match server dealt no tokens");
-	return tokens;
+	if (!answer.ok) throw refusal(answer, body);
+	const seats: unknown = isRecord(body) ? body["seats"] : null;
+	if (typeof seats !== "number") throw new Error("the match server dealt no match");
+	return seats;
+}
+
+/**
+ * Asks a match for a seat, and takes whichever one it deals. The room decides, which is the whole
+ * point: the link that went round names the match alone, so nobody holds a seat they were not
+ * dealt and the host holds no more of the match than anybody else.
+ *
+ * The seat and its token go straight into the address bar, because that is where this client keeps
+ * a claim -- see the note at the top of this file. A reload is then the same seat sitting back
+ * down, rather than a stranger asking the room for another one.
+ */
+export async function claimSeat(code: string): Promise<Invite> {
+	const answer = await fetch(`/api/match/${code}/join`, {method: "POST"});
+	const body: unknown = await answer.json().catch(() => null);
+	if (!answer.ok) throw refusal(answer, body);
+	const seat: unknown = isRecord(body) ? body["seat"] : null;
+	const token: unknown = isRecord(body) ? body["token"] : null;
+	if (typeof seat !== "number" || !isToken(token)) throw new Error("the match server dealt no seat");
+	const invite: Invite = {code, seat, token};
+	globalThis.history.replaceState(null, "", inviteLink(invite));
+	return invite;
 }
 
 let socket: WebSocket | null = null;
 let seated: Invite | null = null;
 let took: Took = () => {};
+let ended: Ended = () => {};
 let status: NetStatus = "gone";
 let notice: string | null = null;
 
@@ -208,6 +271,11 @@ function hear(raw: string): void {
 		seatStore.set(said.state);
 		return;
 	}
+	// the arena that ended the match came first, so the screen has it to write the ending from
+	if (said.k === "over") {
+		ended(said.log);
+		return;
+	}
 	// a refusal changed nothing, so there is nothing to put back: only something to say
 	pending = null;
 	notice = said.why;
@@ -265,10 +333,11 @@ function again(): void {
 }
 
 /** Opens a socket, claims the seat the invite names, and starts drawing whatever comes back. */
-export function sit(invite: Invite, onTook: Took): void {
+export function sit(invite: Invite, onTook: Took, onEnded: Ended): void {
 	leave();
 	seated = invite;
 	took = onTook;
+	ended = onEnded;
 	status = "joining";
 	post();
 	connect();
@@ -299,6 +368,7 @@ export function leave(): void {
 	socket = null;
 	seated = null;
 	took = () => {};
+	ended = () => {};
 	pending = null;
 	sitting = [];
 	status = "gone";

@@ -13,6 +13,10 @@
  * around: same-profile tabs share local storage, so a seat kept there would have the second tab
  * take the first tab's seat. The seat rides in the URL instead, and this is what says so.
  *
+ * It plays the match out at the end, because the two screens that only exist there are made two
+ * different ways: the game-over screen out of the log the room finally lets go of, and the replay
+ * out of the arenas this tab was sent while it was playing.
+ *
  * It reads dist/, so `just online-check` builds first.
  */
 
@@ -84,19 +88,26 @@ async function run() {
 		const host = await tab();
 		await host.goto(BASE, {waitUntil: "networkidle"});
 		await host.getByRole("button", {name: "Host a match"}).click();
-		await host.getByLabel("Invite link for Rose").waitFor({timeout: 15000});
-		const first = await host.getByLabel("Invite link for Rose").inputValue();
-		const second = await host.getByLabel("Invite link for Sky").inputValue();
-		check("hosting deals one invite link per seat", first.includes("seat=0") && second.includes("seat=1"), first);
+		await host.getByLabel("Link to this match").waitFor({timeout: 15000});
+		const invite = await host.getByLabel("Link to this match").inputValue();
+		check("hosting deals one link for the whole match, naming no seat", !invite.includes("seat="), invite);
 
-		await host.getByRole("button", {name: "Sit here"}).first().click();
+		await host.getByRole("button", {name: "Sit down"}).click();
 		await host.locator("#game").waitFor({timeout: 15000});
-		check("the host sits down and the arena comes up");
+		check("whoever opened the match takes a seat and the arena comes up");
 
 		const guest = await tab();
-		await guest.goto(second.replace(/^https?:\/\/[^/]+/, BASE), {waitUntil: "networkidle"});
+		await guest.goto(invite.replace(/^https?:\/\/[^/]+/, BASE), {waitUntil: "networkidle"});
 		await guest.locator("#game").waitFor({timeout: 15000});
-		check("a second tab follows its own link straight into the arena");
+		check("a second tab follows the same link and is dealt the seat that was left");
+
+		/* The seat was dealt on arrival, so it is only in the address bar afterwards -- which is
+		   what makes reloading the tab that seat sitting back down rather than asking for another. */
+		check(
+			"the seat it was dealt is written into its address bar",
+			/[?&]seat=1&/.test(guest.url()) && /token=/.test(guest.url()),
+			guest.url(),
+		);
 
 		const whose = async (page) => (await page.locator(".netstrip .netwho").textContent()) ?? "";
 		check(
@@ -134,6 +145,18 @@ async function run() {
 			timeout: 10000,
 		});
 		check("the turn passing reaches the other tab, which may now move");
+
+		// giving up settles a two-seat match, and the button asks once before it does anything
+		await guest.getByRole("button", {name: "Dismiss"}).click();
+		await guest.getByRole("button", {name: "Forfeit"}).click();
+		await guest.getByRole("button", {name: "Tap again to fall"}).click();
+		await host.locator(".over").waitFor({timeout: 10000});
+		check("the match ending puts the game-over screen up, written from the log the room sent");
+
+		await host.getByRole("button", {name: "Watch the replay"}).click();
+		await host.locator(".replay").waitFor({timeout: 10000});
+		const frames = (await host.locator(".rvcount").textContent()) ?? "";
+		check("and the replay this seat kept for itself plays back", /\d+ \/ [1-9]/.test(frames), frames);
 
 		check("neither tab logged an error", errors.length === 0, errors.slice(0, 3).join(" | "));
 	} finally {

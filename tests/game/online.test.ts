@@ -11,7 +11,7 @@
  */
 
 import {describe, it, expect, beforeEach, afterEach, vi} from "vitest";
-import {lobbyStore, matchStore, menuStore} from "../../src/game/bridge.js";
+import {lobbyStore, matchStore, menuStore, overStore, replayStore} from "../../src/game/bridge.js";
 import {startMatch} from "../../src/game/match.js";
 import {goOffline, playOnline} from "../../src/game/online.js";
 import {seatState} from "../../src/game/seat.js";
@@ -72,6 +72,17 @@ function dealt(): SeatState {
 	return seatState(0);
 }
 
+/** The arena as it stands once the match is settled: seat 0 is the last one on their feet. */
+function settled(): SeatState {
+	const loser = S.players[1]!;
+	loser.alive = false;
+	loser.hp = 0;
+	return seatState(0);
+}
+
+/** The whole match, as the room narrates it once there is nothing left to keep back. */
+const LOG = [{r: 2, who: "", c: "var(--muted)", t: "took the arena", say: false}];
+
 /** The screen as it stands, which is never null while a seat view has arrived. */
 function screen(): MatchView {
 	const view = matchStore.get();
@@ -124,6 +135,48 @@ describe("sitting down in an online match", () => {
 		expect(matchStore.get()).toBeNull();
 		expect(menuStore.get()).not.toBeNull();
 		expect(lobbyStore.get()).not.toBeNull();
+	});
+});
+
+/* Both halves of the ending come from somewhere different, and for the same reason: the log is
+   the room's to hold until the match is over, and the replay is this seat's to keep as it goes,
+   because there was never a version of the room's own that could have been sent. */
+describe("the end of an online match", () => {
+	it("puts the game-over screen up out of the log the room finally let go of", () => {
+		answer(settled());
+		room().say({k: "over", log: LOG});
+
+		expect(overStore.get()?.headline).toBe(`${arena.fighters[0]!.name} holds the arena`);
+		expect(overStore.get()?.log).toStrictEqual(LOG);
+	});
+
+	it("banks nothing, because an online match is nobody's save", () => {
+		answer(settled());
+		room().say({k: "over", log: LOG});
+
+		expect(overStore.get()?.earn).not.toContain("coin banked");
+	});
+
+	it("opens a replay of the arenas this seat was sent, and no others", () => {
+		answer(settled());
+		room().say({k: "over", log: LOG});
+
+		overStore.get()?.openReplay();
+
+		expect(replayStore.get()?.frames).toHaveLength(2);
+		expect(replayStore.get()?.dim).toBe(arena.dim);
+	});
+
+	it("takes the ending down with the match when this device gets up", () => {
+		answer(settled());
+		room().say({k: "over", log: LOG});
+		overStore.get()?.openReplay();
+
+		overStore.get()?.back();
+
+		expect(overStore.get()).toBeNull();
+		expect(replayStore.get()).toBeNull();
+		expect(menuStore.get()).not.toBeNull();
 	});
 });
 

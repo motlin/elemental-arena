@@ -218,14 +218,8 @@ export function sampleLobby(code: string | null = null): LobbyView {
 		code,
 		opening: false,
 		error: null,
-		links:
-			code === null
-				? []
-				: [0, 1].map((seat) => ({
-						seat,
-						name: PCN[seat] ?? "",
-						url: `https://elemental.example/?code=${code}&seat=${seat}&token=0000-000${seat}`,
-					})),
+		link: code === null ? null : `https://elemental.example/?code=${code}`,
+		seats: 2,
 		host: fn(),
 		sit: fn(),
 		join: fn(),

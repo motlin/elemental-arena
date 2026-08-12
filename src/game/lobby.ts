@@ -1,6 +1,6 @@
 /**
- * The online panel on the setup screen: opening a match, the invite links it deals, and the way
- * into somebody else's.
+ * The online panel on the setup screen: opening a match, the link it deals, and the way into
+ * somebody else's.
  *
  * It sits beside src/game/menu.ts rather than inside it because the two point opposite ways. The
  * menu describes the save and hands the numbers to the arena; this takes those numbers to a server,
@@ -16,15 +16,14 @@
 import {lobbyStore} from "./bridge.js";
 import {SETUP_LIMITS} from "./intent.js";
 import {playOnline} from "./online.js";
-import {PCN, S} from "./state.js";
-import {inviteFrom, inviteLink, newCode, openRoom} from "../net/client.js";
-import type {InviteLink} from "./bridge.js";
+import {S} from "./state.js";
+import {claimSeat, codeFrom, inviteFrom, matchLink, newCode, openRoom} from "../net/client.js";
 import type {MatchSetup} from "./intent.js";
 
 /** The match this device opened, or null while it has opened none. */
 let code: string | null = null;
-/** One token per seat of that match, which is every seat this device could invite somebody to. */
-let tokens: readonly string[] = [];
+/** How many seats that match was dealt, which is how many people its link is good for. */
+let seats = 0;
 let opening = false;
 let error: string | null = null;
 
@@ -46,17 +45,8 @@ function setup(): MatchSetup {
 	};
 }
 
-/** One link per seat. The colours are the server's own, because it deals a match of its own. */
-function links(open: string): InviteLink[] {
-	return tokens.map((token, seat) => ({
-		seat,
-		name: PCN[seat] ?? `Seat ${seat + 1}`,
-		url: inviteLink({code: open, seat, token}),
-	}));
-}
-
 export function drawLobby(): void {
-	lobbyStore.set({code, opening, error, links: code === null ? [] : links(code), host, sit, join});
+	lobbyStore.set({code, seats, opening, error, link: code === null ? null : matchLink(code), host, sit, join});
 }
 
 function host(): void {
@@ -64,13 +54,13 @@ function host(): void {
 	opening = true;
 	error = null;
 	code = null;
-	tokens = [];
+	seats = 0;
 	drawLobby();
 	const asked = newCode();
 	openRoom(asked, setup())
 		.then((dealt) => {
 			code = asked;
-			tokens = dealt;
+			seats = dealt;
 		})
 		.catch((wrong: unknown) => {
 			error = wrong instanceof Error ? wrong.message : "the match server would not open a match";
@@ -81,21 +71,48 @@ function host(): void {
 		});
 }
 
-/** Takes one of the seats of the match this device just opened, which is how the host plays. */
-function sit(seat: number): void {
-	const token = tokens[seat];
-	if (code === null || token === undefined) return;
-	playOnline({code, seat, token});
+/** Takes a seat in the match this device opened, which is how whoever opened one plays in it. */
+function sit(): void {
+	if (code !== null) claim(code);
 }
 
-function join(link: string): void {
-	const invite = inviteFrom(link.trim());
-	if (invite === null) {
+/** Asks a match for a seat and sits down in whichever one it deals. */
+function claim(open: string): void {
+	claimSeat(open)
+		.then(playOnline)
+		.catch((wrong: unknown) => {
+			error = wrong instanceof Error ? wrong.message : "the match server would not seat you";
+			drawLobby();
+		});
+}
+
+/**
+ * Follows a link into a match. One carrying a seat and a token is this tab sitting back down in a
+ * seat it already holds; one carrying only a match is somebody arriving, and the room decides which
+ * seat they get. `loud` is whether a link that is neither is worth complaining about, which it is
+ * when somebody pasted it and is not when it is merely the address the tab was opened on.
+ */
+function follow(text: string, loud: boolean): void {
+	const link = text.trim();
+	const invite = inviteFrom(link);
+	const open = invite === null ? codeFrom(link) : null;
+	if (invite === null && open === null) {
+		if (!loud) return;
 		error = "that does not look like an invite link";
 		drawLobby();
 		return;
 	}
 	error = null;
 	drawLobby();
-	playOnline(invite);
+	if (invite !== null) playOnline(invite);
+	else if (open !== null) claim(open);
+}
+
+function join(link: string): void {
+	follow(link, true);
+}
+
+/** A tab opened on a link goes where the link says; one opened on the bare page stays where it is. */
+export function followHere(): void {
+	follow(globalThis.location.href, false);
 }

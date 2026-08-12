@@ -10,8 +10,20 @@
 
 import {describe, it, expect, beforeEach, afterEach, vi} from "vitest";
 import {onlineStore, seatStore} from "../../src/game/bridge.js";
-import {inviteFrom, inviteLink, leave, newCode, openRoom, sendIntent, sit} from "../../src/net/client.js";
+import {
+	claimSeat,
+	codeFrom,
+	inviteFrom,
+	inviteLink,
+	leave,
+	matchLink,
+	newCode,
+	openRoom,
+	sendIntent,
+	sit,
+} from "../../src/net/client.js";
 import {PROTOCOL_VERSION} from "../../src/net/protocol.js";
+import type {LogEntry} from "../../src/game/types.js";
 import type {Intent} from "../../src/net/protocol.js";
 
 /** A socket the test holds both ends of: what the client sent, and what the room may say back. */
@@ -98,15 +110,31 @@ describe("an invite", () => {
 	});
 });
 
+/* The link that goes round names the match and nothing else, so one link does for everybody and
+   nobody is handed a seat by whoever pasted it to them. */
+describe("a link to a match", () => {
+	it("carries the match and no seat of it", () => {
+		expect(codeFrom(matchLink("quiet-forge"))).toBe("quiet-forge");
+		expect(inviteFrom(matchLink("quiet-forge"))).toBeNull();
+	});
+
+	it("is nothing at all when it names no match the door would open", () => {
+		expect(codeFrom("/?code=no/")).toBeNull();
+		expect(codeFrom("/")).toBeNull();
+	});
+
+	it("is still read out of a link that has been sat down in", () => {
+		expect(codeFrom(inviteLink(INVITE))).toBe("quiet-forge");
+	});
+});
+
 describe("opening a match", () => {
-	it("asks the room for one and comes back with a token per seat", async () => {
-		const fetched = vi
-			.spyOn(globalThis, "fetch")
-			.mockResolvedValue(Response.json({seats: 2, tokens: ["one", "two"]}));
+	it("asks the room for one and comes back with the seats it dealt, holding no token", async () => {
+		const fetched = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({seats: 2}));
 
-		const tokens = await openRoom("quiet-forge", {seats: 2, dim: 9, hp: 60, priv: true});
+		const seats = await openRoom("quiet-forge", {seats: 2, dim: 9, hp: 60, priv: true});
 
-		expect(tokens).toStrictEqual(["one", "two"]);
+		expect(seats).toBe(2);
 		expect(fetched.mock.calls[0]?.[0]).toBe("/api/match/quiet-forge/open");
 	});
 
@@ -117,16 +145,44 @@ describe("opening a match", () => {
 	});
 });
 
+describe("asking a match for a seat", () => {
+	it("takes whichever seat the room deals, rather than one it chose for itself", async () => {
+		const fetched = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({seat: 1, token: "a-token"}));
+
+		const invite = await claimSeat("quiet-forge");
+
+		expect(invite).toStrictEqual(INVITE);
+		expect(fetched.mock.calls[0]?.[0]).toBe("/api/match/quiet-forge/join");
+	});
+
+	/* The address bar is where this client keeps a claim, because it is the one thing two tabs of
+	   one browser hold separately. Writing the seat back into it is what makes a reload the same
+	   player sitting down again rather than a stranger asking for another seat. */
+	it("writes the seat it was dealt into the address bar", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({seat: 1, token: "a-token"}));
+
+		await claimSeat("quiet-forge");
+
+		expect(inviteFrom(globalThis.location.href)).toStrictEqual(INVITE);
+	});
+
+	it("says what the room said when the room would seat nobody else", async () => {
+		vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({error: "that match is full"}, {status: 409}));
+
+		await expect(claimSeat("quiet-forge")).rejects.toThrow("that match is full");
+	});
+});
+
 describe("a socket in a seat", () => {
 	it("claims the seat the invite names, and nothing else, the moment it opens", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 
 		expect(FakeSocket.last?.said()).toStrictEqual([{k: "hello", v: PROTOCOL_VERSION, seat: 1, token: "a-token"}]);
 	});
 
 	it("publishes the arena it is sent and nothing it worked out for itself", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "state", state: arena(1)});
 
@@ -134,7 +190,7 @@ describe("a socket in a seat", () => {
 	});
 
 	it("sends a move as a move, and applies none of it here", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "state", state: arena(1, {round: 4})});
 		const before = seatStore.get();
@@ -145,9 +201,23 @@ describe("a socket in a seat", () => {
 		expect(seatStore.get()).toBe(before);
 	});
 
+	/* The log is the one thing the room keeps back for the whole match, so a client hears it once
+	   and only at the end -- and the arena that ended the match has already landed by then. */
+	it("hands the screen the log the moment the room lets go of it", () => {
+		const done = vi.fn<(log: readonly LogEntry[]) => void>();
+		sit(INVITE, vi.fn(), done);
+		FakeSocket.last?.fire("open", {});
+		const log = [{r: 3, who: "Rose", c: "#e2657a", t: "took the arena", say: false}];
+
+		FakeSocket.last?.say({k: "state", state: arena(1)});
+		FakeSocket.last?.say({k: "over", log});
+
+		expect(done.mock.calls).toStrictEqual([[log]]);
+	});
+
 	it("tells the screen a move was taken only once the arena that took it arrives", () => {
 		const took = vi.fn<(intent: Intent) => void>();
-		sit(INVITE, took);
+		sit(INVITE, took, vi.fn());
 		FakeSocket.last?.fire("open", {});
 		sendIntent({k: "jump", x: 2, y: 3});
 
@@ -160,7 +230,7 @@ describe("a socket in a seat", () => {
 
 	it("leaves the arena exactly where it was when a move is refused", () => {
 		const took = vi.fn<(intent: Intent) => void>();
-		sit(INVITE, took);
+		sit(INVITE, took, vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "state", state: arena(1)});
 		const before = seatStore.get();
@@ -175,7 +245,7 @@ describe("a socket in a seat", () => {
 
 	it("does not count somebody else's arena as an answer to a move never sent", () => {
 		const took = vi.fn<(intent: Intent) => void>();
-		sit(INVITE, took);
+		sit(INVITE, took, vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "state", state: arena(1)});
 
@@ -183,7 +253,7 @@ describe("a socket in a seat", () => {
 	});
 
 	it("says which match and which seat it is holding, and how it is doing", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 
 		expect(onlineStore.get()).toMatchObject({code: "quiet-forge", seat: 1, status: "joining", notice: null});
 
@@ -194,7 +264,7 @@ describe("a socket in a seat", () => {
 	});
 
 	it("says which of the other seats has gone quiet", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "seated", v: PROTOCOL_VERSION, seat: 1});
 
@@ -212,7 +282,7 @@ describe("a socket in a seat", () => {
 	/* This device's own seat is never one of the missing: the socket that would report it gone is
 	   the socket that would have to be there to report anything. */
 	it("does not count itself away when the roll call is stale about its own seat", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "presence", here: [true, false]});
 
@@ -220,7 +290,7 @@ describe("a socket in a seat", () => {
 	});
 
 	it("says so when the room shuts the socket, rather than going quiet", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "closed", why: "that seat is not yours"});
 
@@ -228,7 +298,7 @@ describe("a socket in a seat", () => {
 	});
 
 	it("puts everything down again when this device gets up", () => {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "state", state: arena(1)});
 
@@ -256,7 +326,7 @@ describe("a socket the wire takes away", () => {
 
 	/** A tab already sat down and playing, with the room's first arena on screen. */
 	function playing(): void {
-		sit(INVITE, vi.fn());
+		sit(INVITE, vi.fn(), vi.fn());
 		FakeSocket.last?.fire("open", {});
 		FakeSocket.last?.say({k: "seated", v: PROTOCOL_VERSION, seat: 1});
 		FakeSocket.last?.say({k: "state", state: arena(1)});

@@ -8,7 +8,7 @@ import type {Offset} from "./data/index.js";
 import {elsOn, mvOwnedMask, wsOn} from "./lookups.js";
 import {afterMove, canStand, voidOut} from "./movement.js";
 import {save, saveSoon} from "./save.js";
-import {PC, S, cheb, cur, idx, nameOf, occupant, show, teamName, teamsAlive} from "./state.js";
+import {NOCOLOUR, PC, S, cheb, cur, idx, nameOf, occupant, show, teamName, teamsAlive} from "./state.js";
 import type {Player} from "./types.js";
 import {clearUndo, markIrreversible} from "./undo.js";
 import {openReplay, redraw, redrawCodex} from "./view.js";
@@ -341,7 +341,7 @@ function finish(t: number | null): void {
 	logit(t === null ? "nobody was left standing" : `${teamName(t)} took the arena`, null);
 	overStore.set({
 		seat: won[0] ? won[0].i : 0,
-		colour: t === null ? "#6f7da8" : PC[t]!,
+		colour: t === null ? NOCOLOUR : PC[t]!,
 		headline: won.length
 			? won.length === 1
 				? `${won[0]!.name} holds the arena`

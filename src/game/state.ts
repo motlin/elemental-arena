@@ -11,6 +11,8 @@ import {redraw, redrawMenu} from "./view.js";
 export const src = (e: Event): GameEl => e.target as GameEl;
 /** Seat colours, the names that go with them, and the shorter names the swatches are labelled with. */
 export const PC = ["#ff4d8d", "#4dd8ff", "#b8ff4d", "#c98cff", "#ff9a4d", "#4dffb0", "#f2ecd8", "#6d7fff"];
+/** Nobody's colour, which is what the game-over screen wears when nobody walked out. */
+export const NOCOLOUR = "#6f7da8";
 export const PN = ["Vermilion", "Cyan", "Verdant", "Amethyst", "Amber", "Jade", "Bone", "Indigo"];
 export const PCN = ["Rose", "Sky", "Lime", "Violet", "Amber", "Jade", "Bone", "Indigo"];
 export const CHAOS = 1; // default only; the live value is S.chaosRound

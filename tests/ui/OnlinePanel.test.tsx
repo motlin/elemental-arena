@@ -10,9 +10,10 @@ function panel(over: Partial<LobbyView> = {}): LobbyView {
 		code: null,
 		opening: false,
 		error: null,
-		links: [],
+		link: null,
+		seats: 0,
 		host: vi.fn<() => void>(),
-		sit: vi.fn<(seat: number) => void>(),
+		sit: vi.fn<() => void>(),
 		join: vi.fn<(link: string) => void>(),
 		...over,
 	};
@@ -20,10 +21,8 @@ function panel(over: Partial<LobbyView> = {}): LobbyView {
 
 const OPENED: Partial<LobbyView> = {
 	code: "quiet-forge",
-	links: [
-		{seat: 0, name: "Rose", url: "https://arena.example/?code=quiet-forge&seat=0&token=one"},
-		{seat: 1, name: "Sky", url: "https://arena.example/?code=quiet-forge&seat=1&token=two"},
-	],
+	link: "https://arena.example/?code=quiet-forge",
+	seats: 2,
 };
 
 describe("the online panel", () => {
@@ -34,7 +33,7 @@ describe("the online panel", () => {
 		fireEvent.click(screen.getByText("Host a match"));
 
 		expect(view.host).toHaveBeenCalledOnce();
-		expect(screen.queryByLabelText("Invite link for Rose")).toBeNull();
+		expect(screen.queryByLabelText("Link to this match")).toBeNull();
 	});
 
 	it("says nothing can be opened twice while one is being opened", () => {
@@ -43,26 +42,24 @@ describe("the online panel", () => {
 		expect(screen.getByText("Opening a match...").hasAttribute("disabled")).toBe(true);
 	});
 
-	it("hands out one link per seat, each carrying the seat it opens", () => {
+	/* One link for the whole match, naming no seat: whoever follows it is dealt one by the room,
+	   which is what stops the host holding everybody else's seat. */
+	it("hands out one link for the match, and says how many it seats", () => {
 		render(<OnlinePanel {...panel(OPENED)} />);
 
-		const links = ["Rose", "Sky"].map(
-			(name) => screen.getByLabelText<HTMLInputElement>(`Invite link for ${name}`).value,
+		expect(screen.getByLabelText<HTMLInputElement>("Link to this match").value).toBe(
+			"https://arena.example/?code=quiet-forge",
 		);
-
-		expect(links).toStrictEqual([
-			"https://arena.example/?code=quiet-forge&seat=0&token=one",
-			"https://arena.example/?code=quiet-forge&seat=1&token=two",
-		]);
+		expect(screen.getByText("2 seats")).toBeDefined();
 	});
 
-	it("lets the host take one of the seats without pasting their own link back", () => {
+	it("lets whoever opened the match take a seat in it without pasting the link back", () => {
 		const view = panel(OPENED);
 		render(<OnlinePanel {...view} />);
 
-		fireEvent.click(screen.getAllByText("Sit here")[1]!);
+		fireEvent.click(screen.getByText("Sit down"));
 
-		expect(view.sit).toHaveBeenCalledExactlyOnceWith(1);
+		expect(view.sit).toHaveBeenCalledOnce();
 	});
 
 	it("takes a pasted link, and offers nothing to do with an empty box", () => {

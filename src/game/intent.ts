@@ -139,6 +139,15 @@ function refuse(why: string): Verdict {
 }
 
 /**
+ * Whether the match in `S` has been played out. `standing` below refuses every move once it is
+ * true, and worker/room.ts reads it as the moment the match log may go over the wire at last --
+ * see matchLog in src/game/seat.ts for why that moment is the only one.
+ */
+export function matchOver(): boolean {
+	return teamsAlive().length <= 1;
+}
+
+/**
  * Who is allowed to ask for a move right now, and why this seat is or is not them. src/game/seat.ts
  * reads it too: a seat that may not move is told it may do nothing, rather than being handed a list
  * of squares it would only be refused on.

@@ -23,8 +23,10 @@
  * What is deliberately absent, and why:
  *   - Every other seat's hand. Only the count, plus whatever a mark has turned face up.
  *   - The match log. `logit` narrates every move by name and square, concealed ones included, so
- *     the log is a leak with a plot. Table talk goes over, the log does not.
- *   - The replay frames, which are the log with the whole board attached.
+ *     the log is a leak with a plot. Table talk goes over, the log does not -- until the match is
+ *     over and there is nothing left to keep, which is what `matchLog` below is for.
+ *   - The replay frames, which are the log with the whole board attached. Those never go: an online
+ *     seat keeps its own replay out of the views it was sent instead (src/game/record.ts).
  *   - Anything from the save: coins, unlocks, the fusion codex. Those are the player's own device's
  *     business and the server never holds an opinion about them.
  */
@@ -54,7 +56,7 @@ import {
 } from "./movement.js";
 import {S, blind, cheb, held, hidden, idx, isLit, occupant, seesTile} from "./state.js";
 import type {ActionKey, Offset} from "./data/index.js";
-import type {Card, Cell, ChatMsg, Player} from "./types.js";
+import type {Card, Cell, ChatMsg, LogEntry, Player} from "./types.js";
 
 /** One square, as far as this seat can read it. Ground it cannot see arrives as bare ground. */
 export interface SeatTile {
@@ -252,6 +254,21 @@ export interface SeatState {
 	/** What smash mode is multiplying damage by this round, which the topbar prints for everybody. */
 	readonly smashMult: number;
 	readonly chat: readonly ChatMsg[];
+}
+
+/**
+ * The whole match log, for every seat alike -- which is only ever sendable once the match is over.
+ *
+ * It is precisely what the rest of this file exists to withhold: `logit` narrates every move by
+ * name and square, and the concealed ones read exactly like the rest of them. What makes it
+ * sendable at the end is that there is nothing left to keep. The match is decided, nobody is hiding
+ * from anybody any more, and the game-over screen and the replay are written out of it.
+ *
+ * Holding to "at the end" is worker/room.ts's job, and matchOver in src/game/intent.ts is what it
+ * asks. Nothing here can check it: this function is handed no seat and knows of no wire.
+ */
+export function matchLog(): readonly LogEntry[] {
+	return S.log.map((entry) => ({...entry}));
 }
 
 /** A square nobody has laid anything on, which is also what concealed ground reads as. */
