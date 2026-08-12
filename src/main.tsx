@@ -6,6 +6,7 @@ import {GameOverScreen} from "./ui/GameOverScreen.js";
 import {HandoffCurtain} from "./ui/HandoffCurtain.js";
 import {MatchScreen} from "./ui/MatchScreen.js";
 import {MixingTable} from "./ui/MixingTable.js";
+import {OnlineStrip} from "./ui/OnlineStrip.js";
 import {PowerSimulator} from "./ui/PowerSimulator.js";
 import {ReplayViewer} from "./ui/ReplayViewer.js";
 import {SetupScreen} from "./ui/SetupScreen.js";
@@ -22,6 +23,7 @@ createRoot(root).render(
 	<StrictMode>
 		{import.meta.env.DEV && <Agentation />}
 		<SetupScreen />
+		<OnlineStrip />
 		<MatchScreen />
 		<HandoffCurtain />
 		<GameOverScreen />

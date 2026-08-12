@@ -1,7 +1,7 @@
 import type {Meta, StoryObj} from "@storybook/react-vite";
 import {fn} from "storybook/test";
 import {SetupScreenView} from "./SetupScreen.js";
-import {EVERYTHING, STARTERS, sampleArena, sampleArsenal, sampleLoadout} from "./setupSamples.js";
+import {EVERYTHING, STARTERS, sampleArena, sampleArsenal, sampleLoadout, sampleLobby} from "./setupSamples.js";
 import "../styles/index.css";
 
 const meta = {
@@ -13,6 +13,7 @@ const meta = {
 		arena: sampleArena(),
 		loadout: sampleLoadout(STARTERS),
 		arsenal: sampleArsenal(0, STARTERS),
+		online: sampleLobby(),
 		themeLabel: "Day mode",
 		toggleTheme: fn(),
 		openSimulator: fn(),

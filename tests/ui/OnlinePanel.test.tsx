@@ -1,0 +1,131 @@
+// @vitest-environment jsdom
+import {describe, it, expect, vi} from "vitest";
+import {fireEvent, render, screen} from "@testing-library/react";
+import {OnlinePanel} from "../../src/ui/OnlinePanel.js";
+import {OnlineStripView} from "../../src/ui/OnlineStrip.js";
+import type {LobbyView} from "../../src/game/bridge.js";
+
+function panel(over: Partial<LobbyView> = {}): LobbyView {
+	return {
+		code: null,
+		opening: false,
+		error: null,
+		links: [],
+		host: vi.fn<() => void>(),
+		sit: vi.fn<(seat: number) => void>(),
+		join: vi.fn<(link: string) => void>(),
+		...over,
+	};
+}
+
+const OPENED: Partial<LobbyView> = {
+	code: "quiet-forge",
+	links: [
+		{seat: 0, name: "Rose", url: "https://arena.example/?code=quiet-forge&seat=0&token=one"},
+		{seat: 1, name: "Sky", url: "https://arena.example/?code=quiet-forge&seat=1&token=two"},
+	],
+};
+
+describe("the online panel", () => {
+	it("offers a match to open, and no links before one is", () => {
+		const view = panel();
+		render(<OnlinePanel {...view} />);
+
+		fireEvent.click(screen.getByText("Host a match"));
+
+		expect(view.host).toHaveBeenCalledOnce();
+		expect(screen.queryByLabelText("Invite link for Rose")).toBeNull();
+	});
+
+	it("says nothing can be opened twice while one is being opened", () => {
+		render(<OnlinePanel {...panel({opening: true})} />);
+
+		expect(screen.getByText("Opening a match...").hasAttribute("disabled")).toBe(true);
+	});
+
+	it("hands out one link per seat, each carrying the seat it opens", () => {
+		render(<OnlinePanel {...panel(OPENED)} />);
+
+		const links = ["Rose", "Sky"].map(
+			(name) => screen.getByLabelText<HTMLInputElement>(`Invite link for ${name}`).value,
+		);
+
+		expect(links).toStrictEqual([
+			"https://arena.example/?code=quiet-forge&seat=0&token=one",
+			"https://arena.example/?code=quiet-forge&seat=1&token=two",
+		]);
+	});
+
+	it("lets the host take one of the seats without pasting their own link back", () => {
+		const view = panel(OPENED);
+		render(<OnlinePanel {...view} />);
+
+		fireEvent.click(screen.getAllByText("Sit here")[1]!);
+
+		expect(view.sit).toHaveBeenCalledExactlyOnceWith(1);
+	});
+
+	it("takes a pasted link, and offers nothing to do with an empty box", () => {
+		const view = panel();
+		render(<OnlinePanel {...view} />);
+		const join = screen.getByText("Join");
+
+		expect(join.hasAttribute("disabled")).toBe(true);
+
+		fireEvent.change(screen.getByLabelText("Invite link to join"), {
+			target: {value: "https://arena.example/?code=quiet-forge&seat=1&token=two"},
+		});
+		fireEvent.click(join);
+
+		expect(view.join).toHaveBeenCalledExactlyOnceWith("https://arena.example/?code=quiet-forge&seat=1&token=two");
+	});
+
+	it("says why when the match server would not open one", () => {
+		render(<OnlinePanel {...panel({error: "already open"})} />);
+
+		expect(screen.getByText("already open")).toBeDefined();
+	});
+});
+
+describe("the strip over an online match", () => {
+	it("names the match and the seat, counting seats the way a player would", () => {
+		render(
+			<OnlineStripView
+				code="quiet-forge"
+				seat={1}
+				status="playing"
+				notice={null}
+				dismiss={vi.fn<() => void>()}
+			/>,
+		);
+
+		expect(screen.getByText("Match quiet-forge · seat 2")).toBeDefined();
+		expect(screen.getByText("Connected")).toBeDefined();
+	});
+
+	it("carries what the room said about a move it would not take, and a way to put it away", () => {
+		const dismiss = vi.fn<() => void>();
+		render(
+			<OnlineStripView
+				code="quiet-forge"
+				seat={0}
+				status="playing"
+				notice="you cannot afford that"
+				dismiss={dismiss}
+			/>,
+		);
+
+		fireEvent.click(screen.getByText("Dismiss"));
+
+		expect(screen.getByText(/you cannot afford that/)).toBeDefined();
+		expect(dismiss).toHaveBeenCalledOnce();
+	});
+
+	it("says so when the socket has gone, rather than looking like a live match", () => {
+		render(
+			<OnlineStripView code="quiet-forge" seat={0} status="gone" notice={null} dismiss={vi.fn<() => void>()} />,
+		);
+
+		expect(screen.getByText("Disconnected")).toBeDefined();
+	});
+});

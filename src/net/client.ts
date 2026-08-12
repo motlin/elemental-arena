@@ -1,0 +1,224 @@
+/**
+ * The client's half of an online match: one socket, the moves that go out of it, and the arena that
+ * comes back.
+ *
+ * Nothing here works a rule. A click is a request, the room is the only thing that may take it, and
+ * the arena on screen is always the last one the room sent -- never one this side guessed at. That
+ * is what makes a refusal harmless: a move the room turns down changed nothing here to put back.
+ *
+ * Joining is by link rather than by anything kept on the device, and that is the whole reason it
+ * looks the way it does. Two ordinary tabs of one browser share local storage, so a token left
+ * there would have the second tab opened take the first tab's seat. The address bar is the one
+ * thing two tabs of the same profile hold different copies of, so the seat and its token ride in
+ * the URL and two tabs can play each other with no incognito window in sight.
+ */
+
+import {onlineStore, seatStore} from "../game/bridge.js";
+import {PROTOCOL_VERSION, encode, parseServerMessage} from "./protocol.js";
+import type {NetStatus} from "../game/bridge.js";
+import type {Intent, MatchSetup} from "./protocol.js";
+
+/** Everything a seat needs to sit down: which match, which seat of it, and what claims the seat. */
+export interface Invite {
+	readonly code: string;
+	readonly seat: number;
+	readonly token: string;
+}
+
+/** What the screen asked to be told: a move of its own was taken, so what it was aiming is spent. */
+export type Took = (intent: Intent) => void;
+
+/** `WebSocket.OPEN`, spelled out, because a socket stubbed in a test has no class constants. */
+const OPEN = 1;
+
+/**
+ * What a match code is made of. It is only ever a name for a room, and the token beside it is what
+ * says a socket may sit in a seat, so the code keeps no secret and only has to be short enough to
+ * paste. The letter `l` is left out for the same reason the digits stop at 8: a code is read aloud
+ * and typed by hand often enough that the pairs which look alike are not worth the extra bit.
+ */
+const ALPHABET = "abcdefghijkmnopqrstuvwxyz2345678";
+
+/** What the door in worker/index.ts will open for, which a pasted link is held to before it is used. */
+const CODE = /^[A-Za-z0-9_-]{4,64}$/;
+
+export function newCode(): string {
+	// 32 divides 256, so the byte does not favour the front of the alphabet
+	return Array.from(crypto.getRandomValues(new Uint8Array(8)), (byte) => ALPHABET[byte % 32]).join("");
+}
+
+/**
+ * Wherever the page came from, which is also where the match server is: they are one Worker. The
+ * query and the fragment come off here rather than at each use, because everything built out of
+ * this address is either a socket or an invite, and neither wants whatever the tab was opened on.
+ */
+function here(): URL {
+	const url = new URL(globalThis.location.href);
+	url.search = "";
+	url.hash = "";
+	return url;
+}
+
+function socketUrl(code: string): string {
+	const url = here();
+	url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+	url.pathname = `/api/match/${code}/socket`;
+	return url.toString();
+}
+
+/** The link a seat follows to sit down, which is this page with the seat and its token on it. */
+export function inviteLink(invite: Invite): string {
+	const url = here();
+	url.searchParams.set("code", invite.code);
+	url.searchParams.set("seat", String(invite.seat));
+	url.searchParams.set("token", invite.token);
+	return url.toString();
+}
+
+/** The invite a link carries, or null for anything that is not one. */
+export function inviteFrom(href: string): Invite | null {
+	let url: URL;
+	try {
+		url = new URL(href, here());
+	} catch {
+		return null;
+	}
+	const code = url.searchParams.get("code");
+	const seat = url.searchParams.get("seat");
+	const token = url.searchParams.get("token");
+	if (code === null || seat === null || token === null) return null;
+	if (!CODE.test(code) || !/^[0-7]$/.test(seat) || token.length === 0) return null;
+	return {code, seat: Number(seat), token};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** One seat's claim on a match, as it comes back off the wire. */
+function isToken(value: unknown): value is string {
+	return typeof value === "string" && value.length > 0;
+}
+
+/** What the room said went wrong, if it troubled to say. */
+function complaint(body: unknown): string | null {
+	if (!isRecord(body)) return null;
+	const error = body["error"];
+	return typeof error === "string" ? error : null;
+}
+
+/**
+ * Opens a match and comes back with one token per seat. Whoever opened it holds all of them and has
+ * to get each one to the right person, which is what the invite links are for. Handing out one
+ * token per join instead would be both friendlier and less trusting -- see the design note, which
+ * has it as the lobby, and as work this phase deliberately does not do.
+ */
+export async function openRoom(code: string, setup: MatchSetup): Promise<readonly string[]> {
+	const answer = await fetch(`/api/match/${code}/open`, {
+		method: "POST",
+		headers: {"content-type": "application/json"},
+		body: JSON.stringify(setup),
+	});
+	const body: unknown = await answer.json().catch(() => null);
+	if (!answer.ok) throw new Error(complaint(body) ?? `the match server answered ${answer.status}`);
+	const tokens: unknown = isRecord(body) ? body["tokens"] : null;
+	if (!Array.isArray(tokens) || !tokens.every(isToken)) throw new Error("the match server dealt no tokens");
+	return tokens;
+}
+
+let socket: WebSocket | null = null;
+let seated: Invite | null = null;
+let took: Took = () => {};
+let status: NetStatus = "gone";
+let notice: string | null = null;
+
+/**
+ * The move waiting on the room's answer. A client only ever has one in the air, because the person
+ * clicking is waiting to see what happened before they click again, and the room answers every move
+ * either with a refusal to the seat that asked or with an arena to everybody.
+ */
+let pending: Intent | null = null;
+
+function post(): void {
+	onlineStore.set(seated === null ? null : {code: seated.code, seat: seated.seat, status, notice, dismiss});
+}
+
+function dismiss(): void {
+	notice = null;
+	post();
+}
+
+function hear(raw: string): void {
+	const said = parseServerMessage(raw);
+	if (said === null) return;
+	if (said.k === "seated") {
+		status = "playing";
+		post();
+		return;
+	}
+	if (said.k === "state") {
+		// the outcome first, so the screen has finished with the move before the arena it made lands
+		const mine = pending;
+		pending = null;
+		if (mine !== null) took(mine);
+		seatStore.set(said.state);
+		return;
+	}
+	// a refusal changed nothing, so there is nothing to put back: only something to say
+	pending = null;
+	notice = said.why;
+	if (said.k === "closed") status = "gone";
+	post();
+}
+
+/** Opens a socket, claims the seat the invite names, and starts drawing whatever comes back. */
+export function sit(invite: Invite, onTook: Took): void {
+	leave();
+	seated = invite;
+	took = onTook;
+	status = "joining";
+	post();
+	const ws = new WebSocket(socketUrl(invite.code));
+	socket = ws;
+	ws.addEventListener("open", () => {
+		ws.send(encode({k: "hello", v: PROTOCOL_VERSION, seat: invite.seat, token: invite.token}));
+	});
+	ws.addEventListener("message", (event: MessageEvent) => {
+		hear(typeof event.data === "string" ? event.data : "");
+	});
+	ws.addEventListener("close", () => {
+		if (socket !== ws) return;
+		socket = null;
+		status = "gone";
+		notice ??= "the match server hung up";
+		post();
+	});
+}
+
+/**
+ * Asks the room for a move. Nothing is applied here and nothing is drawn: the arena only ever
+ * changes when the room says it has, which is what a client that cannot desync looks like.
+ */
+export function sendIntent(intent: Intent): void {
+	if (socket === null || socket.readyState !== OPEN) {
+		notice = "you are not connected to the match";
+		post();
+		return;
+	}
+	pending = intent;
+	socket.send(encode({k: "move", intent}));
+}
+
+/** Gets up: shuts the socket, and puts down everything that was only true while it was open. */
+export function leave(): void {
+	const ws = socket;
+	socket = null;
+	seated = null;
+	took = () => {};
+	pending = null;
+	status = "gone";
+	notice = null;
+	seatStore.set(null);
+	onlineStore.set(null);
+	ws?.close(1000, "left the match");
+}

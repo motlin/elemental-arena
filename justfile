@@ -56,6 +56,10 @@ multiplayer *args: build
 multiplayer-check: build
     vp run multiplayer:check
 
+# Play a two-tab online match against a local match server and prove the client half works
+online-check: build
+    vp run multiplayer:online
+
 # Run Storybook
 storybook *args: install
     vp run storybook {{args}}

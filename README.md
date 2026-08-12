@@ -108,14 +108,25 @@ Skip it and the event is missing from both the match log and the replay.
 
 ## Online play
 
-Not finished, and not wired into any screen yet, but the server half runs and is tested. One
-Durable Object per match, WebSockets, server-authoritative: a client sends the move it would like to
-make and is sent back only the arena its own seat is allowed to see.
+Playable. One Durable Object per match, WebSockets, server-authoritative: a client sends the move
+it would like to make and is sent back only the arena its own seat is allowed to see.
+
+Host a match from the setup screen and you get one invite link per seat. A link carries the seat it
+opens, deliberately in the URL rather than in storage, because two tabs of one browser share local
+storage and would otherwise fight over a single seat -- so two plain tabs can play each other with
+no incognito window involved.
 
 ```sh
 just multiplayer         # the site and the match server on miniflare, no Cloudflare account involved
 just multiplayer-check   # opens a match on it and proves the two seats are told different things
+just online-check        # plays a two-tab match in a real browser against that server
 ```
+
+`src/net/client.ts` is the whole of the client half: it holds the socket, sends intents, and
+publishes the seat views it is sent. It applies nothing itself, so a move the room turns down leaves
+the screen exactly where it was. `src/game/online.ts` draws that seat view through the same
+`src/game/render.ts` hot-seat uses, which is why a leak would show up in the mode sitting on the
+desk rather than only over a socket.
 
 `src/game/seat.ts` is the boundary that matters. It builds everything one seat may be told, asking
 the same `hidden()`/`seesTile()`/`blind()` the match screen asks, and it is the only thing the room

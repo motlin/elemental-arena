@@ -1,8 +1,9 @@
 import {useSyncExternalStore, type ReactElement} from "react";
-import {menuStore, type MenuView} from "../game/bridge.js";
+import {lobbyStore, menuStore, type LobbyView, type MenuView} from "../game/bridge.js";
 import {ArenaPanel} from "./ArenaPanel.js";
 import {ArsenalPanel} from "./ArsenalPanel.js";
 import {LoadoutPanel} from "./LoadoutPanel.js";
+import {OnlinePanel} from "./OnlinePanel.js";
 
 /** The mark over the title: two triangles turning against each other. */
 function Sigil(): ReactElement {
@@ -15,6 +16,12 @@ function Sigil(): ReactElement {
 }
 
 /**
+ * The setup screen and the online panel beside it. The two come from stores of their own -- one is
+ * the save, the other is a match server -- and meet here rather than in either module.
+ */
+type SetupProps = MenuView & {readonly online: LobbyView | null};
+
+/**
  * The setup screen itself, posed from plain props so Storybook and tests can look at it without a
  * save behind it.
  */
@@ -22,13 +29,14 @@ export function SetupScreenView({
 	arena,
 	loadout,
 	arsenal,
+	online,
 	themeLabel,
 	toggleTheme,
 	openSimulator,
 	openDesigner,
 	openTable,
 	start,
-}: MenuView): ReactElement {
+}: SetupProps): ReactElement {
 	return (
 		<div className="menu">
 			<div className="menuwrap">
@@ -44,6 +52,7 @@ export function SetupScreenView({
 				<ArenaPanel {...arena} />
 				<LoadoutPanel {...loadout} />
 				<ArsenalPanel {...arsenal} />
+				{online !== null && <OnlinePanel {...online} />}
 				<button type="button" className="ghost menubtn" onClick={openSimulator}>
 					Power simulator
 				</button>
@@ -70,6 +79,7 @@ export function SetupScreenView({
  */
 export function SetupScreen(): ReactElement | null {
 	const view = useSyncExternalStore(menuStore.subscribe, menuStore.get, menuStore.get);
+	const online = useSyncExternalStore(lobbyStore.subscribe, lobbyStore.get, lobbyStore.get);
 
-	return view === null ? null : <SetupScreenView {...view} />;
+	return view === null ? null : <SetupScreenView {...view} online={online} />;
 }

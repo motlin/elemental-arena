@@ -23,6 +23,7 @@
 		"test-storybook": "npx concurrently -k -s first -n \"SB,TEST\" -c \"magenta,blue\" \"npx http-server storybook-static --port 6006 --silent\" \"npx wait-on tcp:127.0.0.1:6006 && test-storybook\"",
 		"multiplayer": "wrangler dev",
 		"multiplayer:check": "node scripts/multiplayer-smoke.mjs",
+		"multiplayer:online": "node scripts/online-smoke.mjs",
 		"prepare": "VITE_GIT_HOOKS=0 vp config"
 	},
 	"dependencies": {

@@ -231,6 +231,37 @@ export function parseClientMessage(raw: string): ClientMessage | null {
 	return null;
 }
 
+/**
+ * Whether a message is one carrying an arena. The envelope is checked and the arena inside it is
+ * taken as given, which is the one place on this wire where something is trusted rather than
+ * rebuilt. That is deliberate: `parseClientMessage` above is a trust boundary because a client is a
+ * stranger, and this is not, because a room that lied to its own players would be lying about a
+ * match it already has every power over. Describing `SeatState` a second time here would buy
+ * nothing and would be one more place for the two descriptions to drift apart.
+ */
+function carriesArena(value: Record<string, unknown>): value is {readonly state: SeatState} {
+	const state = value["state"];
+	return isRecord(state) && isCount(state["seat"]) && isRecord(state["you"]) && isRecord(state["legal"]);
+}
+
+/** What the room said, or null for anything a client was never taught to hear. */
+export function parseServerMessage(raw: string): ServerMessage | null {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!isRecord(parsed)) return null;
+	const kind = parsed["k"];
+	if (kind === "seated" && parsed["v"] === PROTOCOL_VERSION && isCount(parsed["seat"]))
+		return {k: "seated", v: PROTOCOL_VERSION, seat: parsed["seat"]};
+	if (kind === "state" && carriesArena(parsed)) return {k: "state", state: parsed.state};
+	if ((kind === "refused" || kind === "closed") && typeof parsed["why"] === "string")
+		return {k: kind, why: parsed["why"]};
+	return null;
+}
+
 /** One of the numbers a match is opened on, or the default when the host left it out. */
 function within(value: unknown, [low, high]: readonly [number, number], fallback: number): number | null {
 	if (value === undefined) return fallback;

@@ -102,6 +102,8 @@ const ACTIONS: MatchActions = {
  * to repaint whatever it was already showing.
  */
 export function render(): void {
+	// an online match draws itself, out of the seat views a server sends it: src/game/online.ts
+	if (S.screen === "online") return;
 	if (!S.players.length || S.screen !== "game") {
 		matchStore.set(null);
 		handoffStore.set(null);

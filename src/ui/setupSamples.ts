@@ -10,6 +10,7 @@ import type {
 	ArsenalSetup,
 	LoadoutChip,
 	LoadoutSetup,
+	LobbyView,
 	SeatRow,
 	ShopShelf,
 	Swatch,
@@ -208,5 +209,25 @@ export function sampleArsenal(coins: number, bought: readonly string[]): Arsenal
 		triesAllowed: 5,
 		submitCode: fn(),
 		resetProgress: fn(),
+	};
+}
+
+/** The online panel, posed either before a match has been opened or with one already dealt. */
+export function sampleLobby(code: string | null = null): LobbyView {
+	return {
+		code,
+		opening: false,
+		error: null,
+		links:
+			code === null
+				? []
+				: [0, 1].map((seat) => ({
+						seat,
+						name: PCN[seat] ?? "",
+						url: `https://elemental.example/?code=${code}&seat=${seat}&token=0000-000${seat}`,
+					})),
+		host: fn(),
+		sit: fn(),
+		join: fn(),
 	};
 }
