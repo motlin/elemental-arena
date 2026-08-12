@@ -557,7 +557,12 @@ function whirlTwin(i: number): number {
 export function moveBudget(p: Player): number {
 	return p === cur() ? p.nrg : p.bank + S.startNrg + S.round;
 }
-function reachable(p: Player, budget: number): Map<number, number> {
+/**
+ * Every square this fighter could walk to on `budget` energy, and what each one costs to reach.
+ * Exported because `reachMap` answers only for the fighters the inspect panel has chips ticked for,
+ * and src/game/seat.ts has to answer for every fighter a seat can see, chips or no chips.
+ */
+export function reachable(p: Player, budget: number): Map<number, number> {
 	const dist = new Map<number, number>([[idx(p.x, p.y), 0]]);
 	let frontier: [number, number, number][] = [[p.x, p.y, 0]];
 	while (frontier.length) {

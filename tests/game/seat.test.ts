@@ -36,10 +36,10 @@ function lay(x: number, y: number, key: string): void {
 }
 
 /** Lays hiding ground and stands a fighter on it, which is the whole of how concealment works. */
-function conceal(q: Player, x: number, y: number): void {
+function conceal(q: Player, x: number, y: number, cover = "shadow"): void {
 	q.x = x;
 	q.y = y;
-	lay(x, y, "shadow");
+	lay(x, y, cover);
 	S.board[idx(x, y)]!.by = q.i;
 }
 
@@ -145,6 +145,85 @@ describe("what one seat is handed", () => {
 		expect(seatState(hider.i).fighters[hider.i]?.lit).toBe(false);
 	});
 
+	/* A theft opens a rival's hand so it can be picked from, and picking from a hand you can read
+	   is not a theft. So the bar has to be drawable without being readable: every card is a slot
+	   with a number on it, and only one a mark has already turned over says what it is. */
+	it("opens a robbed hand as numbered slots and names only the cards this seat was shown", () => {
+		const {watcher, hider} = twoSeats();
+		hider.hand = [
+			{uid: 91, k: "el", id: "fire", mark: true},
+			{uid: 92, k: "el", id: "water"},
+		];
+
+		expect(seatState(watcher.i).steal).toBeNull();
+
+		S.steal = hider.i;
+
+		expect(seatState(watcher.i).steal).toStrictEqual({
+			seat: hider.i,
+			name: hider.name,
+			cards: [
+				{uid: 91, label: "Fire", facedown: false},
+				{uid: 92, label: "Card 2", facedown: true},
+			],
+		});
+		expect(wire(watcher.i)).not.toContain("Water");
+		// only the seat doing the robbing has a bar to draw, so nobody else is handed the hand at all
+		expect(seatState(hider.i).steal).toBeNull();
+	});
+
+	/* The square glows for everybody and the fighter never glows for themselves. A glare beats any
+	   cover, so by the time a square is lit there is nothing left to keep about where it is. */
+	it("lights the square under a glare for every seat, the fighter wearing it included", () => {
+		const {watcher, hider} = twoSeats();
+		conceal(hider, 4, 4);
+		hider.lit = true;
+
+		expect(seatState(watcher.i).litsq).toStrictEqual([idx(4, 4)]);
+		expect(seatState(hider.i).litsq).toStrictEqual([idx(4, 4)]);
+		expect(seatState(hider.i).fighters[hider.i]?.lit).toBe(false);
+	});
+
+	it("draws the reach of every fighter this seat can see and of nobody it cannot", () => {
+		const {watcher, hider} = twoSeats();
+		steady(watcher);
+		conceal(hider, 8, 0);
+
+		const mine = seatState(watcher.i).reachable;
+
+		expect(mine.map((r) => r.seat)).toStrictEqual([watcher.i]);
+		expect(mine[0]?.budget).toBe(watcher.nrg);
+		expect(mine[0]?.tiles).toContain(idx(5, 4));
+		expect(mine[0]?.tiles).not.toContain(idx(4, 4)); // where you already stand is not somewhere to go
+		expect(seatState(hider.i).reachable.map((r) => r.seat)).toStrictEqual([watcher.i, hider.i]);
+	});
+
+	it("carries the smash multiplier the topbar prints", () => {
+		const {watcher} = twoSeats();
+
+		expect(seatState(watcher.i).smashMult).toBe(1);
+
+		S.smash = true;
+		S.round = 10;
+
+		expect(seatState(watcher.i).smashMult).toBe(4);
+	});
+
+	it("prices a weapon for exactly the seats that are allowed to be told its name", () => {
+		const {watcher, hider} = twoSeats();
+		hider.hand = [{uid: 90, k: "w", ids: ["dagger"], els: []}];
+		hider.held = 90;
+		watcher.held = null;
+
+		expect(seatState(watcher.i).fighters[hider.i]?.weaponDamage).toBeNull();
+		expect(seatState(watcher.i).fighters[watcher.i]?.weaponDamage).toBeNull();
+		expect(seatState(hider.i).fighters[hider.i]?.weaponDamage).toBe(5);
+
+		S.priv = false;
+
+		expect(seatState(watcher.i).fighters[hider.i]?.weaponDamage).toBe(5);
+	});
+
 	it("carries the match everybody shares without carrying anybody's progress", () => {
 		const {watcher} = twoSeats();
 		S.codex = {steam: 1};
@@ -173,20 +252,30 @@ describe("what one seat is handed", () => {
  * because of somebody it cannot see comes back legal for it to be refused on later.
  */
 describe("what one seat is told it may do", () => {
-	/** What the watching seat may do, with the hiding fighter and their cover on the square named. */
-	function legalWith(x: number, y: number): string {
+	/**
+	 * Everything worked out from the whole board and then censored, with the hiding fighter and
+	 * their cover on the square named: what this seat may click, how far it is told each fighter
+	 * it can see could walk, and which squares it is told are glowing. All three are read off the
+	 * arena rather than off this seat, so all three are places the arena could be given away.
+	 */
+	function censoredWith(x: number, y: number): string {
 		const {watcher, hider} = twoSeats();
 		steady(watcher);
-		conceal(hider, x, y);
+		// Shade is free to cross and a purse this small cannot cross much, so a walk routed over the
+		// cover reaches squares a walk over bare ground does not. Shadow would hide the leak by
+		// costing exactly what bare ground costs, which would pin the test on nothing.
+		watcher.nrg = 2;
+		conceal(hider, x, y, "shade");
 		expect(hidden(hider)).toBe(true);
-		return JSON.stringify(seatState(watcher.i).legal);
+		const mine = seatState(watcher.i);
+		return JSON.stringify({legal: mine.legal, reachable: mine.reachable, litsq: mine.litsq});
 	}
 
 	/* Two matches alike in everything but where the fighter in hiding went, one of them next door
 	   to the watching seat and one of them in the far corner. A byte between the two blocks is a
 	   byte anybody could diff to find them. */
 	it("says the same thing whether or not somebody is hiding within reach of it", () => {
-		expect(legalWith(5, 4)).toStrictEqual(legalWith(8, 0));
+		expect(censoredWith(5, 4)).toStrictEqual(censoredWith(8, 0));
 	});
 
 	/* Blindness hides people who are not hiding at all, and the rules know nothing about it: every
@@ -216,6 +305,39 @@ describe("what one seat is told it may do", () => {
 		expect(mine.afford.jump).toBe(true);
 	});
 
+	/* Both of these read the hand and nothing but the hand, and the hand belongs to the seat being
+	   answered, so there is nothing in either to keep from anybody. They are on the wire because
+	   otherwise the screen would have to ask the rules, which is what it is being cut off from. */
+	it("says which cards in the hand merge with which", () => {
+		const {watcher} = twoSeats();
+		steady(watcher);
+		watcher.hand = [
+			{uid: 10, k: "el", id: "fire"},
+			{uid: 11, k: "el", id: "water"},
+			{uid: 12, k: "w", ids: ["dagger"], els: []},
+		];
+		watcher.held = 12;
+
+		expect(seatState(watcher.i).legal.mix).toStrictEqual([
+			{uid: 10, with: [11, 12]},
+			{uid: 11, with: [10, 12]},
+			{uid: 12, with: [10, 11]},
+		]);
+	});
+
+	it("names the cards that will not go down on a square somebody is standing on", () => {
+		const {watcher} = twoSeats();
+		steady(watcher);
+		watcher.hand = [
+			{uid: 10, k: "el", id: "fire"},
+			{uid: 11, k: "el", id: "space"},
+			{uid: 12, k: "w", ids: ["dagger"], els: []},
+		];
+		watcher.held = 12;
+
+		expect(seatState(watcher.i).legal.lethal).toStrictEqual([11]);
+	});
+
 	/* The fiction, both halves of it in one test: the square is offered because the seat has no way
 	   of knowing better, and the arena turns the move down without saying what is standing there. */
 	it("offers the square somebody is hiding on and leaves the refusing to the arena", () => {
@@ -237,6 +359,7 @@ describe("what one seat is told it may do", () => {
 		const theirs = seatState(hider.i).legal;
 
 		expect([theirs.step, theirs.jump, theirs.place, theirs.swing, theirs.warp]).toStrictEqual([[], [], [], [], []]);
+		expect([theirs.mix, theirs.lethal]).toStrictEqual([[], []]);
 		expect(Object.values(theirs.afford).some((can) => can)).toBe(false);
 	});
 });
