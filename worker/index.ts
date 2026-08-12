@@ -1,10 +1,13 @@
 /**
  * The match server: one door in, and one Durable Object behind it per match code.
  *
- * This is a Worker of its own rather than part of the site. A Pages project cannot define a Durable
- * Object class at all -- it can only bind to one another Worker defines -- and the single-player
- * game deploys to Pages today, so the two stay apart until the site itself moves to Workers. The
- * design note under .llm/plans has the migration written out.
+ * This is the entry point of the one Worker the project deploys as. The site rides along as static
+ * assets bound to the same Worker, and only /api/* is routed here ahead of them -- see
+ * run_worker_first in wrangler.toml. Everything else never reaches this function.
+ *
+ * It is shaped this way because a Cloudflare Pages project cannot define a Durable Object class at
+ * all, only bind to one another Worker defines, so a preview of the site could never have had a
+ * match server behind it.
  */
 
 import {MatchRoom} from "./room.js";

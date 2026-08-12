@@ -113,7 +113,7 @@ Durable Object per match, WebSockets, server-authoritative: a client sends the m
 make and is sent back only the arena its own seat is allowed to see.
 
 ```sh
-just multiplayer         # the match server on miniflare, no Cloudflare account involved
+just multiplayer         # the site and the match server on miniflare, no Cloudflare account involved
 just multiplayer-check   # opens a match on it and proves the two seats are told different things
 ```
 
@@ -122,9 +122,14 @@ the same `hidden()`/`seesTile()`/`blind()` the match screen asks, and it is the 
 is allowed to send. `src/game/snapshot.ts` lifts a match in and out of `S` around every message,
 because a Durable Object isolate may hold more than one match and `S` is one object.
 
-`wrangler.toml` stays Pages-shaped, so the single-player deploy is untouched; the match server has
-its own `wrangler.multiplayer.toml`. The reasoning, the migration and the open questions are in
-`.llm/plans/2026-08-05-online-multiplayer.md`.
+The site and the match server are one Worker, configured by `wrangler.toml`: the built assets are
+bound to it, and `/api/*` is routed to the match server ahead of them. A Cloudflare Pages project
+cannot define a Durable Object class, which is why this is not a Pages project any more. The
+reasoning and the open questions are in `.llm/plans/2026-08-05-online-multiplayer.md` and
+`.llm/plans/2026-08-12-online-multiplayer-finish.md`.
+
+Pull requests get the whole thing at `https://pr-<number>-elemental-arena.cmotlin.workers.dev`,
+published by `.github/workflows/preview.yml` and taken down again on close.
 
 ## Tasks
 

@@ -1,0 +1,32 @@
+# Takes down the preview a pull request was given, once the pull request is closed either way.
+
+name: Cleanup Preview
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions: {}
+
+concurrency:
+  group: cleanup-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    # Forks and dependabot never got a preview, because they cannot read the Cloudflare secrets.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the preview version
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # The runner has no standalone pnpm; wrangler-action would otherwise pick it from pnpm-lock.yaml.
+          packageManager: npm
+          command: versions delete --preview-alias pr-${{ github.event.pull_request.number }} --yes
+        # A pull request that never got a preview has nothing to delete, and that is not a failure.
+        continue-on-error: true

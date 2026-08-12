@@ -1,26 +1,21 @@
-# Deploys the built site to Cloudflare Pages. On a pull request this publishes a preview under a
-# PR-number branch; on a push to main it publishes production. Modelled on the same workflow in
-# FactorioBlueprints/factorio-prints-firebase.
-# Checks are duplicated from merge-group.yml because branch protection is unavailable on this plan.
+# Deploys the Worker -- the site and the match server in one -- on push to main.
 #
-# Durable Objects are deliberately not here. A Pages project cannot define a DO class, so online
-# play needs either a second deployable or a move to Workers with an assets binding. See the
-# migration task in .llm/todo.md and the design notes on the multiplayer branch.
+# This is the half of the old cloudflare-pages.yml that was not a preview. Without it nothing
+# would publish production after a merge, only pull request previews.
+#
+# Checks are duplicated from merge-group.yml because branch protection is unavailable on this plan.
 
-name: Deploy to Cloudflare Pages
+name: Deploy
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
 permissions: {}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'main' }}
+  group: deploy-main
   cancel-in-progress: true
 
 jobs:
@@ -52,23 +47,25 @@ jobs:
           path: dist
 
   deploy:
-    if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
     needs: build
     permissions:
-      deployments: write
+      contents: read
     runs-on: ubuntu-latest
     steps:
+      # wrangler.toml and worker/ come from the repo; dist/ is what the build job just made.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: dist
           path: dist
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy the Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           # The runner has no standalone pnpm; wrangler-action would otherwise pick it from pnpm-lock.yaml.
           packageManager: npm
-          command: pages deploy dist --project-name=elemental-arena --branch=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'main' }}
+          command: deploy

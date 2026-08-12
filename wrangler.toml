@@ -1,10 +1,36 @@
+# One deployable: the site and the match server behind the same origin.
+#
+# This was a Pages project until online play needed a Durable Object. A Pages project cannot define
+# a Durable Object class at all -- it can only bind to one another Worker defines -- so the site
+# folds into the Worker instead, with the built assets bound to it. Same origin, so there is no
+# cross-deploy URL to wire and no CORS, and a pull request preview serves the game *and* a live
+# match server behind it.
+#
+#   just multiplayer         runs the whole thing locally on miniflare, no account involved
+#   just multiplayer-check   opens a match on it and proves the two seats are told different things
+#
+# Both build first, because [assets] reads dist/.
+
 name = "elemental-arena"
+main = "worker/index.ts"
 compatibility_date = "2025-01-12"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = "dist"
 
-[vars]
-ENVIRONMENT = "development"
+[assets]
+directory = "./dist/"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+# Not optional, and it bites from both sides. At this compatibility date the Worker answers every
+# path the assets do not cover, so without this line a deep link into the game gets the match
+# server's 404 instead of index.html. Past a compatibility date of 2025-04-01 the reverse is true:
+# navigation requests stop reaching the Worker and /api/match/... is served the game, with a 200.
+# scripts/multiplayer-smoke.mjs holds both ends of that down.
+run_worker_first = ["/api/*"]
 
-[env.production.vars]
-ENVIRONMENT = "production"
+[[durable_objects.bindings]]
+name = "MATCH"
+class_name = "MatchRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MatchRoom"]
