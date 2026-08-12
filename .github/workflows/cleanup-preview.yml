@@ -20,13 +20,29 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
+      # The checkout is what names the Worker: `versions delete` reads it from wrangler.toml, and
+      # without one this job would have deleted nothing while reporting nothing, because the
+      # continue-on-error below would have swallowed it.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Installing wrangler here is what stops wrangler-action installing its own: package.json
+      # names its versions through pnpm's catalog:, which npm cannot read, so the action's
+      # `npm i wrangler@4` ends in EUNSUPPORTEDPROTOCOL.
+      # Nothing is cached in a job that holds the Cloudflare credentials: a poisoned cache would be
+      # a poisoned deploy.
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          cache: false
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: just install
+
       - name: Delete the preview version
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # The runner has no standalone pnpm; wrangler-action would otherwise pick it from pnpm-lock.yaml.
-          packageManager: npm
           command: versions delete --preview-alias pr-${{ github.event.pull_request.number }} --yes
         # A pull request that never got a preview has nothing to delete, and that is not a failure.
         continue-on-error: true

@@ -62,6 +62,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # wrangler-action installs wrangler itself unless it is already there, and installing it here
+      # is what stops it: package.json names its versions through pnpm's catalog:, which npm cannot
+      # read at all, so the action's own `npm i wrangler@4` ends in EUNSUPPORTEDPROTOCOL. Installing
+      # first also pins wrangler to the version in pnpm-lock.yaml rather than whatever @4 is today.
+      # Nothing is cached in a job that holds the Cloudflare credentials: a poisoned cache would be
+      # a poisoned deploy. The build job above may cache, because it publishes nothing.
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          cache: false
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: just install
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: dist
@@ -72,8 +85,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # The runner has no standalone pnpm; wrangler-action would otherwise pick it from pnpm-lock.yaml.
-          packageManager: npm
           command: versions upload --preview-alias pr-${{ github.event.pull_request.number }}
 
       - name: Say where the preview is
