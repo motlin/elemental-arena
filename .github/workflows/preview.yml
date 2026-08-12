@@ -1,0 +1,111 @@
+# Publishes a pull request preview of the whole deployable -- the site and the match server behind
+# it -- as a Worker version under the alias pr-N, and puts its URL on the pull request.
+#
+# This replaced a `pages deploy`. A Pages project cannot define a Durable Object class, so a preview
+# of a multiplayer pull request served the site with no match server behind it. See wrangler.toml.
+#
+# Checks are duplicated from merge-group.yml because branch protection is unavailable on this plan.
+
+name: Deploy Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
+        with:
+          cache: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - run: just check
+      - run: just test
+      - run: just build
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist
+          path: dist
+
+  preview:
+    # Forks and dependabot cannot read the Cloudflare secrets, so there is nothing to deploy with.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    needs: build
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    environment:
+      name: preview-${{ github.event.pull_request.number }}
+      url: https://pr-${{ github.event.pull_request.number }}-elemental-arena.cmotlin.workers.dev
+    steps:
+      # wrangler.toml and worker/ come from the repo; dist/ is what the build job just made.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist
+
+      - name: Upload a preview version
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # The runner has no standalone pnpm; wrangler-action would otherwise pick it from pnpm-lock.yaml.
+          packageManager: npm
+          command: versions upload --preview-alias pr-${{ github.event.pull_request.number }}
+
+      - name: Say where the preview is
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const number = context.issue.number;
+            // A preview alias is served at <alias>-<worker name>.<subdomain>.workers.dev.
+            const url = `https://pr-${number}-elemental-arena.cmotlin.workers.dev`;
+            const body = `Preview: ${url}\n\nThe site and the match server are both behind it.`;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+            });
+            const mine = comments.find(
+              (comment) => comment.user.type === "Bot" && comment.body.startsWith("Preview: "),
+            );
+
+            if (mine) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: mine.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: number,
+                body,
+              });
+            }

@@ -48,12 +48,12 @@ fallow: install
 fallow-check: install
     vp run fallow:ci
 
-# Run the match server locally on miniflare, with no Cloudflare account involved
-multiplayer *args: install
+# Run the site and the match server locally on miniflare, with no Cloudflare account involved
+multiplayer *args: build
     vp run multiplayer {{args}}
 
 # Open a match on a local match server and prove the two seats are told different things
-multiplayer-check: install
+multiplayer-check: build
     vp run multiplayer:check
 
 # Run Storybook

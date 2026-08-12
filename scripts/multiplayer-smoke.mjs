@@ -1,19 +1,49 @@
 /**
  * Proves the match server does what the design note says it does, on a machine with no Cloudflare
- * account attached to it. It starts `wrangler dev` against wrangler.multiplayer.toml -- miniflare,
- * local, no credentials -- opens a two-seat match on it, sits a socket in each seat and checks that
- * what the two of them are told is not the same thing.
+ * account attached to it. It starts `wrangler dev` -- miniflare, local, no credentials -- opens a
+ * two-seat match on it, sits a socket in each seat and checks that what the two of them are told is
+ * not the same thing.
+ *
+ * It also checks the one deployable serves both halves: the built site on the paths the site owns,
+ * and the match server on /api/*. That is what `run_worker_first` in wrangler.toml buys, and the
+ * way it breaks is quiet -- either deep links get the match server's 404, or /api/... is answered
+ * with the game and a 200.
  *
  *   just multiplayer-check
  *
  * The concealment rules themselves are pinned by tests/game/seat.test.ts. What this adds is that
  * the filtering actually happens on the far side of a socket rather than on the way into a screen.
+ *
+ * It reads dist/, so `just multiplayer-check` builds first.
  */
 
 import {spawn} from "node:child_process";
+import {createServer} from "node:net";
 import {setTimeout as sleep} from "node:timers/promises";
 
-const PORT = Number(process.env.MULTIPLAYER_PORT ?? 8788);
+/**
+ * Ports nothing else is on. A fixed default collides with whatever else the machine happens to be
+ * running, and deriving the second port by arithmetic can walk off the end of the port range. Both
+ * probes are held open at once so they cannot be handed the same port.
+ */
+async function freePorts(count) {
+	const probes = await Promise.all(
+		Array.from({length: count}, () => {
+			const probe = createServer();
+			return new Promise((resolve, reject) => {
+				probe.on("error", reject);
+				probe.listen(0, "127.0.0.1", () => resolve(probe));
+			});
+		}),
+	);
+	const ports = probes.map((probe) => probe.address().port);
+	await Promise.all(probes.map((probe) => new Promise((done) => probe.close(done))));
+	return ports;
+}
+
+const [freeServe, freeInspect] = await freePorts(2);
+const PORT = Number(process.env.MULTIPLAYER_PORT ?? freeServe);
+const INSPECTOR_PORT = Number(process.env.MULTIPLAYER_INSPECTOR_PORT ?? freeInspect);
 const BASE = `http://127.0.0.1:${PORT}`;
 const CODE = `smoke-${Math.random().toString(36).slice(2, 10)}`;
 const PROTOCOL_VERSION = 1;
@@ -21,15 +51,20 @@ const PROTOCOL_VERSION = 1;
 const results = [];
 const check = (what, ok, detail = "") => results.push({what, ok, detail});
 
-/** Waits for the local server to answer at all, whatever it answers with. */
+/**
+ * Waits for the match server, not merely for something to answer. The assets half of the Worker
+ * starts serving before the Worker itself will take a socket, so waiting on `/` returns too early
+ * and the first WebSocket is refused.
+ */
 async function waitForServer(tries = 60) {
 	for (let i = 0; i < tries; i++) {
 		try {
-			await fetch(`${BASE}/`);
-			return true;
+			const answer = await fetch(`${BASE}/api/match/not-a-door`);
+			if ((await answer.text()) === "no such door") return true;
 		} catch {
-			await sleep(500);
+			// Nothing is listening yet.
 		}
+		await sleep(500);
 	}
 	return false;
 }
@@ -63,6 +98,28 @@ async function sit(seat, token) {
 }
 
 async function run() {
+	const page = await fetch(`${BASE}/`);
+	const html = await page.text();
+	check(
+		"the built site is served from the same origin as the match server",
+		page.status === 200 && html.includes('<div id="app">'),
+		`${page.status} ${html.slice(0, 60)}`,
+	);
+
+	const deep = await fetch(`${BASE}/no/such/route`);
+	check(
+		"a path the site owns is answered with the app, not a 404",
+		deep.status === 200 && (await deep.text()).includes('<div id="app">'),
+		String(deep.status),
+	);
+
+	const door = await fetch(`${BASE}/api/match/not-a-door`);
+	check(
+		"a path under /api reaches the match server rather than the page",
+		door.status === 404 && (await door.text()) === "no such door",
+		String(door.status),
+	);
+
 	const opened = await fetch(`${BASE}/api/match/${CODE}/open`, {
 		method: "POST",
 		headers: {"content-type": "application/json"},
@@ -125,7 +182,7 @@ async function run() {
 
 const wrangler = spawn(
 	"node_modules/.bin/wrangler",
-	["dev", "-c", "wrangler.multiplayer.toml", "--port", String(PORT), "--inspector-port", String(PORT + 1000)],
+	["dev", "--port", String(PORT), "--inspector-port", String(INSPECTOR_PORT)],
 	{stdio: ["ignore", "pipe", "pipe"]},
 );
 let log = "";
