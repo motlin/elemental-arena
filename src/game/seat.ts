@@ -29,11 +29,11 @@
  *     business and the server never holds an opinion about them.
  */
 
-import {cardLabel, sealed} from "./cards.js";
-import {attackTiles, liveTargets} from "./combat.js";
+import {cardLabel, lethalRaw, mixPartners, sealed} from "./cards.js";
+import {attackTiles, liveTargets, smashMult} from "./combat.js";
 import {COST, T} from "./data/index.js";
 import {standing} from "./intent.js";
-import {wepName} from "./lookups.js";
+import {wepDmg, wepName} from "./lookups.js";
 import {
 	canEnter,
 	dashTargets,
@@ -41,6 +41,8 @@ import {
 	leapTargets,
 	lightTargets,
 	markTargets,
+	moveBudget,
+	reachable,
 	seenBy,
 	smashable,
 	spinTiles,
@@ -50,7 +52,7 @@ import {
 	warpTargets,
 	wipeTiles,
 } from "./movement.js";
-import {S, blind, cheb, held, hidden, idx, occupant, seesTile} from "./state.js";
+import {S, blind, cheb, held, hidden, idx, isLit, occupant, seesTile} from "./state.js";
 import type {ActionKey, Offset} from "./data/index.js";
 import type {Card, Cell, ChatMsg, Player} from "./types.js";
 
@@ -83,6 +85,8 @@ export interface SeatFighter {
 	readonly seen: readonly string[];
 	/** The weapon in their hands, named only for this seat's own fighter or when hands are open. */
 	readonly weapon: string | null;
+	/** What that weapon hits for, told to exactly the seats the weapon is named to and no others. */
+	readonly weaponDamage: number | null;
 	/** Energy left this turn, or null for a seat that is not entitled to the figure. */
 	readonly nrg: number | null;
 	readonly cap: number;
@@ -113,9 +117,39 @@ export interface SeatSelf {
 	readonly hand: readonly Card[];
 }
 
+/** One card in a hand a theft has opened, as the seat reading the bar is entitled to read it. */
+export interface SeatStealCard {
+	readonly uid: number;
+	/** What the card is, or the slot it is sitting in while this seat has not been shown it. */
+	readonly label: string;
+	readonly facedown: boolean;
+}
+
+/** The hand a theft has opened, in the order its owner is holding it. */
+export interface SeatSteal {
+	readonly seat: number;
+	readonly name: string;
+	readonly cards: readonly SeatStealCard[];
+}
+
+/** How far one fighter could walk, which is the overlay the inspect panel's reach chips draw. */
+export interface SeatReach {
+	readonly seat: number;
+	readonly budget: number;
+	/** Every square the walk could stop on, in board order, the one already stood on included. */
+	readonly tiles: readonly number[];
+}
+
+/** One card in hand, and everything else in the same hand it would merge with. */
+export interface SeatMix {
+	readonly uid: number;
+	readonly with: readonly number[];
+}
+
 /**
- * What this seat may do, square by square. Every list is board indexes in board order, so two
- * blocks built from two matches compare byte for byte, which is what the leak test reads.
+ * What this seat may do, square by square. Every list of squares is board indexes in board order,
+ * and the two lists of cards are uids sorted the same way, so two blocks built from two matches
+ * compare byte for byte, which is what the leak test reads.
  */
 export interface SeatLegal {
 	/** Squares one step away this seat can walk onto and pay the ground's price for. */
@@ -145,6 +179,15 @@ export interface SeatLegal {
 	readonly smash: boolean;
 	/** True while the ground underfoot is something this seat could start trailing behind it. */
 	readonly trail: boolean;
+	/**
+	 * For each card in hand, in hand order, what else in the same hand it merges with. Both this and
+	 * `lethal` read one hand and nothing else, and the hand is the one belonging to the seat being
+	 * answered, so neither has anything in it to keep. They are here because the alternative is the
+	 * screen asking the rules, and the rules are exactly what the screen is being cut off from.
+	 */
+	readonly mix: readonly SeatMix[];
+	/** Cards that kill on contact, which the arena refuses to lay on anybody who is standing there. */
+	readonly lethal: readonly number[];
 	/** Whether the purse covers each action, before anything else is asked about it. */
 	readonly afford: Readonly<Record<ActionKey, boolean>>;
 }
@@ -176,6 +219,38 @@ export interface SeatState {
 	readonly you: SeatSelf;
 	/** What this seat may click, worked out from the whole match and censored like everything else. */
 	readonly legal: SeatLegal;
+	/**
+	 * The hand a theft has opened, or null while no theft is under way. Picking from a hand you can
+	 * read is not a theft, so the bar has to be drawable without being readable: every card is a
+	 * numbered slot, and only one a mark has already turned this seat's way says what it is -- the
+	 * owner's own marks stay down here as they do everywhere else. The `uid` goes over on the face
+	 * down cards too, because a pick has to name what it took, and a bare uid says nothing the card
+	 * count did not already say.
+	 *
+	 * Only the seat doing the robbing is handed it. `S.steal` is one match-wide modal rather than
+	 * one per seat, so sending it to everybody would hand a seat that is neither the thief nor the
+	 * victim a name it has no other way to learn -- and no other seat has a bar to draw with it.
+	 */
+	readonly steal: SeatSteal | null;
+	/**
+	 * The squares glowing under a glare, in board order. A glare is what beats cover in the first
+	 * place, so by the time a square is lit there is nothing left about it to keep: it goes to
+	 * everybody, this seat's own square included. The fighter wearing the glare is still never shown
+	 * it, which is `SeatFighter.lit` -- that is the glyph, and this is the square underneath it.
+	 */
+	readonly litsq: readonly number[];
+	/**
+	 * How far each fighter this seat can see could walk. Asked against the arena this seat was shown,
+	 * so ground and fighters it cannot see do not shape the answer.
+	 *
+	 * `budget` is the energy behind the flood fill, and for the seat to move that is a figure the
+	 * roster withholds from everybody else. It goes over anyway, because the tiles give it away: the
+	 * far edge of a flood fill is the budget, so an honest map beside a censored number would keep
+	 * nothing. The reach chips have always told the table how far anybody could go.
+	 */
+	readonly reachable: readonly SeatReach[];
+	/** What smash mode is multiplying damage by this round, which the topbar prints for everybody. */
+	readonly smashMult: number;
 	readonly chat: readonly ChatMsg[];
 }
 
@@ -240,6 +315,7 @@ function fighterOf(o: Player, me: Player, dark: boolean): SeatFighter {
 		cards: o.hand.length,
 		seen: mine ? [] : o.hand.filter(seenBy).map(cardLabel),
 		weapon: (mine || open) && c?.k === "w" ? wepName(c) : null,
+		weaponDamage: (mine || open) && c?.k === "w" ? wepDmg(c) : null,
 		nrg: mine ? o.nrg : null,
 		cap: o.cap,
 	};
@@ -281,6 +357,8 @@ const NO_MOVES: SeatLegal = {
 	ultra: [],
 	smash: false,
 	trail: false,
+	mix: [],
+	lethal: [],
 	afford: affords(-1),
 };
 
@@ -321,6 +399,46 @@ function asSeen<T>(me: Player, dark: boolean, ask: () => T): T {
 	}
 }
 
+/**
+ * How far every fighter this seat can see could walk, in seat order. Who is in the list is settled
+ * before the arena is dressed down, because a fighter this seat cannot see is not in it at all --
+ * and then the fills themselves run inside the same view, so cover this seat cannot read does not
+ * bend a route around it and say so.
+ */
+function reachFor(me: Player, dark: boolean): SeatReach[] {
+	const seen = S.players.filter((o) => o.alive && visible(o, me, dark));
+	return asSeen(me, dark, () =>
+		seen.map((o) => {
+			const budget = moveBudget(o);
+			return {seat: o.i, budget, tiles: [...reachable(o, budget).keys()].sort((a, b) => a - b)};
+		}),
+	);
+}
+
+/** Every square with a glare on it, which nobody has to be protected from: a glare is the opposite. */
+function litSquares(): number[] {
+	return S.board.flatMap((_, i) => (isLit(i % S.dim, (i / S.dim) | 0) ? [i] : []));
+}
+
+/** The hand a theft has opened, as this seat may read it, or null while no theft is under way. */
+function stealFor(me: Player): SeatSteal | null {
+	if (standing(me.i) !== null) return null;
+	const v = S.steal === null ? null : S.players[S.steal];
+	if (!v) return null;
+	// a mark turns a card face up to every rival and never to its owner, and being robbed changes
+	// neither half of that: the seat losing a card is not told which of them it had already lost
+	const shown = (c: Card): boolean => v !== me && seenBy(c);
+	return {
+		seat: v.i,
+		name: v.name,
+		cards: v.hand.map((c, i) => ({
+			uid: c.uid,
+			label: shown(c) ? cardLabel(c) : `Card ${i + 1}`,
+			facedown: !shown(c),
+		})),
+	};
+}
+
 /*
  * Walking and laying a card are the two moves with no query of their own to ask: `tryStep` and
  * `doPlace` decide as they go, and there is nothing to call that answers without also moving. So
@@ -356,6 +474,24 @@ function placeSquares(p: Player): {place: number[]; taken: number[]} {
 	return {place, taken};
 }
 
+/** Which cards in a hand merge with which, asked card by card so no screen state picks the source. */
+function mixFor(p: Player): SeatMix[] {
+	return p.hand.map((c) => ({
+		uid: c.uid,
+		with: mixPartners(p, c)
+			.map((q) => q.uid)
+			.sort((a, b) => a - b),
+	}));
+}
+
+/** The cards in hand that kill on contact, which is the half of `badPlace` `taken` does not answer. */
+function lethalFor(p: Player): number[] {
+	return p.hand
+		.filter((c) => c.k === "el" && lethalRaw(c.id))
+		.map((c) => c.uid)
+		.sort((a, b) => a - b);
+}
+
 /** Every question the match screen asks about what is clickable, asked all at once. */
 function movesFor(p: Player): SeatLegal {
 	const weapon = held(p);
@@ -381,6 +517,8 @@ function movesFor(p: Player): SeatLegal {
 		ultra: S.board.flatMap((c, i) => (c.t ? [i] : [])),
 		smash: smashable(p),
 		trail: !p.trail && !!under && !T[under]!.dead,
+		mix: mixFor(p),
+		lethal: lethalFor(p),
 		afford: affords(p.nrg),
 	};
 }
@@ -423,6 +561,10 @@ export function seatState(seat: number): SeatState {
 		fighters: S.players.map((o) => fighterOf(o, me, dark)),
 		you: selfOf(me),
 		legal: legalFor(me, dark),
+		steal: stealFor(me),
+		litsq: litSquares(),
+		reachable: reachFor(me, dark),
+		smashMult: smashMult(),
 		chat: S.chat.map((m) => ({...m})),
 	};
 }
