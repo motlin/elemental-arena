@@ -27,7 +27,8 @@ import type {
 	TopbarView,
 	WeaponView,
 } from "./bridge.js";
-import {badPlace, cardLabel, clickCard, doToss, lethalRaw, logit, mixPartners, sealed, startMix} from "./cards.js";
+import {badPlace, cardLabel, clickCard, doToss, lethalRaw, mixPartners, sealed, startMix} from "./cards.js";
+import {chatById, say} from "./chat.js";
 import {attackTiles, foeEls, leaveFoe, leaveSelf, liveTargets, selfEls, smashMult, startAttack} from "./combat.js";
 import {COST, EL, MV, T} from "./data/index.js";
 import type {ActionKey} from "./data/index.js";
@@ -64,7 +65,7 @@ import {
 } from "./movement.js";
 import {flipTheme, themeLabel} from "./settings.js";
 import {S, ally, blind, cheb, cur, held, hidden, idx, isLit, occupantsAt, rgba, seesTile, selCard} from "./state.js";
-import type {Card, ChatMsg, Player, WepCard} from "./types.js";
+import type {Card, Player, WepCard} from "./types.js";
 import {auditReveal, canUndo, undo} from "./undo.js";
 
 /**
@@ -611,10 +612,6 @@ function handView(p: Player): HandView {
 
 /* Table talk. */
 
-function chatById(id: number): ChatMsg | undefined {
-	return S.chat.find((m) => m.id === id);
-}
-
 /** The line an answer hangs off, cut to whatever length the place it is shown in has room for. */
 function quoteOf(id: number | null, cut: number): ChatQuote | null {
 	const m = id ? chatById(id) : null;
@@ -643,25 +640,6 @@ function chatView(): ChatView {
 		},
 		say,
 	};
-}
-
-/** Says something at the table, answering whatever the reply bar is pointing at. */
-export function say(text: string): void {
-	const t = text.trim().replace(/[<>]/g, "");
-	if (!t) return;
-	const p = cur();
-	const par = S.replyTo ? chatById(S.replyTo) : null;
-	S.chat.push({
-		id: S.cid++,
-		who: p ? p.name : "",
-		c: p ? p.c : "var(--muted)",
-		r: S.round,
-		t,
-		to: par ? par.id : null,
-	});
-	logit(par ? `to ${par.who}: “${t}”` : `“${t}”`, undefined, true);
-	S.replyTo = null;
-	render();
 }
 
 /* The tile inspector down the right, and the reach overlay offered under it. */

@@ -78,5 +78,6 @@ export {
 export {forfeit, leaveMatch, startMatch} from "./match.js";
 export {attackTiles, leaveFoe, leaveSelf} from "./combat.js";
 export {codexLine, drawCodex, drawMenu, openTable} from "./menu.js";
-export {MODEHINT, render, say} from "./render.js";
+export {say} from "./chat.js";
+export {MODEHINT, render} from "./render.js";
 export {toggleInspect} from "./input.js";
