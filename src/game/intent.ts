@@ -130,8 +130,12 @@ function refuse(why: string): Verdict {
 	return {ok: false, why};
 }
 
-/** Who is allowed to ask for a move right now, and why this seat is or is not them. */
-function standing(seat: number): string | null {
+/**
+ * Who is allowed to ask for a move right now, and why this seat is or is not them. src/game/seat.ts
+ * reads it too: a seat that may not move is told it may do nothing, rather than being handed a list
+ * of squares it would only be refused on.
+ */
+export function standing(seat: number): string | null {
 	const p = S.players[seat];
 	if (!p) return `no seat ${seat} in this match`;
 	if (!p.alive) return "you are out of the match";

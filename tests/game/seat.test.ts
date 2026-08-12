@@ -1,4 +1,5 @@
 import {describe, it, expect} from "vitest";
+import {applyIntent} from "../../src/game/intent.js";
 import {startMatch} from "../../src/game/match.js";
 import {seatState} from "../../src/game/seat.js";
 import {S, hidden, idx} from "../../src/game/state.js";
@@ -45,6 +46,22 @@ function conceal(q: Player, x: number, y: number): void {
 /** Everything one seat would be sent, as the wire would carry it. */
 function wire(seat: number): string {
 	return JSON.stringify(seatState(seat));
+}
+
+/** Every piece of footwork there is, which is every bit `MV` hands out. */
+const ALL_FOOTWORK = 0xffff;
+
+/**
+ * Pins everything about a fighter that a fresh deal would otherwise roll, so two matches built the
+ * same way differ in nothing but what the test moved.
+ */
+function steady(p: Player): void {
+	p.x = 4;
+	p.y = 4;
+	p.nrg = 5;
+	p.mv = ALL_FOOTWORK;
+	p.hand = [{uid: 80, k: "w", ids: ["dagger"], els: []}];
+	p.held = 80;
 }
 
 describe("what one seat is handed", () => {
@@ -144,5 +161,82 @@ describe("what one seat is handed", () => {
 		twoSeats();
 
 		expect(() => seatState(7)).toThrow("no seat 7 in this match");
+	});
+});
+
+/**
+ * The legal moves, which are the newest thing on the wire and the most dangerous. They are worked
+ * out from the whole match, which is what makes them truthful, and then sent to one client, which
+ * is the exact shape of the bug this whole boundary exists to prevent -- a naive answer greys out
+ * the one square somebody is hiding on, and the grey square is the fighter. So the rule is that
+ * legality is answered against the arena the seat was shown, and a move that is illegal only
+ * because of somebody it cannot see comes back legal for it to be refused on later.
+ */
+describe("what one seat is told it may do", () => {
+	/** What the watching seat may do, with the hiding fighter and their cover on the square named. */
+	function legalWith(x: number, y: number): string {
+		const {watcher, hider} = twoSeats();
+		steady(watcher);
+		conceal(hider, x, y);
+		expect(hidden(hider)).toBe(true);
+		return JSON.stringify(seatState(watcher.i).legal);
+	}
+
+	/* Two matches alike in everything but where the fighter in hiding went, one of them next door
+	   to the watching seat and one of them in the far corner. A byte between the two blocks is a
+	   byte anybody could diff to find them. */
+	it("says the same thing whether or not somebody is hiding within reach of it", () => {
+		expect(legalWith(5, 4)).toStrictEqual(legalWith(8, 0));
+	});
+
+	/* Blindness hides people who are not hiding at all, and the rules know nothing about it: every
+	   one of them would happily name a fighter standing in the open two feet away. */
+	it("names nobody to a blinded seat, however plainly they are standing there", () => {
+		const {watcher, hider} = twoSeats();
+		steady(watcher);
+		hider.x = 5;
+		hider.y = 4;
+		watcher.darkTurns = 1;
+
+		const mine = seatState(watcher.i).legal;
+
+		expect([mine.light, mine.mark, mine.swap, mine.theft, mine.foes]).toStrictEqual([[], [], [], [], []]);
+		expect(mine.warp).toContain(idx(5, 4));
+	});
+
+	it("tells the seat to move where it may walk and what the weapon in its hand reaches", () => {
+		const {watcher} = twoSeats();
+		steady(watcher);
+
+		const mine = seatState(watcher.i).legal;
+
+		expect(mine.step).toContain(idx(5, 4));
+		expect(mine.swing).toContain(idx(5, 4));
+		expect(mine.jump).toContain(idx(6, 4));
+		expect(mine.afford.jump).toBe(true);
+	});
+
+	/* The fiction, both halves of it in one test: the square is offered because the seat has no way
+	   of knowing better, and the arena turns the move down without saying what is standing there. */
+	it("offers the square somebody is hiding on and leaves the refusing to the arena", () => {
+		const {watcher, hider} = twoSeats();
+		steady(watcher);
+		conceal(hider, 5, 4);
+
+		expect(seatState(watcher.i).legal.warp).toContain(idx(5, 4));
+		expect(applyIntent(watcher.i, {k: "warp", x: 5, y: 4})).toStrictEqual({
+			ok: false,
+			why: "the arena will not take that move",
+		});
+	});
+
+	it("offers nothing at all to the seat whose turn it is not", () => {
+		const {hider} = twoSeats();
+		steady(hider);
+
+		const theirs = seatState(hider.i).legal;
+
+		expect([theirs.step, theirs.jump, theirs.place, theirs.swing, theirs.warp]).toStrictEqual([[], [], [], [], []]);
+		expect(Object.values(theirs.afford).some((can) => can)).toBe(false);
 	});
 });
