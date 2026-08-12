@@ -13,6 +13,9 @@
  *
  * The concealment rules themselves are pinned by tests/game/seat.test.ts. What this adds is that
  * the filtering actually happens on the far side of a socket rather than on the way into a screen.
+ * The same goes for the room outliving a socket -- presence, sitting back down, and a client told
+ * to slow down: tests/net/room.test.ts pins the bookkeeping against fakes, and this runs it on the
+ * hibernation API the bookkeeping is kept in.
  *
  * It reads dist/, so `just multiplayer-check` builds first.
  */
@@ -171,13 +174,47 @@ async function run() {
 		first.said("state").length > before && second.latest("state")?.state.turn === 1,
 	);
 
+	const roll = first.latest("presence");
+	check(
+		"each seat is told who is in the room",
+		roll?.here?.length === 2 && roll.here.every(Boolean),
+		JSON.stringify(roll?.here),
+	);
+
+	second.ws.close();
+	await sleep(400);
+	check(
+		"the seats still in the room are told when one goes quiet",
+		first.latest("presence")?.here?.join() === "true,false",
+		JSON.stringify(first.latest("presence")?.here),
+	);
+
+	const back = await sit(1, tokens[1]);
+	check(
+		"the same token sits back down in the seat it left",
+		back.latest("seated")?.seat === 1 && back.latest("state")?.state.seat === 1,
+	);
+	check(
+		"and the room says the seat is filled again",
+		first.latest("presence")?.here?.join() === "true,true",
+		JSON.stringify(first.latest("presence")?.here),
+	);
+
+	// far more than a person clicking, and far less than a loop: the allowance is 24 in a burst
+	for (let i = 0; i < 30; i++) back.ws.send(JSON.stringify({k: "move", intent: {k: "end"}}));
+	await sleep(600);
+	check(
+		"a socket talking faster than a person could click is told to slow down",
+		back.said("refused").some((m) => m.why === "you are talking too fast"),
+	);
+
 	const intruder = await sit(0, "not-the-token");
 	check(
 		"a socket without the seat's token is turned away",
 		intruder.latest("closed")?.why === "that seat is not yours",
 	);
 
-	for (const player of [first, second, intruder]) player.ws.close();
+	for (const player of [first, back, intruder]) player.ws.close();
 }
 
 const wrangler = spawn(

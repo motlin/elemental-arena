@@ -95,6 +95,7 @@ describe("the strip over an online match", () => {
 				seat={1}
 				status="playing"
 				notice={null}
+				away={[]}
 				dismiss={vi.fn<() => void>()}
 			/>,
 		);
@@ -111,6 +112,7 @@ describe("the strip over an online match", () => {
 				seat={0}
 				status="playing"
 				notice="you cannot afford that"
+				away={[]}
 				dismiss={dismiss}
 			/>,
 		);
@@ -121,9 +123,48 @@ describe("the strip over an online match", () => {
 		expect(dismiss).toHaveBeenCalledOnce();
 	});
 
+	/* A seat with nobody in it is the one thing the arena itself cannot show: it looks exactly like
+	   a seat whose player is thinking. */
+	it("says which other seat has gone quiet, counting it the way a player would", () => {
+		render(
+			<OnlineStripView
+				code="quiet-forge"
+				seat={0}
+				status="playing"
+				notice={null}
+				away={[1, 2]}
+				dismiss={vi.fn<() => void>()}
+			/>,
+		);
+
+		expect(screen.getByText("Seats 2 and 3 have gone quiet")).toBeDefined();
+	});
+
+	it("says nothing about presence while everybody is in their seat", () => {
+		render(
+			<OnlineStripView
+				code="quiet-forge"
+				seat={0}
+				status="playing"
+				notice={null}
+				away={[]}
+				dismiss={vi.fn<() => void>()}
+			/>,
+		);
+
+		expect(screen.queryByText(/gone quiet/)).toBeNull();
+	});
+
 	it("says so when the socket has gone, rather than looking like a live match", () => {
 		render(
-			<OnlineStripView code="quiet-forge" seat={0} status="gone" notice={null} dismiss={vi.fn<() => void>()} />,
+			<OnlineStripView
+				code="quiet-forge"
+				seat={0}
+				status="gone"
+				notice={null}
+				away={[]}
+				dismiss={vi.fn<() => void>()}
+			/>,
 		);
 
 		expect(screen.getByText("Disconnected")).toBeDefined();

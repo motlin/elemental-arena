@@ -29,6 +29,11 @@ export type ClientMessage =
 export type ServerMessage =
 	| {readonly k: "seated"; readonly v: number; readonly seat: number}
 	| {readonly k: "state"; readonly state: SeatState}
+	/**
+	 * Which seats have somebody in them, one flag per seat. The arena cannot say it: it looks the
+	 * same whether the player of a seat is thinking or has closed the tab.
+	 */
+	| {readonly k: "presence"; readonly here: readonly boolean[]}
 	/** The move was not taken, and why. The state that follows is still the truth. */
 	| {readonly k: "refused"; readonly why: string}
 	/** The socket is being shut, and why. */
@@ -244,6 +249,11 @@ function carriesArena(value: Record<string, unknown>): value is {readonly state:
 	return isRecord(state) && isCount(state["seat"]) && isRecord(state["you"]) && isRecord(state["legal"]);
 }
 
+/** One flag per seat: whether anybody is sitting in it at the moment. */
+function isRollCall(value: unknown): value is readonly boolean[] {
+	return Array.isArray(value) && value.every((one) => typeof one === "boolean");
+}
+
 /** What the room said, or null for anything a client was never taught to hear. */
 export function parseServerMessage(raw: string): ServerMessage | null {
 	let parsed: unknown;
@@ -257,6 +267,7 @@ export function parseServerMessage(raw: string): ServerMessage | null {
 	if (kind === "seated" && parsed["v"] === PROTOCOL_VERSION && isCount(parsed["seat"]))
 		return {k: "seated", v: PROTOCOL_VERSION, seat: parsed["seat"]};
 	if (kind === "state" && carriesArena(parsed)) return {k: "state", state: parsed.state};
+	if (kind === "presence" && isRollCall(parsed["here"])) return {k: "presence", here: parsed["here"]};
 	if ((kind === "refused" || kind === "closed") && typeof parsed["why"] === "string")
 		return {k: kind, why: parsed["why"]};
 	return null;
