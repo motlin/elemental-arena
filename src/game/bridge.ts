@@ -5,6 +5,7 @@
  * filled it in from the renderer, and gains a store here plus a component in src/ui/.
  */
 
+import type {SeatState} from "./seat.js";
 import type {Frame, LogEntry} from "./types.js";
 
 type Listener = () => void;
@@ -38,6 +39,83 @@ function createStore<T>(initial: T, equals: (a: T, b: T) => boolean): Store<T> {
 		},
 	};
 }
+
+/**
+ * The arena as the match server last told this seat it stands, or null while no online match is
+ * running. src/net/client.ts is what fills it in, and src/game/online.ts is what draws the match
+ * screen out of it -- the same door hot-seat comes through, which builds its own seat view instead
+ * of being sent one (src/game/hotseat.ts).
+ *
+ * A seat view is rebuilt whole every time the room speaks, so identity is the only comparison worth
+ * making: two of them are never equal and always news.
+ */
+export const seatStore = createStore<SeatState | null>(null, (a, b) => a === b);
+
+/** How the socket behind an online match is doing. */
+export type NetStatus = "joining" | "playing" | "gone";
+
+/**
+ * The strip over an online match: which match this is, which seat this device holds, and anything
+ * the room has said that the arena itself does not show -- a move turned down, or a socket gone.
+ */
+export interface OnlineView {
+	readonly code: string;
+	readonly seat: number;
+	readonly status: NetStatus;
+	/** Why the last move was turned down, or why the socket went, and null while neither happened. */
+	readonly notice: string | null;
+	/** Puts the notice away. The move it was about is already over either way. */
+	readonly dismiss: () => void;
+}
+
+function sameOnline(a: OnlineView | null, b: OnlineView | null): boolean {
+	if (a === null || b === null) return a === b;
+	return a.code === b.code && a.seat === b.seat && a.status === b.status && a.notice === b.notice;
+}
+
+export const onlineStore = createStore<OnlineView | null>(null, sameOnline);
+
+/** One seat's way into a match that has been opened: the link to hand whoever is playing it. */
+export interface InviteLink {
+	readonly seat: number;
+	/** The colour that seat plays, which is how the host tells one link from another. */
+	readonly name: string;
+	/** The whole address, ready to paste: the match, the seat, and the token that claims it. */
+	readonly url: string;
+}
+
+/**
+ * The online panel on the setup screen: opening a match, the links it deals, and the way into
+ * somebody else's.
+ */
+export interface LobbyView {
+	/** The code of the match this device opened, or null while it has opened none. */
+	readonly code: string | null;
+	/** True while the room is being opened, which spends the button. */
+	readonly opening: boolean;
+	/** Why the last thing tried did not work, or null. */
+	readonly error: string | null;
+	/** One per seat, in seat order, and empty until a match has been opened. */
+	readonly links: readonly InviteLink[];
+	readonly host: () => void;
+	/** Sits this device down in that seat of the match it just opened. */
+	readonly sit: (seat: number) => void;
+	/** Follows an invite link, wherever it came from. */
+	readonly join: (link: string) => void;
+}
+
+function sameLobby(a: LobbyView | null, b: LobbyView | null): boolean {
+	if (a === null || b === null) return a === b;
+	return (
+		a.code === b.code &&
+		a.opening === b.opening &&
+		a.error === b.error &&
+		a.links.length === b.links.length &&
+		a.links.every((link, i) => link.url === b.links[i]?.url)
+	);
+}
+
+export const lobbyStore = createStore<LobbyView | null>(null, sameLobby);
 
 /** What the handoff curtain needs to know about the seat whose turn is starting. */
 export interface HandoffView {

@@ -104,7 +104,7 @@ describe("the game module", () => {
 	   would import each other, and the load order would decide which half of the game existed
 	   first. src/game/view.ts is the seam: the rules call it, and game.ts wires the real drawing in. */
 	it("keeps the rules from importing the screens that draw them", () => {
-		const screens = ["board", "hotseat", "input", "menu", "render"];
+		const screens = ["board", "hotseat", "input", "lobby", "menu", "online", "render"];
 		const rules = gameModules().filter((name) => !screens.includes(name.replace(".ts", "")) && name !== "game.ts");
 
 		const reaching = rules.filter((name) =>

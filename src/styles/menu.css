@@ -402,3 +402,23 @@ input[type="range"] {
 .teamline {
 	margin-top: 6px;
 }
+
+/* The online panel: one row per seat of an opened match, and the box a pasted link goes in. */
+.invite {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+.invite:last-child {
+	margin-bottom: 0;
+}
+.invite .numbox {
+	flex: 1;
+	min-width: 0;
+	font-size: 13px;
+	padding: 8px 10px;
+}
+.invite .buy {
+	flex: none;
+	white-space: nowrap;
+}
