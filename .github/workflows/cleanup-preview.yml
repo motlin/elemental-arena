@@ -1,4 +1,8 @@
 # Takes down the preview a pull request was given, once the pull request is closed either way.
+#
+# The preview is a Worker of its own -- see preview.yml for why it is not a version alias -- so
+# taking it down means deleting the Worker, and with it the Durable Object namespace holding
+# whatever matches were played on it.
 
 name: Cleanup Preview
 
@@ -40,8 +44,8 @@ jobs:
 
       # Straight from node_modules rather than through cloudflare/wrangler-action -- see preview.yml
       # for why the action cannot install wrangler in this repo.
-      - name: Delete the preview version
-        run: node_modules/.bin/wrangler versions delete --preview-alias pr-${{ github.event.pull_request.number }} --yes
+      - name: Delete this pull request's Worker
+        run: node_modules/.bin/wrangler delete --name elemental-arena-pr-${{ github.event.pull_request.number }} --force
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

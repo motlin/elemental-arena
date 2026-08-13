@@ -147,8 +147,14 @@ cannot define a Durable Object class, which is why this is not a Pages project a
 reasoning and the open questions are in `.llm/plans/2026-08-05-online-multiplayer.md` and
 `.llm/plans/2026-08-12-online-multiplayer-finish.md`.
 
-Pull requests get the whole thing at `https://pr-<number>-elemental-arena.cmotlin.workers.dev`,
-published by `.github/workflows/preview.yml` and taken down again on close.
+Pull requests get the whole thing at `https://elemental-arena-pr-<number>.cmotlin.workers.dev`,
+published by `.github/workflows/preview.yml` and deleted again on close.
+
+Each one is a Worker of its own rather than a preview alias on this one, because [Cloudflare does
+not generate preview URLs for a Worker that implements a Durable
+Object](https://developers.cloudflare.com/workers/versions-and-deployments/preview-urls/#limitations)
+and the match server is one. A Worker of its own also gets a Durable Object namespace of its own,
+so a match opened on one pull request cannot be joined from another.
 
 ## Tasks
 
