@@ -30,6 +30,10 @@ preview_urls = true
 enabled = true
 head_sampling_rate = 1
 
+# Traces are off unless asked for by name -- `enabled` above only turns on logs.
+[observability.traces]
+enabled = true
+
 [assets]
 directory = "./dist/"
 binding = "ASSETS"
