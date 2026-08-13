@@ -16,6 +16,12 @@ main = "worker/index.ts"
 compatibility_date = "2025-01-12"
 compatibility_flags = ["nodejs_compat"]
 
+# Serves every uploaded version at <alias>-<worker>.<subdomain>.workers.dev, which is what a pull
+# request preview is. Off by default: without it `versions upload --preview-alias pr-N` succeeds,
+# prints a version id and no URL, and the preview is reachable by nothing at all.
+workers_dev = true
+preview_urls = true
+
 [assets]
 directory = "./dist/"
 binding = "ASSETS"
