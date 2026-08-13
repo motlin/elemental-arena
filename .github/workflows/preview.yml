@@ -1,8 +1,14 @@
 # Publishes a pull request preview of the whole deployable -- the site and the match server behind
-# it -- as a Worker version under the alias pr-N, and puts its URL on the pull request.
+# it -- as a Worker of its own named elemental-arena-pr-N, and puts its URL on the pull request.
 #
-# This replaced a `pages deploy`. A Pages project cannot define a Durable Object class, so a preview
-# of a multiplayer pull request served the site with no match server behind it. See wrangler.toml.
+# A Worker per pull request rather than a preview alias on one Worker, which is the obvious way and
+# does not work here: "Preview URLs are not generated for Workers that implement a Durable Object",
+# and the match server is a Durable Object. A version uploaded with --preview-alias takes the alias
+# happily and then serves nothing at all, which reads as a broken deploy rather than a refused one.
+# https://developers.cloudflare.com/workers/versions-and-deployments/preview-urls/#limitations
+#
+# A Worker of its own also gets a Durable Object namespace of its own, so a match opened on one pull
+# request cannot be joined from another, and cleanup-preview.yml deletes the whole thing on close.
 #
 # Checks are duplicated from merge-group.yml because branch protection is unavailable on this plan.
 
@@ -56,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: preview-${{ github.event.pull_request.number }}
-      url: https://pr-${{ github.event.pull_request.number }}-elemental-arena.cmotlin.workers.dev
+      url: https://elemental-arena-pr-${{ github.event.pull_request.number }}.cmotlin.workers.dev
     steps:
       # wrangler.toml and worker/ come from the repo; dist/ is what the build job just made.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -85,8 +91,8 @@ jobs:
       # standalone pnpm the runner does not have, and forcing it to npm instead fails on the
       # catalog: protocol in package.json, which only pnpm understands. `just install` has already
       # put the version from pnpm-lock.yaml here, so there is nothing left for the action to do.
-      - name: Upload a preview version
-        run: node_modules/.bin/wrangler versions upload --preview-alias pr-${{ github.event.pull_request.number }}
+      - name: Deploy this pull request's own Worker
+        run: node_modules/.bin/wrangler deploy --name elemental-arena-pr-${{ github.event.pull_request.number }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -96,9 +102,9 @@ jobs:
         with:
           script: |
             const number = context.issue.number;
-            // A preview alias is served at <alias>-<worker name>.<subdomain>.workers.dev.
-            const url = `https://pr-${number}-elemental-arena.cmotlin.workers.dev`;
-            const body = `Preview: ${url}\n\nThe site and the match server are both behind it.`;
+            // Each pull request gets a Worker of its own, served at <worker name>.<subdomain>.workers.dev.
+            const url = `https://elemental-arena-pr-${number}.cmotlin.workers.dev`;
+            const body = `Preview: ${url}\n\nThe site and the match server are both behind it. Open it in two tabs to play online: host a match in one and follow the link it gives you in the other.`;
 
             const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
