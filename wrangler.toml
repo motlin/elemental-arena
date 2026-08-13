@@ -22,6 +22,14 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 preview_urls = true
 
+# Logs and traces from the Worker, readable in the dashboard rather than only through `wrangler
+# tail` while somebody is watching. A match that goes wrong on a preview leaves something behind to
+# read afterwards, which a live tail does not. Sampling stays at 1 because this is a game two people
+# play, not a service: the free allowance is 200k events a day and we will not come near it.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [assets]
 directory = "./dist/"
 binding = "ASSETS"
