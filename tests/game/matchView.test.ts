@@ -105,6 +105,7 @@ function view(over: Partial<SeatState> = {}): SeatState {
 			litTurns: 0,
 			float: false,
 			trail: null,
+			hidden: false,
 			mv: 0,
 			used: every(0),
 			held: null,

@@ -110,6 +110,13 @@ export interface SeatSelf {
 	readonly litTurns: number;
 	readonly float: boolean;
 	readonly trail: string | null;
+	/**
+	 * True while cover is keeping this fighter off every other seat's board. It goes over because
+	 * the ground doing it may well be a rival's, and ground a seat did not lay is never drawn for
+	 * them -- so without this the one person entitled to know they are hidden would be the one
+	 * person not told. It says nothing about anybody else, and it reaches nobody else.
+	 */
+	readonly hidden: boolean;
 	/** Footwork bits this seat owns. */
 	readonly mv: number;
 	readonly used: Record<ActionKey, number>;
@@ -303,6 +310,7 @@ function selfOf(p: Player): SeatSelf {
 		litTurns: p.litTurns,
 		float: p.float,
 		trail: p.trail,
+		hidden: hidden(p),
 		mv: p.mv,
 		used: {...p.used},
 		held: p.held,

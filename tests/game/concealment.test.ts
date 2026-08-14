@@ -87,6 +87,70 @@ describe("what the published view gives away", () => {
 		expect([tileAt(5, 4).colour, tileAt(5, 4).terrain]).toStrictEqual([T["lava"]!.c, true]);
 	});
 
+	/* Hiding ground belongs to whoever laid it and to nobody else: walking onto a square is not the
+	   same as being told what is under you, and a fighter shown the ground has been told where the
+	   cover is and who put it there. */
+	it("keeps hiding ground off the board of a fighter standing in it who did not lay it", () => {
+		const {watcher, hider} = twoSeats();
+		conceal(hider, 4, 4);
+		watcher.x = 4;
+		watcher.y = 4;
+
+		render();
+
+		expect(seesTile(watcher, 4, 4)).toBe(false);
+		const square = tileAt(4, 4);
+		expect([square.colour, square.terrain]).toStrictEqual([null, false]);
+	});
+
+	/* Ground that blinks out the moment somebody steps into it is its own tell: the seat who laid it
+	   is shown the same square whether or not anybody is hiding there. */
+	it("draws the placer their own hiding ground whether or not it is concealing anybody", () => {
+		const {hider} = twoSeats();
+		conceal(hider, 4, 4);
+		hider.x = 0;
+		hider.y = 0;
+		S.turn = hider.i;
+		render();
+		const empty = tileAt(4, 4);
+		expect([empty.colour, empty.terrain]).toStrictEqual([T["shadow"]!.c, true]);
+
+		const squatter = S.players[0]!;
+		squatter.x = 4;
+		squatter.y = 4;
+		render();
+
+		const held = tileAt(4, 4);
+		expect([held.colour, held.terrain]).toStrictEqual([empty.colour, empty.terrain]);
+	});
+
+	/* Nothing else on the screen says you are concealed, and the ground doing it is not yours to
+	   read, so the readout says it outright -- to the one seat that already knows where it stands. */
+	it("tells a fighter they are hidden on ground they cannot see", () => {
+		const {watcher, hider} = twoSeats();
+		conceal(hider, 4, 4);
+		watcher.x = 4;
+		watcher.y = 4;
+		S.imode = true;
+		S.look = idx(4, 4);
+
+		render();
+
+		const readout = published().inspect.tile;
+		expect(readout?.facts.find((fact) => fact.label === "Standing here")?.value).toBe("you are hidden");
+		expect(readout?.name).toBe("Bare ground");
+	});
+
+	it("says nothing about hiding on a square that is not hiding anybody", () => {
+		const {watcher} = twoSeats();
+		S.imode = true;
+		S.look = idx(watcher.x, watcher.y);
+
+		render();
+
+		expect(published().inspect.tile?.facts.find((fact) => fact.label === "Standing here")).toBeUndefined();
+	});
+
 	/* The readout used to end this square with "someone you cannot see", which was the leak the whole
 	   design exists to stop: clicking a square and being told somebody is on it is exactly what the
 	   cover is there to prevent, and it made Inspect a way of sweeping the board for hiders. Drawn

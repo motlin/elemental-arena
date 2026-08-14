@@ -111,14 +111,13 @@ export function hidden(q: Player): boolean {
 	return true;
 }
 export const isLit = (x: number, y: number): boolean => occupantsAt(x, y).some((q) => q.lit);
-// hiding ground conceals itself too: only the fighter who laid it, or one standing on it, sees it
+// hiding ground conceals itself too: only the fighter who laid it sees it. Standing on a square is
+// not the same as being told what is under you, and ground that blinked out whenever somebody was
+// hiding on it would tell whoever laid it exactly where that somebody is standing.
 export function seesTile(p: Player, x: number, y: number): boolean {
 	const c = S.board[idx(x, y)]!;
 	if (!c.t || !T[c.t]!.hide) return true;
-	if (isLit(x, y)) return true; // their ground is exposed with them
-	if (p.x === x && p.y === y) return true; // you are standing on it
-	// the moment it is concealing somebody it reads as empty ground, even to whoever laid it
-	if (occupantsAt(x, y).some((q) => hidden(q))) return false;
+	if (isLit(x, y)) return true; // a glare exposes their ground along with them
 	return c.by === p.i;
 }
 // only a weapon card is ever held, and only an element card is ever selected: see `clickCard`

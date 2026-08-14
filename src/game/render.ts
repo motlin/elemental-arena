@@ -870,6 +870,10 @@ function tileReadout(v: SeatState, local: Local, i: number): TileReadout {
 		if (t.gone) facts.push({label: "Touching it", value: "you are gone"});
 		facts.push({label: "Lasts", value: t.life > 900 ? "permanent" : t.life + " more rounds"});
 	}
+	// cover a seat did not lay is never drawn for them, so the one square where that leaves a fighter
+	// in the dark about their own footing says so in words. It tells this seat only what it already
+	// knows: where it is standing, and that it is hidden there.
+	if (v.you.x === x && v.you.y === y && v.you.hidden) facts.push({label: "Standing here", value: "you are hidden"});
 	// whoever the ground is hiding was never in the view to be read out of it, which is the point:
 	// clicking a square and being told somebody is on it is what the concealment is there to stop
 	const here = standingAt(v, x, y);
