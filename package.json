@@ -34,7 +34,7 @@
 	},
 	"devDependencies": {
 		"@chromatic-com/storybook": "^5.3.0",
-		"@cloudflare/workers-types": "^5.20260812.1",
+		"@cloudflare/workers-types": "^5.20260813.1",
 		"@storybook/addon-a11y": "^10.5.7",
 		"@storybook/addon-docs": "^10.5.7",
 		"@storybook/addon-onboarding": "^10.5.7",
