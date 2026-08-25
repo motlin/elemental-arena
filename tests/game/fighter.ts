@@ -41,6 +41,7 @@ export function fighter(overrides: Partial<Player> = {}): Player {
 		cap: 5,
 		drain: 0,
 		bank: 0,
+		fed: 0,
 		rootTurns: 0,
 		darkTurns: 0,
 		litTurns: 0,

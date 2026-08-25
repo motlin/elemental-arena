@@ -1,17 +1,43 @@
 /** Playing a card: laying ground with it, mixing two into one, tossing one, and who owns the result. */
 
-import {CFORGE, COST, EL, FUSE, T, fkey} from "./data/index.js";
+import {CFORGE, COST, EL, FOOD, FUSE, T, fkey} from "./data/index.js";
 import type {Offset} from "./data/index.js";
-import {elName, isComp, wepName} from "./lookups.js";
+import {elName, foodName, isComp, wepName} from "./lookups.js";
+import {hurt} from "./combat.js";
 import {checkAlive} from "./match.js";
 import {afterMove, voidOut} from "./movement.js";
 import {save} from "./save.js";
 import {S, cheb, cur, held, idx, inb, layFor, layingFor, occupant, occupantsAt, putTerrain, selCard} from "./state.js";
-import type {Card, LogEntry, Player} from "./types.js";
+import type {Card, FoodCard, LogEntry, Player} from "./types.js";
 import {markIrreversible, pushUndo} from "./undo.js";
 import {redraw, redrawCodex} from "./view.js";
 
-export const cardLabel = (c: Card): string => (c.k === "el" ? elName(c.id) : wepName(c));
+export const cardLabel = (c: Card): string => (c.k === "el" ? elName(c.id) : c.k === "f" ? foodName(c.id) : wepName(c));
+/** True once a plate has been held past its keep, counted from the round it was dealt. */
+export const spoiled = (c: FoodCard, round: number): boolean => round - c.born >= FOOD[c.id]!.keep;
+/** What a plate gives when eaten now: fresh, all of it; spoiled, half of it and a bite of life. */
+export function foodGain(c: FoodCard, round: number): {nrg: number; rot: number} {
+	const f = FOOD[c.id]!;
+	return spoiled(c, round) ? {nrg: Math.ceil(f.nrg / 2), rot: f.rot} : {nrg: f.nrg, rot: 0};
+}
+function eat(p: Player, c: FoodCard): void {
+	pushUndo();
+	const {nrg, rot} = foodGain(c, S.round);
+	p.hand = p.hand.filter((q) => q.uid !== c.uid);
+	p.nrg += nrg;
+	p.fed += nrg;
+	p.cap = Math.max(p.cap, p.nrg);
+	if (rot) hurt(p, rot, null);
+	logit(
+		rot
+			? `ate spoiled ${foodName(c.id)}, losing ${rot} life for ${nrg} energy`
+			: `ate ${foodName(c.id)} for ${nrg} energy`,
+	);
+	S.sel = null;
+	S.mode = null;
+	redraw();
+	checkAlive();
+}
 function snapshot(entry: LogEntry): void {
 	S.frames.push({
 		...entry,
@@ -52,6 +78,7 @@ function mixSource(p: Player): Card | null {
 }
 function canPair(a: Card | null, b: Card | null): boolean {
 	if (!a || !b || a.uid === b.uid) return false;
+	if (a.k === "f" || b.k === "f") return false;
 	if (a.k === "w" || b.k === "w") return true;
 	return mixable(a) && mixable(b) && !!FUSE[fkey(a.id, b.id)];
 }
@@ -96,9 +123,8 @@ function doMix(u2: number): void {
 		if (!spend(COST.merge)) return;
 		made = {uid: S.uid++, k: "w", ids: [...w.ids], els: [...w.els, el.id]};
 	}
-	const cardName = (c: Card): string => (c.k === "el" ? elName(c.id) : wepName(c));
 	if (!made) return;
-	logit(`merged ${cardName(a)} with ${cardName(b)} into ${cardName(made)}`);
+	logit(`merged ${cardLabel(a)} with ${cardLabel(b)} into ${cardLabel(made)}`);
 	p.hand = p.hand.filter((q) => q.uid !== a.uid && q.uid !== b.uid);
 	p.hand.splice(Math.max(0, Math.min(slot, p.hand.length)), 0, made);
 	if (made.k === "w") p.held = made.uid;
@@ -111,7 +137,7 @@ export function doToss(uid: number): void {
 	const p = cur();
 	const c = p.hand.find((q) => q.uid === uid);
 	pushUndo();
-	if (c) logit(`threw away ${c.k === "el" ? elName(c.id) : wepName(c)}`);
+	if (c) logit(`threw away ${cardLabel(c)}`);
 	p.hand = p.hand.filter((q) => q.uid !== uid);
 	if (p.held === uid) p.held = null;
 	if (S.sel === uid) S.sel = null;
@@ -151,6 +177,10 @@ export function clickCard(uid: number): void {
 	}
 	if (S.mode === "mix" && mixPartners(p).some((q) => q.uid === uid)) {
 		doMix(uid);
+		return;
+	}
+	if (c.k === "f") {
+		eat(p, c);
 		return;
 	}
 	if (c.k === "w") {

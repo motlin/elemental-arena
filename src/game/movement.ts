@@ -208,10 +208,10 @@ export function doSmash(): void {
 		if (c.k === "w") {
 			ids.push(...c.ids);
 			els.push(...c.els);
-		} else els.push(c.id);
+		} else if (c.k === "el") els.push(c.id);
 	});
 	const made: WepCard = {uid: S.uid++, k: "w", ids, els};
-	p.hand = [made];
+	p.hand = [made, ...p.hand.filter((c) => c.k === "f")];
 	p.held = made.uid;
 	S.sel = null;
 	S.mode = null;

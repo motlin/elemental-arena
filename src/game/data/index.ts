@@ -10,3 +10,4 @@ export {W, WBASE, type WeaponDef} from "./weapons.js";
 export {COST, type ActionKey} from "./costs.js";
 export {MV, type MoveDef} from "./footwork.js";
 export {FORGE, CFORGE, ELBYT, boon, type ForgeDef} from "./forge.js";
+export {FOOD, FOOD_EVERY, type FoodDef} from "./food.js";

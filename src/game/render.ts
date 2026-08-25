@@ -31,7 +31,7 @@
  * perfectly in hot-seat and only stops working once there is a server entitled to say no.
  */
 
-import {COST, EL, MV, T} from "./data/index.js";
+import {COST, EL, FOOD, MV, T} from "./data/index.js";
 import {
 	elColor,
 	elName,
@@ -75,9 +75,10 @@ import type {
 	WeaponView,
 } from "./bridge.js";
 import type {ActionKey} from "./data/index.js";
+import {cardLabel, spoiled} from "./cards.js";
 import type {Intent} from "./intent.js";
 import type {SeatFighter, SeatReach, SeatState, SeatSteal} from "./seat.js";
-import type {ElCard, WepCard} from "./types.js";
+import type {Card, ElCard, FoodCard, WepCard} from "./types.js";
 
 /**
  * What the match screen knows that the arena never tells it: the move being aimed, the card picked
@@ -565,7 +566,7 @@ function press(key: string, label: string, click: () => void, disabled = false):
 }
 
 /** What a card is called, which for the seat holding it is never a secret. */
-const nameOfCard = (c: ElCard | WepCard): string => (c.k === "el" ? elName(c.id) : wepName(c));
+const nameOfCard = (c: Card): string => cardLabel(c);
 
 function actionsView(v: SeatState, local: Local, act: MatchActions): ActionBarView {
 	if (MODEHINT[local.mode!]) return saying(`${MODEHINT[local.mode!]} Esc to cancel.`);
@@ -726,7 +727,8 @@ function rosterView(v: SeatState): RosterCard[] {
 
 /* The hand: the cards this seat is holding, in whatever order they have been left in. */
 
-function handCard(v: SeatState, local: Local, c: ElCard | WepCard, i: number, merges: readonly number[]): HandCard {
+function handCard(v: SeatState, local: Local, c: Card, i: number, merges: readonly number[]): HandCard {
+	if (c.k === "f") return foodCard(v, local, c, i);
 	const el = c.k === "el",
 		comp = el && isComp(c.id);
 	const colour = el ? elColor(c.id) : wColor(c);
@@ -744,6 +746,28 @@ function handCard(v: SeatState, local: Local, c: ElCard | WepCard, i: number, me
 		strip: el ? colour : wStrip(c),
 		on: el ? local.sel === c.uid : v.you.held === c.uid,
 		mixable: (v.toss && local.tossPick == null) || (local.mode === "mix" && merges.includes(c.uid)),
+		doomed: v.toss && local.tossPick === c.uid,
+	};
+}
+
+/** A plate in hand: what it gives now, and how long it has left before that turns on the eater. */
+function foodCard(v: SeatState, local: Local, c: FoodCard, i: number): HandCard {
+	const f = FOOD[c.id]!,
+		off = spoiled(c, v.round),
+		left = c.born + f.keep - v.round;
+	const desc = off
+		? `Spoiled. Eat for ${Math.ceil(f.nrg / 2)} energy at the cost of ${f.rot} life.`
+		: `${f.d} Eat for ${f.nrg} energy this turn only. Spoils in ${left} round${left === 1 ? "" : "s"}.`;
+	return {
+		uid: c.uid,
+		kind: off ? "SPOILED" : "FOOD",
+		number: i + 1,
+		name: f.n,
+		desc,
+		colour: off ? "#6f7d4a" : f.c,
+		strip: off ? "#6f7d4a" : f.c,
+		on: false,
+		mixable: v.toss && local.tossPick == null,
 		doomed: v.toss && local.tossPick === c.uid,
 	};
 }

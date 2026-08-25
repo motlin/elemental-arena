@@ -3,7 +3,7 @@
  * what mixes into what. Nothing here changes the game; it only reads it.
  */
 
-import {CFORGE, COST, EL, FORGE, FUSE, MV, PAT, T, W, boon, fkey} from "./data/index.js";
+import {CFORGE, COST, EL, FOOD, FORGE, FUSE, MV, PAT, T, W, boon, fkey} from "./data/index.js";
 import type {ActionKey, ForgeDef, MoveDef, TerrainDef, WeaponDef} from "./data/index.js";
 import {S} from "./state.js";
 import type {WeaponSpec} from "./types.js";
@@ -40,6 +40,7 @@ export const wStrip = (c: WeaponSpec): string => {
 	);
 };
 export const wDesc = (c: WeaponSpec): string => [...new Set(c.ids.map((i) => W[i]!.d))].join(" ");
+export const foodName = (k: string): string => FOOD[k]!.n;
 export const elName = (e: string): string => (EL[e] ? EL[e].n : T[e]!.n);
 export const elColor = (e: string): string => (EL[e] ? EL[e].c : T[e]!.c);
 /** Names a list the way a card reads it out: one entry per distinct name, doubles counted off. */

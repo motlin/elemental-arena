@@ -3,7 +3,7 @@
 import {overStore} from "./bridge.js";
 import {logit} from "./cards.js";
 import {anchored, hurt} from "./combat.js";
-import {EL, ELBYT, T} from "./data/index.js";
+import {EL, ELBYT, FOOD, FOOD_EVERY, T} from "./data/index.js";
 import type {Offset} from "./data/index.js";
 import {elsOn, mvOwnedMask, wsOn} from "./lookups.js";
 import {afterMove, canStand, voidOut} from "./movement.js";
@@ -103,6 +103,7 @@ export function startMatch(): void {
 		cap: 5,
 		drain: 0,
 		bank: 0,
+		fed: 0,
 		rootTurns: 0,
 		darkTurns: 0,
 		litTurns: 0,
@@ -163,6 +164,7 @@ function beginTurn(): void {
 	p.cap = Math.max(0, p.bank + gain - p.drain);
 	p.nrg = p.cap;
 	p.drain = 0;
+	p.fed = 0;
 	S.sel = null;
 	S.mode = null;
 	S.phase = "act";
@@ -174,6 +176,10 @@ function beginTurn(): void {
 	const w = wk[(Math.random() * wk.length) | 0]!;
 	p.hand.push({uid: S.uid++, k: "el", id: e});
 	p.hand.push({uid: S.uid++, k: "w", ids: [w], els: []});
+	if (S.round % FOOD_EVERY === 0) {
+		const fk = Object.keys(FOOD);
+		p.hand.push({uid: S.uid++, k: "f", id: fk[(Math.random() * fk.length) | 0]!, born: S.round});
+	}
 	S.toss = S.chaos && S.round >= S.chaosRound && p.hand.length > 0;
 	S.tossPick = null;
 	S.handoff = S.priv;
@@ -232,7 +238,8 @@ export function endTurn(): void {
 		afterMove(p);
 	} // you come down where you stopped
 	if (p.alive) resolveStanding(p);
-	p.bank = p.nrg;
+	// what food gave is for the turn it was eaten on: only what was there before it carries
+	p.bank = Math.max(0, p.nrg - p.fed);
 	p.rootTurns = 0;
 	if (p.darkTurns > 0) p.darkTurns--;
 	if (p.litTurns > 0) p.litTurns--;

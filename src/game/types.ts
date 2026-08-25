@@ -40,7 +40,17 @@ export interface WepCard extends WeaponSpec {
 	mark?: boolean;
 }
 
-export type Card = ElCard | WepCard;
+/** A plate of food: eaten once, and spoiling from the round it was dealt. */
+export interface FoodCard {
+	uid: number;
+	k: "f";
+	id: string;
+	/** Round it was dealt, which is what it spoils against. */
+	born: number;
+	mark?: boolean;
+}
+
+export type Card = ElCard | WepCard | FoodCard;
 
 /** A fighter in the match. One per seat, in seat order. */
 export interface Player {
@@ -68,6 +78,8 @@ export interface Player {
 	drain: number;
 	/** Energy carried into the next turn. */
 	bank: number;
+	/** Energy eaten this turn, which is spent or lost when it ends. */
+	fed: number;
 	rootTurns: number;
 	darkTurns: number;
 	litTurns: number;

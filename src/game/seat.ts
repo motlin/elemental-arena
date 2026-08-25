@@ -284,6 +284,7 @@ const BARE: SeatTile = {t: null, life: 0, wid: 0};
 /** A card as its owner is handed it back: the same card, minus who has peeked at it. */
 function ownCard(c: Card): Card {
 	if (c.k === "el") return {uid: c.uid, k: "el", id: c.id};
+	if (c.k === "f") return {uid: c.uid, k: "f", id: c.id, born: c.born};
 	return {
 		uid: c.uid,
 		k: "w",
