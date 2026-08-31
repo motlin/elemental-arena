@@ -8,16 +8,22 @@
  * lets the online panel reach the match screen without the setup screen and the match screen
  * importing each other.
  *
- * A match opened here is dealt from the base arsenal, whatever this save has unlocked. Two devices
- * have two sets of unlocks and there is no rule yet for whose to use, so the server deals from
- * neither -- see src/game/intent.ts and the design note.
+ * A match opened here is dealt from this device's own picks -- the cards the This match panel has
+ * switched on for everybody -- held to `LOADOUT_MAX` of each kind. Two devices have two sets of
+ * unlocks and only one of them can be the one dealt from, so it is the host's, and the cap is what
+ * keeps that fair on the other end: three elements, three weapons and three pieces of footwork is a
+ * loadout somebody who has bought nothing can still read. Anything switched off for one seat alone
+ * stays here; online, everybody is dealt the same. See src/game/intent.ts.
  */
 
-import {lobbyStore} from "./bridge.js";
-import {SETUP_LIMITS} from "./intent.js";
+import {lobbyStore, menuStore} from "./bridge.js";
+import {MV} from "./data/index.js";
+import {LOADOUT_MAX, SETUP_LIMITS} from "./intent.js";
+import {elName, elsOn, moveOf, wepOf, wsOn} from "./lookups.js";
 import {playOnline} from "./online.js";
 import {S} from "./state.js";
 import {claimSeat, codeFrom, inviteFrom, matchLink, newCode, openRoom} from "../net/client.js";
+import type {LobbyLoadout, LobbyRow} from "./bridge.js";
 import type {MatchSetup} from "./intent.js";
 
 /** The match this device opened, or null while it has opened none. */
@@ -31,10 +37,18 @@ function clamp(value: number, [low, high]: readonly [number, number]): number {
 	return Math.max(low, Math.min(high, Math.round(value)));
 }
 
+/** The footwork switched on for everybody, which is the footwork every seat of a match would carry. */
+function movesOn(): string[] {
+	return Object.keys(MV).filter((key) => S.munlocked.includes(key) && !!(S.mvShared & MV[key]!.bit));
+}
+
 /**
- * The numbers the setup screen is showing, held to what the wire will take. The server refuses
- * anything out of range rather than pulling it into range, so a board the arena would deal locally
- * but the wire will not is worth clamping here rather than turning into a mystery error.
+ * The numbers the setup screen is showing, held to what the wire will take, and the cards it has
+ * switched on. The server refuses anything out of range rather than pulling it into range, so a
+ * board the arena would deal locally but the wire will not is worth clamping here rather than
+ * turning into a mystery error. The loadout is not clamped, because trimming it would be choosing
+ * for somebody which three of their cards they brought: `host` below refuses to open a match at all
+ * until the panel is inside the cap, and says which row is over it.
  */
 function setup(): MatchSetup {
 	return {
@@ -42,15 +56,55 @@ function setup(): MatchSetup {
 		dim: clamp(S.dim, SETUP_LIMITS.dim),
 		hp: clamp(S.hp, SETUP_LIMITS.hp),
 		priv: S.priv,
+		els: elsOn(null),
+		weps: wsOn(null),
+		moves: movesOn(),
 	};
 }
 
+function row(heading: string, keys: readonly string[], label: (key: string) => string): LobbyRow {
+	return {heading, names: keys.map(label), over: keys.length > LOADOUT_MAX};
+}
+
+/** What a match opened from here would be dealt from, as the panel lists it back. */
+function loadout(): LobbyLoadout {
+	const rows = [
+		row("Elements", elsOn(null), elName),
+		row("Weapons", wsOn(null), (key) => wepOf(key).n),
+		row("Footwork", movesOn(), (key) => moveOf(key).n),
+	];
+	return {rows, max: LOADOUT_MAX, ready: rows.every((one) => !one.over)};
+}
+
 export function drawLobby(): void {
-	lobbyStore.set({code, seats, opening, error, link: code === null ? null : matchLink(code), host, sit, join});
+	lobbyStore.set({
+		code,
+		seats,
+		opening,
+		error,
+		link: code === null ? null : matchLink(code),
+		loadout: loadout(),
+		host,
+		sit,
+		join,
+	});
+}
+
+/** Which rows are carrying more than the wire will take, named the way the panel heads them. */
+function overCap(): string[] {
+	return loadout()
+		.rows.filter((one) => one.over)
+		.map((one) => one.heading.toLowerCase());
 }
 
 function host(): void {
 	if (opening) return;
+	const over = overCap();
+	if (over.length > 0) {
+		error = `an online match takes ${LOADOUT_MAX} of each: switch some ${over.join(" and some ")} off first`;
+		drawLobby();
+		return;
+	}
 	opening = true;
 	error = null;
 	code = null;
@@ -116,3 +170,11 @@ function join(link: string): void {
 export function followHere(): void {
 	follow(globalThis.location.href, false);
 }
+
+/**
+ * The loadout this panel lists is the one the panel above it is editing, and that one publishes
+ * through src/game/menu.ts rather than through here. Listening for it is what keeps the two in step
+ * without the menu having to know an online panel exists: it draws itself, and this draws after it.
+ * `lobbyStore` compares loadouts card by card, so a redraw that changed nothing is not passed on.
+ */
+menuStore.subscribe(drawLobby);

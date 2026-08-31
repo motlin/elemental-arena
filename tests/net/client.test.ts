@@ -24,7 +24,7 @@ import {
 } from "../../src/net/client.js";
 import {PROTOCOL_VERSION} from "../../src/net/protocol.js";
 import type {LogEntry} from "../../src/game/types.js";
-import type {Intent} from "../../src/net/protocol.js";
+import type {Intent, MatchSetup} from "../../src/net/protocol.js";
 
 /** A socket the test holds both ends of: what the client sent, and what the room may say back. */
 class FakeSocket {
@@ -128,11 +128,14 @@ describe("a link to a match", () => {
 	});
 });
 
+/** The setup a host posts, which since the loadout cap carries the cards it is dealt from too. */
+const SETUP: MatchSetup = {seats: 2, dim: 9, hp: 60, priv: true, els: ["fire"], weps: ["dagger"], moves: []};
+
 describe("opening a match", () => {
 	it("asks the room for one and comes back with the seats it dealt, holding no token", async () => {
 		const fetched = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({seats: 2}));
 
-		const seats = await openRoom("quiet-forge", {seats: 2, dim: 9, hp: 60, priv: true});
+		const seats = await openRoom("quiet-forge", SETUP);
 
 		expect(seats).toBe(2);
 		expect(fetched.mock.calls[0]?.[0]).toBe("/api/match/quiet-forge/open");
@@ -141,7 +144,7 @@ describe("opening a match", () => {
 	it("says what the room said when the room said no", async () => {
 		vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({error: "already open"}, {status: 409}));
 
-		await expect(openRoom("quiet-forge", {seats: 2, dim: 9, hp: 60, priv: true})).rejects.toThrow("already open");
+		await expect(openRoom("quiet-forge", SETUP)).rejects.toThrow("already open");
 	});
 });
 

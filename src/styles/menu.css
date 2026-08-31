@@ -422,3 +422,23 @@ input[type="range"] {
 	flex: none;
 	white-space: nowrap;
 }
+
+/* What a match opened here would deal everybody, and the row of it that is over the cap. */
+.bringing {
+	margin-bottom: 12px;
+}
+.bringing label {
+	margin-bottom: 4px;
+}
+.bringing .lval {
+	font-size: 13px;
+}
+.bringlist {
+	font-family: var(--mono);
+	font-size: 11.5px;
+	color: var(--muted);
+	line-height: 1.5;
+}
+.bringing.over .lval {
+	color: #ff8f6b;
+}

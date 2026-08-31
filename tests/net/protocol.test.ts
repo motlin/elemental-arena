@@ -188,15 +188,58 @@ describe("what the room may say back", () => {
 });
 
 describe("the setup a host opens a match on", () => {
+	/** The loadout a host who sent none is dealt, which is what a save starts out holding. */
+	const STARTERS = {els: ["fire", "water", "earth"], weps: ["dagger", "sword", "crossbow"], moves: []};
+
 	it("fills in whatever the host left out", () => {
-		expect(parseSetup({})).toStrictEqual({seats: 2, dim: 9, hp: 60, priv: true});
-		expect(parseSetup({seats: 4, dim: 15})).toStrictEqual({seats: 4, dim: 15, hp: 60, priv: true});
+		expect(parseSetup({})).toStrictEqual({seats: 2, dim: 9, hp: 60, priv: true, ...STARTERS});
+		expect(parseSetup({seats: 4, dim: 15})).toStrictEqual({seats: 4, dim: 15, hp: 60, priv: true, ...STARTERS});
 	});
 
 	/* Out of range is refused rather than pulled into range: a host who asked for a 40x40 board
 	   should be told no, not handed a 25x25 one and left to wonder which they got. */
 	it("refuses a number the arena will not deal", () => {
 		const bad = [{seats: 1}, {seats: 9}, {dim: 4}, {dim: 26}, {hp: 0}, {hp: 401}, {priv: "yes"}, {cheat: true}];
+
+		expect(bad.map(parseSetup)).toStrictEqual(bad.map(() => null));
+	});
+
+	it("takes a loadout up to the cap, footwork and all", () => {
+		const asked = {els: ["fire", "frost"], weps: ["dagger"], moves: ["jump", "dash", "leap"]};
+
+		expect(parseSetup(asked)).toStrictEqual({seats: 2, dim: 9, hp: 60, priv: true, ...asked});
+	});
+
+	/* The cap is the whole point of this parser knowing what a card is. A host who has bought the
+	   whole shop is one fetch away from dealing all of it to somebody who has bought none of it, and
+	   the room is the only end of the wire in a position to say no. */
+	it("refuses a loadout over the cap", () => {
+		const bad = [
+			{els: ["fire", "water", "earth", "frost"]},
+			{weps: ["dagger", "sword", "crossbow", "spear"]},
+			{moves: ["jump", "dash", "leap", "float"]},
+		];
+
+		expect(bad.map(parseSetup)).toStrictEqual(bad.map(() => null));
+	});
+
+	/* A hand has to be dealt out of something, so those two rows have a floor as well as a ceiling.
+	   Footwork does not: a match where nobody has bought any is the one every save starts on. */
+	it("refuses a loadout with nothing to deal, and takes one with no footwork", () => {
+		expect(parseSetup({els: []})).toBeNull();
+		expect(parseSetup({weps: []})).toBeNull();
+		expect(parseSetup({moves: []})?.moves).toStrictEqual([]);
+	});
+
+	it("refuses a card the arena has never heard of, and the same card twice", () => {
+		const bad = [
+			{els: ["fire", "cheese"]},
+			{els: ["fire", "fire"]},
+			{weps: ["dagger", 7]},
+			{moves: ["jump", "moonwalk"]},
+			{moves: ["jump", "jump"]},
+			{els: "fire"},
+		];
 
 		expect(bad.map(parseSetup)).toStrictEqual(bad.map(() => null));
 	});

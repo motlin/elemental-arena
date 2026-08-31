@@ -3,6 +3,7 @@ import {describe, it, expect, vi} from "vitest";
 import {fireEvent, render, screen} from "@testing-library/react";
 import {OnlinePanel} from "../../src/ui/OnlinePanel.js";
 import {OnlineStripView} from "../../src/ui/OnlineStrip.js";
+import {sampleBringing} from "../../src/ui/setupSamples.js";
 import type {LobbyView} from "../../src/game/bridge.js";
 
 function panel(over: Partial<LobbyView> = {}): LobbyView {
@@ -12,6 +13,7 @@ function panel(over: Partial<LobbyView> = {}): LobbyView {
 		error: null,
 		link: null,
 		seats: 0,
+		loadout: sampleBringing(),
 		host: vi.fn<() => void>(),
 		sit: vi.fn<() => void>(),
 		join: vi.fn<(link: string) => void>(),
@@ -81,6 +83,35 @@ describe("the online panel", () => {
 		render(<OnlinePanel {...panel({error: "already open"})} />);
 
 		expect(screen.getByText("already open")).toBeDefined();
+	});
+
+	/* Everybody at the table plays the host's cards, so the host has to be able to see which ones
+	   they are before sending the link rather than after. */
+	it("lists what everybody would be dealt, and says so when that is nothing", () => {
+		render(<OnlinePanel {...panel()} />);
+
+		expect(screen.getByText("Fire, Water, Earth")).toBeDefined();
+		expect(screen.getByText("Dagger, Sword, Crossbow")).toBeDefined();
+		expect(screen.getByText("none")).toBeDefined();
+	});
+
+	it("spends the host button while a row is over the cap, and says what the cap is", () => {
+		const loadout = sampleBringing({
+			rows: [
+				{heading: "Elements", names: ["Fire", "Water", "Earth", "Frost"], over: true},
+				{heading: "Weapons", names: ["Dagger"], over: false},
+				{heading: "Footwork", names: [], over: false},
+			],
+			ready: false,
+		});
+		const view = panel({loadout});
+		render(<OnlinePanel {...view} />);
+
+		fireEvent.click(screen.getByText("Host a match"));
+
+		expect(screen.getByText("Host a match").hasAttribute("disabled")).toBe(true);
+		expect(screen.getByText("4, 3 allowed")).toBeDefined();
+		expect(view.host).not.toHaveBeenCalled();
 	});
 });
 

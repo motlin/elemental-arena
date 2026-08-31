@@ -1,5 +1,5 @@
 import {useState, type ReactElement} from "react";
-import type {LobbyView} from "../game/bridge.js";
+import type {LobbyLoadout, LobbyRow, LobbyView} from "../game/bridge.js";
 
 /**
  * Puts a link on the clipboard where there is one. A page served over plain http has none, and nor
@@ -14,11 +14,42 @@ function copy(url: string): void {
 	}
 }
 
+/** One row of the loadout: what would be brought, or the word for having brought none of that kind. */
+function Row({row, max}: {readonly row: LobbyRow; readonly max: number}): ReactElement {
+	return (
+		<div className={row.over ? "field bringing over" : "field bringing"}>
+			<label>
+				<span className="lname">{row.heading}</span>
+				<span className="lval">{row.over ? `${row.names.length}, ${max} allowed` : row.names.length}</span>
+			</label>
+			<span className="bringlist">{row.names.length === 0 ? "none" : row.names.join(", ")}</span>
+		</div>
+	);
+}
+
+/**
+ * What a match opened from here would deal everybody. It is the same list for every seat, host
+ * included: the other end has its own arsenal and its own switches, and only one of the two can be
+ * the one a match is dealt from.
+ */
+function Loadout({loadout}: {readonly loadout: LobbyLoadout}): ReactElement {
+	return (
+		<>
+			<p className="loadhint">
+				{`Everybody is dealt what you bring, so an online match takes ${loadout.max} of each. Switch the rest off in This match above.`}
+			</p>
+			{loadout.rows.map((row) => (
+				<Row key={row.heading} row={row} max={loadout.max} />
+			))}
+		</>
+	);
+}
+
 /**
  * The online panel, posed from plain props so Storybook and tests can look at it without a match
  * server behind it.
  */
-export function OnlinePanel({code, opening, error, link, seats, host, sit, join}: LobbyView): ReactElement {
+export function OnlinePanel({code, opening, error, link, seats, loadout, host, sit, join}: LobbyView): ReactElement {
 	const [pasted, setPasted] = useState("");
 
 	return (
@@ -28,7 +59,8 @@ export function OnlinePanel({code, opening, error, link, seats, host, sit, join}
 				Open a match, then send everybody the same link. Whoever follows it is dealt whichever seat is still
 				free, so two tabs of one browser hold two different seats.
 			</p>
-			<button type="button" className="ghost menubtn" disabled={opening} onClick={host}>
+			<Loadout loadout={loadout} />
+			<button type="button" className="ghost menubtn" disabled={opening || !loadout.ready} onClick={host}>
 				{opening ? "Opening a match..." : "Host a match"}
 			</button>
 			{code !== null && link !== null && (

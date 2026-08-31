@@ -47,25 +47,58 @@ import type {MatchSnapshot} from "./snapshot.js";
 import {S, teamsAlive} from "./state.js";
 import type {Player} from "./types.js";
 
-/** The few numbers a match is opened on. Everything else is the arena's own defaults. */
+/**
+ * The few numbers a match is opened on, and the loadout it is dealt from. Everything else is the
+ * arena's own defaults.
+ */
 export interface MatchSetup {
 	readonly seats: number;
 	readonly dim: number;
 	readonly hp: number;
 	/** False plays the match with every hand face up, which is the one way to watch a whole game. */
 	readonly priv: boolean;
+	/** The elements every seat is dealt, and the only ones its fusions can be mixed out of. */
+	readonly els: readonly string[];
+	/** The weapons every seat is dealt. */
+	readonly weps: readonly string[];
+	/** The footwork every seat carries, which may be none at all. */
+	readonly moves: readonly string[];
 }
 
 /** What each of those numbers may be, which the wire checks a client's setup against. */
 export const SETUP_LIMITS = {seats: [2, 8], dim: [5, 25], hp: [10, 400]} as const;
 
-export const DEFAULT_SETUP: MatchSetup = {seats: 2, dim: 9, hp: 60, priv: true};
+/**
+ * How many of each kind of card an online match may be opened on.
+ *
+ * Hot-seat has no such cap and wants none: one save is playing itself, so a treasury that has
+ * bought the whole shop is welcome to deal the whole shop. Online is two strangers and one arsenal,
+ * and the arsenal is whichever one the host is sitting in front of. A small fixed hand is what
+ * makes that fair to the other end -- three elements, three weapons and three pieces of footwork is
+ * a loadout somebody who has bought nothing can read at a glance and still recognise as the game,
+ * rather than forty cards they have never seen chosen for them by a stranger.
+ */
+export const LOADOUT_MAX = 3;
+
+export const DEFAULT_SETUP: MatchSetup = {
+	seats: 2,
+	dim: 9,
+	hp: 60,
+	priv: true,
+	els: [...BASE],
+	weps: [...WBASE],
+	moves: [],
+};
 
 /**
  * Deals a fresh match and lifts it straight back out, which is the only way a match is made on a
- * server. The arsenal is the base one every save starts with: a match played across two devices has
- * two sets of unlocks behind it and no rule yet for whose to deal from, so it deals from neither.
- * See the design note for what negotiating that would look like.
+ * server.
+ *
+ * The loadout comes off the wire rather than out of this file, because a match played across two
+ * devices has two sets of unlocks behind it and the arena cannot see either. Whoever opened the
+ * match sends the one it is dealt from, held to `LOADOUT_MAX` of each kind, and every seat is dealt
+ * the same: nothing is switched off for one seat and on for another, and nobody is playing cards
+ * their rival was not also given.
  */
 export function openMatch(setup: MatchSetup): MatchSnapshot {
 	S.np = setup.seats;
@@ -74,10 +107,11 @@ export function openMatch(setup: MatchSetup): MatchSnapshot {
 	S.priv = setup.priv;
 	S.names = ["", "", "", "", "", "", "", ""];
 	S.cols = [0, 1, 2, 3, 4, 5, 6, 7];
-	S.mv = [0, 0, 0, 0, 0, 0, 0, 0];
-	S.munlocked = [];
-	S.unlocked = [...BASE];
-	S.wunlocked = [...WBASE];
+	S.munlocked = [...setup.moves];
+	S.mvShared = setup.moves.reduce((mask, key) => mask | (MV[key]?.bit ?? 0), 0);
+	S.mv = Array.from({length: 8}, () => S.mvShared);
+	S.unlocked = [...setup.els];
+	S.wunlocked = [...setup.weps];
 	S.elOff = [];
 	S.wOff = [];
 	S.pOff = {};

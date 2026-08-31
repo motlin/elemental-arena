@@ -7,10 +7,12 @@
  * never leaves a match sitting there. It loads the match the message is about, works it, lifts it
  * back out, and stores it. Nothing is left behind for the next match to find.
  *
- * The split is between what the match is and what the device is. Coins, unlocks, the fusion codex
- * and the theme belong to whoever is playing, and never reach the server. The unlocked and
- * switched-off lists do come over, because they are what the deal is made from, and the deal is the
- * server's job -- see the design note for why the host's lists are the ones used.
+ * The split is between what the match is and what the device is. Coins, the fusion codex and the
+ * theme belong to whoever is playing, and never reach the server. The unlocked and switched-off
+ * lists do come over, because they are what the deal is made from, and the deal is the server's
+ * job. What they hold online is not either device's arsenal but the loadout the match was opened
+ * on: whoever hosted sent three of each kind at most, and every seat is dealt from those -- see
+ * `openMatch` in src/game/intent.ts.
  *
  * The match log and the replay frames stay out of the seat views (src/game/seat.ts) but the log
  * stays in the snapshot, because the game-over screen is written from it. The frames are the log

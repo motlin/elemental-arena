@@ -118,6 +118,18 @@ share local storage and would otherwise fight over a single seat. So two plain t
 other with no incognito window involved, and a reload sits back down rather than asking for another
 seat.
 
+**An online match takes three elements, three weapons and three pieces of footwork, and no more.**
+Hot-seat deals from whatever the save has bought, because one save is playing itself. Online there
+are two arsenals and only one of them can be the one a match is dealt from, so it is the host's --
+the cards the This match panel has switched on for everybody -- and the cap is what keeps that fair
+on the other end. Three of each is the game as it comes out of the box, so a save that has bought
+nothing can already host. A treasury that has outgrown the cap is told which row to cut rather than
+having three of its cards picked for it: `LOADOUT_MAX` in `src/game/intent.ts` is the number, the
+online panel spends its own Host button until the rows fit, and `parseSetup` in
+`src/net/protocol.ts` refuses an over-cap loadout at the room, because the panel is not the only
+thing that can post to `/open`. Everybody at the table is dealt the same list, host included, and
+anything switched off for one seat alone stays on the device that switched it off.
+
 ```sh
 just multiplayer         # the site and the match server on miniflare, no Cloudflare account involved
 just multiplayer-check   # opens a match on it and proves the two seats are told different things

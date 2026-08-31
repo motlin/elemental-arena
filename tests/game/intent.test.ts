@@ -1,9 +1,10 @@
 import {describe, it, expect} from "vitest";
 import {MV, T} from "../../src/game/data/index.js";
-import {applyIntent} from "../../src/game/intent.js";
+import {applyIntent, openMatch} from "../../src/game/intent.js";
 import {startMatch} from "../../src/game/match.js";
 import {exportMatch} from "../../src/game/snapshot.js";
 import {S, idx} from "../../src/game/state.js";
+import type {MatchSetup} from "../../src/game/intent.js";
 import type {Player} from "../../src/game/types.js";
 
 /**
@@ -570,5 +571,57 @@ describe("what a refusal is allowed to say", () => {
 			{ok: false, why: "the arena will not take that move"},
 			{ok: false, why: "the arena will not take that move"},
 		]);
+	});
+});
+
+/**
+ * Opening a match, which is the one thing on this side of the wire that decides what a whole
+ * table plays with. Hot-seat deals from whatever the save has bought; online there are two saves
+ * and only one of them can be the one dealt from, so the host sends a loadout and everybody --
+ * host included -- is dealt the same three of each kind.
+ */
+describe("opening a match on a loadout", () => {
+	/** One element and one weapon, which makes every card either seat is dealt a known one. */
+	const SETUP: MatchSetup = {
+		seats: 2,
+		dim: 9,
+		hp: 60,
+		priv: true,
+		els: ["frost"],
+		weps: ["spear"],
+		moves: ["jump", "dash"],
+	};
+
+	it("deals every seat out of the loadout it was opened on and nothing else", () => {
+		openMatch(SETUP);
+
+		const cards = S.players.flatMap((p) => p.hand);
+		expect(cards.length).toBeGreaterThan(0);
+		expect(cards.every((c) => (c.k === "el" ? c.id === "frost" : c.ids.every((w) => w === "spear")))).toBe(true);
+	});
+
+	it("gives every seat the footwork it was sent, and only that", () => {
+		openMatch(SETUP);
+
+		const brought = MV["jump"]!.bit | MV["dash"]!.bit;
+		expect(S.players.map((p) => p.mv)).toStrictEqual([brought, brought]);
+	});
+
+	it("deals no footwork when the host brought none, which is the game as it comes", () => {
+		openMatch({...SETUP, moves: []});
+
+		expect(S.players.map((p) => p.mv)).toStrictEqual([0, 0]);
+	});
+
+	/* Whatever this device had switched off for one seat alone is its own business. Online every
+	   seat is dealt the same list, so nobody is playing cards their rival was not also given. */
+	it("carries none of the host's own per-seat switches", () => {
+		S.elOff = ["frost"];
+		S.wOff = ["spear"];
+		S.pOff = {0: {el: ["frost"], w: []}};
+
+		openMatch(SETUP);
+
+		expect([S.elOff, S.wOff, S.pOff]).toStrictEqual([[], [], {}]);
 	});
 });

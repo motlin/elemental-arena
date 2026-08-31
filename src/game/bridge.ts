@@ -78,6 +78,24 @@ function sameOnline(a: OnlineView | null, b: OnlineView | null): boolean {
 
 export const onlineStore = createStore<OnlineView | null>(null, sameOnline);
 
+/** One kind of card an online match would be dealt from, as the online panel reads it back. */
+export interface LobbyRow {
+	readonly heading: string;
+	/** What is switched on for everybody, by name, or empty for a row nothing is switched on in. */
+	readonly names: readonly string[];
+	/** True when more are switched on than an online match will take, which is what blocks hosting. */
+	readonly over: boolean;
+}
+
+/** What this device would bring to a match it opened, and the cap every row of it is held to. */
+export interface LobbyLoadout {
+	readonly rows: readonly LobbyRow[];
+	/** How many of each kind an online match may be opened on. */
+	readonly max: number;
+	/** True while no row is over the cap, which is the only time a match may be opened at all. */
+	readonly ready: boolean;
+}
+
 /**
  * The online panel on the setup screen: opening a match, the link it deals, and the way into
  * somebody else's.
@@ -96,6 +114,8 @@ export interface LobbyView {
 	readonly link: string | null;
 	/** How many seats that match was dealt, which is how many people the link is good for. */
 	readonly seats: number;
+	/** The cards a match opened from here would be dealt from, and whether the wire will take them. */
+	readonly loadout: LobbyLoadout;
 	readonly host: () => void;
 	/** Asks the match this device opened for a seat, which is how the host plays in it. */
 	readonly sit: () => void;
@@ -103,10 +123,29 @@ export interface LobbyView {
 	readonly join: (link: string) => void;
 }
 
+function sameRow(a: LobbyRow, b: LobbyRow | undefined): boolean {
+	if (b === undefined || a.heading !== b.heading || a.over !== b.over) return false;
+	return a.names.length === b.names.length && a.names.every((name, i) => name === b.names[i]);
+}
+
+/**
+ * The loadout is rebuilt from `S` on every menu redraw, so it is compared card by card rather than
+ * by identity: switching a chip on and straight off again is not news for this panel to hear.
+ */
+function sameLoadout(a: LobbyLoadout, b: LobbyLoadout): boolean {
+	if (a.max !== b.max || a.ready !== b.ready || a.rows.length !== b.rows.length) return false;
+	return a.rows.every((row, i) => sameRow(row, b.rows[i]));
+}
+
 function sameLobby(a: LobbyView | null, b: LobbyView | null): boolean {
 	if (a === null || b === null) return a === b;
 	return (
-		a.code === b.code && a.opening === b.opening && a.error === b.error && a.link === b.link && a.seats === b.seats
+		a.code === b.code &&
+		a.opening === b.opening &&
+		a.error === b.error &&
+		a.link === b.link &&
+		a.seats === b.seats &&
+		sameLoadout(a.loadout, b.loadout)
 	);
 }
 

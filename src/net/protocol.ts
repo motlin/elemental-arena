@@ -12,7 +12,8 @@
  */
 
 import {SAY_MAX} from "../game/chat.js";
-import {DEFAULT_SETUP, SETUP_LIMITS} from "../game/intent.js";
+import {EL, MV, W} from "../game/data/index.js";
+import {DEFAULT_SETUP, LOADOUT_MAX, SETUP_LIMITS} from "../game/intent.js";
 import type {Intent, MatchSetup} from "../game/intent.js";
 import type {SeatState} from "../game/seat.js";
 import type {LogEntry} from "../game/types.js";
@@ -295,9 +296,35 @@ function within(value: unknown, [low, high]: readonly [number, number], fallback
 }
 
 /**
+ * One of the three lists a match is dealt from, or the default when the host left it out.
+ *
+ * The cap is the point of this function and it is checked here rather than anywhere friendlier,
+ * because the setup screen is not the only thing that can post to `/open`: a host who has bought
+ * the whole shop is one `fetch` away from dealing all of it to somebody who has bought none of it,
+ * and the room is the only end of that wire in a position to say no. Everything else it checks is
+ * the same unforgiving reading the rest of this file takes -- a key the arena has no card for, or
+ * the same card twice, is a client the server does not understand rather than one to be tidied up
+ * after. `least` is 1 for the two kinds a hand is dealt out of and 0 for footwork, which a match is
+ * perfectly playable without.
+ */
+function cards(
+	value: unknown,
+	table: Record<string, unknown>,
+	least: number,
+	fallback: readonly string[],
+): readonly string[] | null {
+	if (value === undefined) return fallback;
+	if (!Array.isArray(value) || value.length < least || value.length > LOADOUT_MAX) return null;
+	const keys: string[] = value.filter((key): key is string => typeof key === "string" && Object.hasOwn(table, key));
+	if (keys.length !== value.length || new Set(keys).size !== keys.length) return null;
+	return keys;
+}
+
+/**
  * The setup a host asks for, clamped to what the arena will actually deal. Anything out of range is
  * refused rather than pulled into range: a host who asked for a 40x40 board should be told no, not
- * handed a 25x25 one and left to wonder.
+ * handed a 25x25 one and left to wonder. A loadout over the cap is refused for the same reason and
+ * one better -- trimming it would pick, silently, which three of somebody's cards they brought.
  */
 export function parseSetup(value: unknown): MatchSetup | null {
 	if (!isRecord(value)) return null;
@@ -306,6 +333,10 @@ export function parseSetup(value: unknown): MatchSetup | null {
 	const dim = within(value["dim"], SETUP_LIMITS.dim, DEFAULT_SETUP.dim);
 	const hp = within(value["hp"], SETUP_LIMITS.hp, DEFAULT_SETUP.hp);
 	const priv = value["priv"] === undefined ? DEFAULT_SETUP.priv : value["priv"];
+	const els = cards(value["els"], EL, 1, DEFAULT_SETUP.els);
+	const weps = cards(value["weps"], W, 1, DEFAULT_SETUP.weps);
+	const moves = cards(value["moves"], MV, 0, DEFAULT_SETUP.moves);
 	if (seats === null || dim === null || hp === null || typeof priv !== "boolean") return null;
-	return {seats, dim, hp, priv};
+	if (els === null || weps === null || moves === null) return null;
+	return {seats, dim, hp, priv, els, weps, moves};
 }

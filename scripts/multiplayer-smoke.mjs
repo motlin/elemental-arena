@@ -124,10 +124,20 @@ async function run() {
 		String(door.status),
 	);
 
+	/* The loadout cap, held by the room rather than only by the panel that shows it. A host who has
+	   bought the whole shop is one fetch away from dealing all of it to somebody who has bought none
+	   of it, and this end of the wire is the only one in a position to say no. */
+	const greedy = await fetch(`${BASE}/api/match/${CODE}-too-many/open`, {
+		method: "POST",
+		headers: {"content-type": "application/json"},
+		body: JSON.stringify({seats: 2, els: ["fire", "water", "earth", "frost"]}),
+	});
+	check("a loadout over the cap is turned away", greedy.status === 400, String(greedy.status));
+
 	const opened = await fetch(`${BASE}/api/match/${CODE}/open`, {
 		method: "POST",
 		headers: {"content-type": "application/json"},
-		body: JSON.stringify({seats: 2, dim: 9}),
+		body: JSON.stringify({seats: 2, dim: 9, els: ["frost"], weps: ["spear"], moves: ["jump"]}),
 	});
 	const dealt = await opened.json();
 	check(
@@ -177,6 +187,14 @@ async function run() {
 	const myUids = mine.you.hand.map((c) => c.uid);
 	const theirUids = theirs.you.hand.map((c) => c.uid);
 	check("both seats were dealt a hand", myUids.length > 0 && theirUids.length > 0);
+	/* Both hands out of the loadout the host opened on, and nothing out of either device's own
+	   unlocks: the arsenal a match is dealt from is the one that came over the wire. */
+	const dealtCards = [...mine.you.hand, ...theirs.you.hand];
+	check(
+		"both hands are dealt out of the loadout the match was opened on",
+		dealtCards.every((c) => (c.k === "el" ? c.id === "frost" : c.ids.every((w) => w === "spear"))),
+		JSON.stringify(dealtCards.map((c) => (c.k === "el" ? c.id : c.ids.join("+")))),
+	);
 	check(
 		"neither seat's cards appear in the other's messages",
 		!first.raw.some((line) => theirUids.some((uid) => line.includes(`"uid":${uid}`))) &&

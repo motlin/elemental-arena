@@ -10,6 +10,8 @@ import type {
 	ArsenalSetup,
 	LoadoutChip,
 	LoadoutSetup,
+	LobbyLoadout,
+	LobbyRow,
 	LobbyView,
 	SeatRow,
 	ShopShelf,
@@ -212,6 +214,16 @@ export function sampleArsenal(coins: number, bought: readonly string[]): Arsenal
 	};
 }
 
+/** A loadout inside the cap, which is what the three starting elements and weapons already are. */
+export function sampleBringing(over: Partial<LobbyLoadout> = {}): LobbyLoadout {
+	const rows: LobbyRow[] = [
+		{heading: "Elements", names: ["Fire", "Water", "Earth"], over: false},
+		{heading: "Weapons", names: ["Dagger", "Sword", "Crossbow"], over: false},
+		{heading: "Footwork", names: [], over: false},
+	];
+	return {rows, max: 3, ready: true, ...over};
+}
+
 /** The online panel, posed either before a match has been opened or with one already dealt. */
 export function sampleLobby(code: string | null = null): LobbyView {
 	return {
@@ -220,6 +232,7 @@ export function sampleLobby(code: string | null = null): LobbyView {
 		error: null,
 		link: code === null ? null : `https://elemental.example/?code=${code}`,
 		seats: 2,
+		loadout: sampleBringing(),
 		host: fn(),
 		sit: fn(),
 		join: fn(),
