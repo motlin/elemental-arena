@@ -48,7 +48,7 @@
 		"@types/react": "^19.2.18",
 		"@types/react-dom": "^19.2.4",
 		"@vitejs/plugin-react": "^6.1.0",
-		"eslint": "^10.8.1",
+		"eslint": "^10.9.1",
 		"eslint-plugin-storybook": "^10.5.10",
 		"fallow": "^3.18.0",
 		"jiti": "^2.7.0",
