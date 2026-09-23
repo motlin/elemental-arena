@@ -13,7 +13,7 @@ install:
 
 # Run dev server
 dev *args: install
-    vp dev {{args}}
+    vp dev {{ args }}
 
 # Run linter
 lint: install
@@ -21,15 +21,16 @@ lint: install
 
 # Run formatter
 format: install
+    pre-commit run just-fmt --all-files
     vp fmt {{ if ci != "" { "--check" } else { "" } }}
 
 # Run checks (format + lint + typecheck)
 check *args: install
-    vp run --cache check {{ if ci != "" { "" } else { "--fix" } }} {{args}}
+    vp run --cache check {{ if ci != "" { "" } else { "--fix" } }} {{ args }}
 
 # Run tests
 test *args: install
-    vp run --cache test:run {{args}}
+    vp run --cache test:run {{ args }}
 
 # Type-check the project
 typecheck: install
@@ -50,7 +51,7 @@ fallow-check: install
 
 # Run the site and the match server locally on miniflare, with no Cloudflare account involved
 multiplayer *args: build
-    vp run multiplayer {{args}}
+    vp run multiplayer {{ args }}
 
 # Open a match on a local match server and prove the two seats are told different things
 multiplayer-check: build
@@ -62,7 +63,7 @@ online-check: build
 
 # Run Storybook
 storybook *args: install
-    vp run storybook {{args}}
+    vp run storybook {{ args }}
 
 # Run pre-commit hooks on all files (same as CI's pre-commit job)
 pre-commit: install
