@@ -27,7 +27,7 @@
 		"prepare": "VITE_GIT_HOOKS=0 vp config"
 	},
 	"dependencies": {
-		"agentation": "^3.1.1",
+		"agentation": "^3.1.2",
 		"lucide-react": "^1.47.0",
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0"
