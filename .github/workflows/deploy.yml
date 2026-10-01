@@ -51,6 +51,9 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://elemental-arena.motlin.com
     steps:
       # wrangler.toml and worker/ come from the repo; dist/ is what the build job just made.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,8 +79,10 @@ jobs:
 
       # Straight from node_modules rather than through cloudflare/wrangler-action -- see preview.yml
       # for why the action cannot install wrangler in this repo.
+      # The custom domain is a flag here rather than a route in wrangler.toml because preview.yml
+      # deploys the same config under another name, and every preview would claim the domain too.
       - name: Deploy the Worker
-        run: node_modules/.bin/wrangler deploy
+        run: node_modules/.bin/wrangler deploy --domain elemental-arena.motlin.com
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
