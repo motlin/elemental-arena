@@ -1,4 +1,4 @@
-import {readFileSync} from "node:fs";
+import {existsSync, readFileSync} from "node:fs";
 import path from "node:path";
 import {describe, it, expect} from "vitest";
 
@@ -17,5 +17,20 @@ describe("static markup", () => {
 
 	it("leaves that root empty for React to fill", () => {
 		expect(html).toContain('<div id="app"></div>');
+	});
+
+	/* The tab, a bookmark, and a phone's home screen each want an icon, and Vite copies public/ to the
+	   site root, so every icon the page names has to be a file in public/. */
+	it("links icons that ship with the site", () => {
+		const icons = [...html.matchAll(/<link rel="(icon|apple-touch-icon)"[^>]*href="\/([^"]*)"/g)].map((m) => [
+			m[1],
+			m[2],
+			existsSync(path.join(import.meta.dirname, "..", "..", "public", m[2] ?? "")),
+		]);
+
+		expect(icons).toStrictEqual([
+			["icon", "favicon.svg", true],
+			["apple-touch-icon", "apple-touch-icon.png", true],
+		]);
 	});
 });
