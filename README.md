@@ -147,6 +147,9 @@ cannot define a Durable Object class, which is why this is not a Pages project a
 reasoning and the open questions are in `.llm/plans/2026-08-05-online-multiplayer.md` and
 `.llm/plans/2026-08-12-online-multiplayer-finish.md`.
 
+Production is at `https://elemental-arena.motlin.com`, attached as a custom domain by
+`.github/workflows/deploy.yml`.
+
 Pull requests get the whole thing at `https://elemental-arena-pr-<number>.cmotlin.workers.dev`,
 published by `.github/workflows/preview.yml` and deleted again on close.
 
