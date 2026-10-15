@@ -96,8 +96,8 @@ importers:
         specifier: ^0.23.3
         version: 0.23.3
       playwright:
-        specifier: ^1.63.0
-        version: 1.63.0
+        specifier: ^1.64.0
+        version: 1.64.0
       storybook:
         specifier: ^10.6.1
         version: 10.6.1(@types/react@19.3.0)(react@19.3.0)(vite-plus@0.2.9(@types/node@26.6.4)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2)(typescript@7.0.2))
@@ -4720,13 +4720,13 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright-core@1.63.0:
-    resolution: {integrity: sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==}
+  playwright-core@1.64.0:
+    resolution: {integrity: sha512-T9r+MZkTECl2+oUcZ26YgZzTrYidTsIhYYkJix+6iDOymOb1FB2RLLSOxRGnZGv5DStt+aduIVbt+E8WygXYpg==}
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.63.0:
-    resolution: {integrity: sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==}
+  playwright@1.64.0:
+    resolution: {integrity: sha512-kVzTnYFYEyQ9RGzBjNCd2+yEqWmVbxl3AHPynv3qQ6JTjv4a+kwRcnqQwIpuP3NnrnIrE/Q6wWAIAvMfIE2/Yg==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -7058,7 +7058,7 @@ snapshots:
       jest-serializer-html: 7.1.0
       jest-watch-typeahead: 3.0.1(jest@30.4.2(@types/node@26.6.4))
       nyc: 15.1.0
-      playwright: 1.63.0
+      playwright: 1.64.0
       playwright-core: 1.60.0
       rimraf: 3.0.2
       storybook: 10.6.1(@types/react@19.3.0)(react@19.3.0)(vite-plus@0.2.9(@types/node@26.6.4)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2)(typescript@7.0.2))
@@ -9942,11 +9942,11 @@ snapshots:
 
   playwright-core@1.60.0: {}
 
-  playwright-core@1.63.0: {}
+  playwright-core@1.64.0: {}
 
-  playwright@1.63.0:
+  playwright@1.64.0:
     dependencies:
-      playwright-core: 1.63.0
+      playwright-core: 1.64.0
 
   pngjs@7.0.0: {}
 
