@@ -33,8 +33,8 @@ importers:
         version: 19.3.0(react@19.3.0)
     devDependencies:
       '@chromatic-com/storybook':
-        specifier: ^5.4.0
-        version: 5.4.0(storybook@10.6.1(@types/react@19.3.0)(react@19.3.0)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2)(typescript@7.0.2)))
+        specifier: ^5.5.0
+        version: 5.5.0(storybook@10.6.1(@types/react@19.3.0)(react@19.3.0)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2)(typescript@7.0.2)))
       '@cloudflare/workers-types':
         specifier: ^5.20261012.1
         version: 5.20261012.1
@@ -383,8 +383,8 @@ packages:
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
 
-  '@chromatic-com/storybook@5.4.0':
-    resolution: {integrity: sha512-U4Rny8H6BBa8uiRMnL0CFZyqZ0MWogN/szlMugsInfSnX+PtrLCVp2kjrvaG9bv6X5xSgHpnmepOzLm8+QFseA==}
+  '@chromatic-com/storybook@5.5.0':
+    resolution: {integrity: sha512-fMdXRGtX8ebQ0+fBQ4GME0x1X6GvH0EYX5V91o1fFY/VGEyTWZsp5dEciYGGuVUu/2xd9xDoDQ6FB82pU9akeg==}
     engines: {node: '>=20.0.0', yarn: '>=1.22.18'}
     peerDependencies:
       storybook: ^0.0.0-0 || ^10.1.0 || ^10.1.0-0 || ^10.2.0-0 || ^10.3.0-0 || ^10.4.0-0 || ^10.5.0-0 || ^10.6.0-0 || ^11.0.0-0
@@ -3046,8 +3046,8 @@ packages:
     resolution: {integrity: sha512-PAJdDJusoxnwm1VwW07VWwUN1sl7smmC3OKggvndJFadxxDRyFJBX/ggnu/KE4kQAB7a3Dp8f/YXC1FlUprWmA==}
     engines: {node: '>= 16'}
 
-  chromatic@18.10.1:
-    resolution: {integrity: sha512-oeCv4HvMrZPB7SzCD9yuzAPgB4c/TfhqLzDn1/K7dIYGvF/mWhOrwDa5sXHIkaXFJ+mYx9rMKy9fPShWPujH5Q==}
+  chromatic@18.13.0:
+    resolution: {integrity: sha512-AdN6tHB9anx/sdJKIMQ7JkQQV2RhVe1iTvXOFLlwFBRecbl9rp50h/25N0sZJDdpx22gG7Y81HoUALOORfMuxQ==}
     engines: {node: '>=22.0.0'}
     hasBin: true
     peerDependencies:
@@ -5616,10 +5616,10 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@chromatic-com/storybook@5.4.0(storybook@10.6.1(@types/react@19.3.0)(react@19.3.0)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2)(typescript@7.0.2)))':
+  '@chromatic-com/storybook@5.5.0(storybook@10.6.1(@types/react@19.3.0)(react@19.3.0)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2)(typescript@7.0.2)))':
     dependencies:
       '@neoconfetti/react': 1.0.0
-      chromatic: 18.10.1
+      chromatic: 18.13.0
       jsonfile: 6.2.1
       storybook: 10.6.1(@types/react@19.3.0)(react@19.3.0)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.2)(typescript@7.0.2))
       strip-ansi: 7.2.0
@@ -7797,7 +7797,7 @@ snapshots:
 
   check-error@2.1.3: {}
 
-  chromatic@18.10.1:
+  chromatic@18.13.0:
     dependencies:
       semver: 7.8.5
 
