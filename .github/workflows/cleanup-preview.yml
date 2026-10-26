@@ -35,7 +35,7 @@ jobs:
       # `npm i wrangler@4` ends in EUNSUPPORTEDPROTOCOL.
       # Nothing is cached in a job that holds the Cloudflare credentials: a poisoned cache would be
       # a poisoned deploy.
-      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
         with:
           cache: false
         env:
