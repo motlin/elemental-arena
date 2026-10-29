@@ -39,8 +39,8 @@ importers:
         specifier: ^5.20261022.1
         version: 5.20261022.1
       '@storybook/addon-a11y':
-        specifier: ^10.6.2
-        version: 10.6.2(storybook@10.6.3(@types/react@19.3.0)(react@19.3.1)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.3)(typescript@7.0.2)))
+        specifier: ^10.6.3
+        version: 10.6.3(storybook@10.6.3(@types/react@19.3.0)(react@19.3.1)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.3)(typescript@7.0.2)))
       '@storybook/addon-docs':
         specifier: ^10.6.3
         version: 10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(react@19.3.1)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.3)(typescript@7.0.2)))
@@ -1768,10 +1768,10 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@storybook/addon-a11y@10.6.2':
-    resolution: {integrity: sha512-zleS+btwrTRcUf3opbZntKsEt6PTqAtxsek08tx5jh5fRvd6wWmtnwW3uaBcypfIKnheTB3KGljJwFX+Mc+Umg==}
+  '@storybook/addon-a11y@10.6.3':
+    resolution: {integrity: sha512-nqvjpmu5g+PPtEKwgE0qAi4wfuQ9yngOb/1Gm24pBBZOuRsd3UMEBjKORSuAGrIAz9X3LCFfQi7sCcBFXvFbwg==}
     peerDependencies:
-      storybook: ^10.6.2
+      storybook: ^10.6.3
 
   '@storybook/addon-docs@10.6.3':
     resolution: {integrity: sha512-365f712au4w/xvFqEKY6TIvTeGGAY7FKRB8zP4CFa3VSv9oyxHaq/ublFg4YDbCeRagppwl1PZ6k4+PoUor3+A==}
@@ -6710,7 +6710,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@storybook/addon-a11y@10.6.2(storybook@10.6.3(@types/react@19.3.0)(react@19.3.1)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.3)(typescript@7.0.2)))':
+  '@storybook/addon-a11y@10.6.3(storybook@10.6.3(@types/react@19.3.0)(react@19.3.1)(vite-plus@0.2.9(@types/node@26.6.5)(@voidzero-dev/vite-plus-core@0.2.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(jsdom@30.1.3)(typescript@7.0.2)))':
     dependencies:
       '@storybook/global': 5.0.0
       axe-core: 4.14.0
