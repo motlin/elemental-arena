@@ -32,7 +32,8 @@
  */
 
 import {COST, EL, FOOD, MV, T} from "./data/index.js";
-import {
+import
+{
 	elColor,
 	elName,
 	foeEls,
@@ -51,7 +52,8 @@ import {
 	wepDmg,
 	wepName,
 } from "./lookups.js";
-import type {
+import type
+{
 	ActionBarView,
 	ActionButton,
 	BoardView,
@@ -90,7 +92,8 @@ import type {Card, ElCard, FoodCard, WepCard} from "./types.js";
  * puts it in `mix` -- and the keyboard writes them too. Reading them back out every redraw is what
  * keeps hot-seat playing exactly as it did. A client online keeps its own.
  */
-export interface Local {
+export interface Local
+{
 	/** The move the board is waiting for a square for, or null while it is waiting for nothing. */
 	readonly mode: string | null;
 	/** `uid` of the element card picked up, which is the one a lay would lay. */
@@ -122,7 +125,8 @@ export interface Local {
 }
 
 /** What a click does. Which of the three a given button gets is the whole of the split. */
-export interface MatchActions {
+export interface MatchActions
+{
 	/** A move: a request the rules may turn down, and say so. */
 	readonly submit: (intent: Intent) => void;
 	/** A change to this screen's own state, which no rule has an opinion about. */
@@ -138,7 +142,8 @@ export interface MatchActions {
 }
 
 /** The match screen as it stands after the move just made. */
-export function matchView(v: SeatState, local: Local, act: MatchActions): MatchView {
+export function matchView(v: SeatState, local: Local, act: MatchActions): MatchView
+{
 	return {
 		topbar: topbarView(v, local, act),
 		board: boardView(v, local, act),
@@ -157,30 +162,35 @@ const index = (v: SeatState, x: number, y: number): number => y * v.dim + x;
 const cheb = (a: number, b: number, c: number, d: number): number => Math.max(Math.abs(a - c), Math.abs(b - d));
 
 /** The element card picked up, or null: only an element is ever selected, only a weapon ever held. */
-function selected(v: SeatState, local: Local): ElCard | null {
+function selected(v: SeatState, local: Local): ElCard | null
+{
 	const c = v.you.hand.find((q) => q.uid === local.sel);
 	return c?.k === "el" ? c : null;
 }
 
-function weapon(v: SeatState): WepCard | null {
+function weapon(v: SeatState): WepCard | null
+{
 	const c = v.you.hand.find((q) => q.uid === v.you.held);
 	return c?.k === "w" ? c : null;
 }
 
 /** What the card `uid` merges with, out of the block the seat was handed. */
-function mixWith(v: SeatState, uid: number | null): readonly number[] {
+function mixWith(v: SeatState, uid: number | null): readonly number[]
+{
 	if (uid == null) return [];
 	return v.legal.mix.find((m) => m.uid === uid)?.with ?? [];
 }
 
 /** Whoever this seat can see standing on a square, in seat order. */
-function standingAt(v: SeatState, x: number, y: number): SeatFighter[] {
+function standingAt(v: SeatState, x: number, y: number): SeatFighter[]
+{
 	return v.fighters.filter((f) => f.at?.[0] === x && f.at[1] === y);
 }
 
 /* The strip along the top: whose turn it is, and every door out of the match. */
 
-function topbarView(v: SeatState, local: Local, act: MatchActions): TopbarView {
+function topbarView(v: SeatState, local: Local, act: MatchActions): TopbarView
+{
 	const me = v.fighters[v.you.seat]!;
 	const paint = v.paint ? "  ·  PAINTBALL" : "";
 	const smash = v.smash ? `  ·  SMASH MODE x${v.smashMult}` : "";
@@ -198,15 +208,33 @@ function topbarView(v: SeatState, local: Local, act: MatchActions): TopbarView {
 		round: `ROUND ${v.round}  ·  ${v.you.nrg}/${v.you.cap} ENERGY${v.you.bank ? `  ·  ${v.you.bank} CARRIED` : ""}${smash}${paint}${chaos}`,
 		inspecting: local.imode,
 		// turning Inspect off puts down the square it was reading, and the chips ticked under it
-		toggleInspect: () => {
-			act.patch(local.imode ? {imode: false, look: null, reach: []} : {imode: true});
+		toggleInspect: () =>
+		{
+			act.patch(
+				local.imode
+					?
+						{
+							imode: false,
+							look: null,
+							reach: [],
+						}
+					:
+						{
+							imode: true,
+						},
+			);
 		},
 		openTable: act.openTable,
 		canUndo: local.canUndo,
 		undo: act.undo,
 		canEndTurn: !v.toss,
-		endTurn: () => {
-			act.submit({k: "end"});
+		endTurn: () =>
+		{
+			act.submit(
+				{
+					k: "end",
+				},
+			);
 		},
 		forfeitLabel: local.forfeitArmed ? "Tap again to fall" : "Forfeit",
 		forfeitArmed: local.forfeitArmed,
@@ -223,7 +251,8 @@ function topbarView(v: SeatState, local: Local, act: MatchActions): TopbarView {
 /** The footwork that is aimed at a square, by the mode the board is waiting in. */
 type AimedMove = "jump" | "dash" | "leap" | "warp" | "spread" | "swap" | "mark" | "light" | "theft";
 
-const AIMED: Record<string, AimedMove | undefined> = {
+const AIMED: Record<string, AimedMove | undefined> =
+{
 	jump: "jump",
 	dash: "dash",
 	leap: "leap",
@@ -236,25 +265,53 @@ const AIMED: Record<string, AimedMove | undefined> = {
 };
 
 /** The squares the move being aimed can land on, and the ones with somebody visible already there. */
-function aimSquares(v: SeatState, local: Local): {aim: Set<number>; sure: Set<number>} {
+function aimSquares(
+	v: SeatState,
+	local: Local,
+):
+{
+	aim: Set<number>;
+	sure: Set<number>;
+}
+{
 	const L = v.legal;
-	const nothing = {aim: new Set<number>(), sure: new Set<number>()};
+	const nothing =
+	{
+		aim: new Set<number>(),
+		sure: new Set<number>(),
+	};
 	if (local.mode === null) return nothing;
-	if (local.mode === "place") {
+	if (local.mode === "place")
+	{
 		const sc = selected(v, local);
 		// ground that kills on contact is turned down on a square somebody is standing on
 		const bad = sc && L.lethal.includes(sc.uid) ? new Set(L.taken) : new Set<number>();
-		return {aim: new Set(L.place.filter((i) => !bad.has(i))), sure: new Set<number>()};
+		return {
+			aim: new Set(L.place.filter((i) => !bad.has(i))),
+			sure: new Set<number>(),
+		};
 	}
-	if (local.mode === "attack") return {aim: new Set(L.swing), sure: new Set(L.foes)};
+	if (local.mode === "attack")
+		return {
+			aim: new Set(L.swing),
+			sure: new Set(L.foes),
+		};
 	const aimed = AIMED[local.mode];
-	return aimed ? {aim: new Set(L[aimed]), sure: new Set<number>()} : nothing;
+	return aimed
+		?
+			{
+				aim: new Set(L[aimed]),
+				sure: new Set<number>(),
+			}
+		: nothing;
 }
 
 /** The letter each whirlpool is paired by, which is its place in the list twinned ones sit next to. */
-function whirlLetters(v: SeatState): Map<number, string> {
+function whirlLetters(v: SeatState): Map<number, string>
+{
 	const all: [number, number][] = [];
-	v.tiles.forEach((t, i) => {
+	v.tiles.forEach((t, i) =>
+	{
 		if (t.t === "whirl") all.push([t.wid, i]);
 	});
 	all.sort((a, b) => a[0] - b[0]);
@@ -264,16 +321,20 @@ function whirlLetters(v: SeatState): Map<number, string> {
 }
 
 /** The fighters the reach overlay is actually drawn for, which is the chips ticked while Inspect is on. */
-function drawnReach(v: SeatState, local: Local): readonly SeatReach[] {
+function drawnReach(v: SeatState, local: Local): readonly SeatReach[]
+{
 	if (!local.imode) return [];
 	return v.reachable.filter((r) => local.reach.includes(r.seat));
 }
 
 /** Which of the ticked fighters could reach each square, in seat order, worked out in one pass. */
-function reachMap(drawn: readonly SeatReach[]): Map<number, number[]> {
+function reachMap(drawn: readonly SeatReach[]): Map<number, number[]>
+{
 	const out = new Map<number, number[]>();
-	drawn.forEach((r) => {
-		r.tiles.forEach((i) => {
+	drawn.forEach((r) =>
+	{
+		r.tiles.forEach((i) =>
+		{
 			const who = out.get(i);
 			if (who) who.push(r.seat);
 			else out.set(i, [r.seat]);
@@ -283,7 +344,8 @@ function reachMap(drawn: readonly SeatReach[]): Map<number, number[]> {
 }
 
 /** One band per fighter who could reach the square, or null while nobody has been asked about it. */
-function reachStripes(v: SeatState, who: readonly number[] | undefined): string | null {
+function reachStripes(v: SeatState, who: readonly number[] | undefined): string | null
+{
 	if (!who?.length) return null;
 	const cols = who.map((seat) => v.fighters[seat]!.colour);
 	if (cols.length === 1) return `linear-gradient(${rgba(cols[0]!, 0.34)},${rgba(cols[0]!, 0.34)})`;
@@ -292,14 +354,16 @@ function reachStripes(v: SeatState, who: readonly number[] | undefined): string 
 		.join(",")})`;
 }
 
-function boardView(v: SeatState, local: Local, act: MatchActions): BoardView {
+function boardView(v: SeatState, local: Local, act: MatchActions): BoardView
+{
 	const {aim, sure} = aimSquares(v, local);
 	const rmap = reachMap(drawnReach(v, local));
 	const whirls = whirlLetters(v);
 	// the walk-one-square highlight is only an offer while nothing else is being aimed or held
 	const steps = new Set(!aim.size && local.mode === null && local.sel == null ? v.legal.step : []);
 	const lit = new Set(v.litsq);
-	const tiles: TileView[] = v.tiles.map((t, i) => {
+	const tiles: TileView[] = v.tiles.map((t, i) =>
+	{
 		const x = i % v.dim,
 			y = (i / v.dim) | 0;
 		const ground = t.t ? T[t.t]! : null;
@@ -331,14 +395,16 @@ function boardView(v: SeatState, local: Local, act: MatchActions): BoardView {
 	return {
 		dim: v.dim,
 		tiles,
-		click: (x, y) => {
+		click: (x, y) =>
+		{
 			onSquare(v, local, act, x, y);
 		},
 		fx: local.fx,
 	};
 }
 
-function tileFighter(v: SeatState, f: SeatFighter, k: number, crowd: number): TileFighter {
+function tileFighter(v: SeatState, f: SeatFighter, k: number, crowd: number): TileFighter
+{
 	const active = f.seat === v.turn;
 	return {
 		seat: f.seat,
@@ -356,27 +422,64 @@ function tileFighter(v: SeatState, f: SeatFighter, k: number, crowd: number): Ti
  * the board is waiting for decides: a square is the second half of a move whose first half was a
  * button, or, when nothing is being aimed, a step onto the square next door.
  */
-function onSquare(v: SeatState, local: Local, act: MatchActions, x: number, y: number): void {
+function onSquare(v: SeatState, local: Local, act: MatchActions, x: number, y: number): void
+{
 	if (v.phase !== "act" || v.toss) return;
 	const i = index(v, x, y);
-	if (local.imode) {
-		act.patch({look: local.look === i ? null : i});
+	if (local.imode)
+	{
+		act.patch(
+			{
+				look: local.look === i ? null : i,
+			},
+		);
 		return;
 	}
-	if (local.mode === "place") {
-		if (local.sel != null) act.submit({k: "place", uid: local.sel, x, y});
+	if (local.mode === "place")
+	{
+		if (local.sel != null)
+			act.submit(
+				{
+					k: "place",
+					uid: local.sel,
+					x,
+					y,
+				},
+			);
 		return;
 	}
 	const aimed = local.mode === null ? undefined : AIMED[local.mode];
-	if (aimed) {
-		act.submit({k: aimed, x, y});
+	if (aimed)
+	{
+		act.submit(
+			{
+				k: aimed,
+				x,
+				y,
+			},
+		);
 		return;
 	}
-	if (local.mode === "attack") {
-		if (v.legal.swing.includes(i)) act.submit({k: "swing", x, y});
+	if (local.mode === "attack")
+	{
+		if (v.legal.swing.includes(i))
+			act.submit(
+				{
+					k: "swing",
+					x,
+					y,
+				},
+			);
 		return;
 	}
-	if (local.sel == null && cheb(v.you.x, v.you.y, x, y) === 1) act.submit({k: "step", x, y});
+	if (local.sel == null && cheb(v.you.x, v.you.y, x, y) === 1)
+		act.submit(
+			{
+				k: "step",
+				x,
+				y,
+			},
+		);
 }
 
 /* The footwork rail: one button per special move this fighter was given. A move can be offered,
@@ -392,11 +495,22 @@ function liveMove(
 	disabled: boolean,
 	click: () => void,
 	aiming: boolean,
-): FootworkButton {
-	return {key, label: MV[key]!.n, cost: COST[key], left: v.mvUses - used, tip: MV[key]!.d, aiming, disabled, click};
+): FootworkButton
+{
+	return {
+		key,
+		label: MV[key]!.n,
+		cost: COST[key],
+		left: v.mvUses - used,
+		tip: MV[key]!.d,
+		aiming,
+		disabled,
+		click,
+	};
 }
 
-function spentMove(key: ActionKey): FootworkButton {
+function spentMove(key: ActionKey): FootworkButton
+{
 	return {
 		key,
 		label: `${MV[key]!.n} · spent`,
@@ -410,16 +524,28 @@ function spentMove(key: ActionKey): FootworkButton {
 }
 
 /** A move already under way, which is not offered again while it is. */
-function runningMove(key: ActionKey, label: string): FootworkButton {
-	return {key, label, cost: null, left: null, tip: MV[key]!.d, aiming: true, disabled: true, click: null};
+function runningMove(key: ActionKey, label: string): FootworkButton
+{
+	return {
+		key,
+		label,
+		cost: null,
+		left: null,
+		tip: MV[key]!.d,
+		aiming: true,
+		disabled: true,
+		click: null,
+	};
 }
 
-function footworkView(v: SeatState, local: Local, act: MatchActions): FootworkView {
+function footworkView(v: SeatState, local: Local, act: MatchActions): FootworkView
+{
 	const you = v.you,
 		L = v.legal,
 		rooted = you.rootTurns > 0;
 	const buttons: FootworkButton[] = [];
-	const add = (has: number, key: ActionKey, disabled: boolean, click: () => void, aiming: boolean): void => {
+	const add = (has: number, key: ActionKey, disabled: boolean, click: () => void, aiming: boolean): void =>
+	{
 		if (!has) return;
 		buttons.push(
 			you.used[key] >= v.mvUses ? spentMove(key) : liveMove(v, key, you.used[key], disabled, click, aiming),
@@ -428,13 +554,24 @@ function footworkView(v: SeatState, local: Local, act: MatchActions): FootworkVi
 	/** Puts the board into a mode, or back out of the one it is already waiting in. */
 	const aimAt =
 		(mode: string): (() => void) =>
-		() => {
-			act.patch({mode: local.mode === mode ? null : mode, sel: null});
+		() =>
+		{
+			act.patch(
+				{
+					mode: local.mode === mode ? null : mode,
+					sel: null,
+				},
+			);
 		};
 	const move =
 		(k: PlainMove): (() => void) =>
-		() => {
-			act.submit({k});
+		() =>
+		{
+			act.submit(
+				{
+					k,
+				},
+			);
 		};
 	const under = v.tiles[index(v, you.x, you.y)]!.t;
 	add(you.mv & 1, "jump", rooted || !L.afford.jump || !L.jump.length, aimAt("jump"), local.mode === "jump");
@@ -455,7 +592,12 @@ function footworkView(v: SeatState, local: Local, act: MatchActions): FootworkVi
 	add(you.mv & 4096, "theft", !L.afford.theft || !L.theft.length, aimAt("theft"), local.mode === "theft");
 	add(you.mv & 2048, "smash", !L.afford.smash || !L.smash, move("smash"), false);
 	add(you.mv & 1024, "shift", !L.afford.shift, aimAt("shift"), local.mode === "shift");
-	return {any: !!you.mv, floating: you.float, rooted, buttons};
+	return {
+		any: !!you.mv,
+		floating: you.float,
+		rooted,
+		buttons,
+	};
 }
 
 /* The weapon panel, which is only ever about the one card being held. */
@@ -467,19 +609,28 @@ function leaveRow(
 	pick: string | undefined,
 	row: "self" | "foe",
 	act: MatchActions,
-): LeaveRow[] {
+): LeaveRow[]
+{
 	if (opts.length < 2) return [];
 	return [
 		{
 			label,
-			options: opts.map((e) => ({
+			options: opts.map((e) => (
+			{
 				key: e,
 				name: elName(e),
 				colour: EL[e] ? EL[e].c : T[e]!.c,
 				on: e === pick,
 				// what a weapon leaves behind is written on the card, so it is the match's business
-				choose: () => {
-					act.submit({k: "leaving", row, el: e});
+				choose: () =>
+				{
+					act.submit(
+						{
+							k: "leaving",
+							row,
+							el: e,
+						},
+					);
 				},
 			})),
 		},
@@ -491,21 +642,44 @@ function leaveRow(
  * square, so the button only puts the board into the mode that asks for one. A weapon that sweeps
  * has nowhere to be pointed, so the button is the whole swing.
  */
-function swing(v: SeatState, local: Local, act: MatchActions, c: WepCard, poor: boolean): void {
+function swing(v: SeatState, local: Local, act: MatchActions, c: WepCard, poor: boolean): void
+{
 	if (poor) return;
-	if (local.mode === "attack") {
-		act.patch({mode: null});
+	if (local.mode === "attack")
+	{
+		act.patch(
+			{
+				mode: null,
+			},
+		);
 		return;
 	}
-	if (wRing(c)) {
-		act.patch({sel: null});
-		act.submit({k: "swing", x: v.you.x, y: v.you.y});
+	if (wRing(c))
+	{
+		act.patch(
+			{
+				sel: null,
+			},
+		);
+		act.submit(
+			{
+				k: "swing",
+				x: v.you.x,
+				y: v.you.y,
+			},
+		);
 		return;
 	}
-	act.patch({mode: "attack", sel: null});
+	act.patch(
+		{
+			mode: "attack",
+			sel: null,
+		},
+	);
 }
 
-function weaponView(v: SeatState, local: Local, act: MatchActions): WeaponView | null {
+function weaponView(v: SeatState, local: Local, act: MatchActions): WeaponView | null
+{
 	const c = weapon(v);
 	if (!c) return null;
 	const dmg = wepDmg(c),
@@ -529,7 +703,8 @@ function weaponView(v: SeatState, local: Local, act: MatchActions): WeaponView |
 		cost,
 		aiming: local.mode === "attack",
 		disabled: poor,
-		swing: () => {
+		swing: () =>
+		{
 			swing(v, local, act, c, poor);
 		},
 		hint: poor
@@ -542,7 +717,8 @@ function weaponView(v: SeatState, local: Local, act: MatchActions): WeaponView |
 	};
 }
 
-export const MODEHINT: Record<string, string | undefined> = {
+export const MODEHINT: Record<string, string | undefined> =
+{
 	jump: "Pick a square exactly two away to land on.",
 	dash: "Pick a square along a clear straight line.",
 	leap: "Pick a square exactly four away to land on.",
@@ -557,21 +733,41 @@ export const MODEHINT: Record<string, string | undefined> = {
 /* The bar under the board: what the game is waiting for, and what can be done about it. */
 
 /** A bar that only says something, which is most of them. */
-function saying(text: string): ActionBarView {
-	return {hint: [{text, strong: false}], alarm: false, buttons: [], tail: null};
+function saying(text: string): ActionBarView
+{
+	return {
+		hint: [
+			{
+				text,
+				strong: false,
+			},
+		],
+		alarm: false,
+		buttons: [],
+		tail: null,
+	};
 }
 
-function press(key: string, label: string, click: () => void, disabled = false): ActionButton {
-	return {key, label, disabled, facedown: false, click};
+function press(key: string, label: string, click: () => void, disabled = false): ActionButton
+{
+	return {
+		key,
+		label,
+		disabled,
+		facedown: false,
+		click,
+	};
 }
 
 /** What a card is called, which for the seat holding it is never a secret. */
 const nameOfCard = (c: Card): string => cardLabel(c);
 
-function actionsView(v: SeatState, local: Local, act: MatchActions): ActionBarView {
+function actionsView(v: SeatState, local: Local, act: MatchActions): ActionBarView
+{
 	if (MODEHINT[local.mode!]) return saying(`${MODEHINT[local.mode!]} Esc to cancel.`);
 	if (local.mode === "attack") return saying("Pick a tile to strike. Esc to cancel.");
-	if (local.mode === "place") {
+	if (local.mode === "place")
+	{
 		const sc = selected(v, local);
 		const lethal =
 			sc && v.legal.lethal.includes(sc.uid)
@@ -599,8 +795,13 @@ function actionsView(v: SeatState, local: Local, act: MatchActions): ActionBarVi
 			press(
 				"place",
 				`Lay on a tile · ${COST.place}`,
-				() => {
-					act.patch({mode: "place"});
+				() =>
+				{
+					act.patch(
+						{
+							mode: "place",
+						},
+					);
 				},
 				!v.legal.afford.place,
 			),
@@ -609,8 +810,14 @@ function actionsView(v: SeatState, local: Local, act: MatchActions): ActionBarVi
 		press(
 			"merge",
 			`Merge · ${COST.merge}`,
-			() => {
-				act.patch({mode: "mix", mixFrom: active.uid});
+			() =>
+			{
+				act.patch(
+					{
+						mode: "mix",
+						mixFrom: active.uid,
+					},
+				);
 			},
 			!v.legal.afford.merge || !parts,
 		),
@@ -626,26 +833,40 @@ function actionsView(v: SeatState, local: Local, act: MatchActions): ActionBarVi
 }
 
 /** The hand being robbed, already read down to the slots this seat is entitled to read. */
-function stealBar(steal: SeatSteal, act: MatchActions): ActionBarView {
-	const buttons: ActionButton[] = steal.cards.map((c) => ({
+function stealBar(steal: SeatSteal, act: MatchActions): ActionBarView
+{
+	const buttons: ActionButton[] = steal.cards.map((c) => (
+	{
 		key: String(c.uid),
 		label: c.label,
 		disabled: false,
 		facedown: c.facedown,
-		click: () => {
-			act.submit({k: "take", uid: c.uid});
+		click: () =>
+		{
+			act.submit(
+				{
+					k: "take",
+					uid: c.uid,
+				},
+			);
 		},
 	}));
 	buttons.push(press("cancel", "Cancel", act.cancelSteal));
 	return {
-		hint: [{text: `Take a card from ${steal.name}:`, strong: false}],
+		hint: [
+			{
+				text: `Take a card from ${steal.name}:`,
+				strong: false,
+			},
+		],
 		alarm: false,
 		buttons,
 		tail: null,
 	};
 }
 
-function tossBar(v: SeatState, local: Local, act: MatchActions): ActionBarView {
+function tossBar(v: SeatState, local: Local, act: MatchActions): ActionBarView
+{
 	const pick = v.you.hand.find((q) => q.uid === local.tossPick);
 	if (!pick)
 		return {
@@ -661,30 +882,63 @@ function tossBar(v: SeatState, local: Local, act: MatchActions): ActionBarView {
 		};
 	return {
 		hint: [
-			{text: "Throw away ", strong: false},
-			{text: nameOfCard(pick), strong: true},
-			{text: "?", strong: false},
+			{
+				text: "Throw away ",
+				strong: false,
+			},
+			{
+				text: nameOfCard(pick),
+				strong: true,
+			},
+			{
+				text: "?",
+				strong: false,
+			},
 		],
 		alarm: true,
 		buttons: [
-			press("toss", "Yes, bin it", () => {
-				act.submit({k: "toss", uid: pick.uid});
+			press("toss", "Yes, bin it", () =>
+			{
+				act.submit(
+					{
+						k: "toss",
+						uid: pick.uid,
+					},
+				);
 			}),
-			press("another", "Pick another", () => {
-				act.patch({tossPick: null});
+			press("another", "Pick another", () =>
+			{
+				act.patch(
+					{
+						tossPick: null,
+					},
+				);
 			}),
 		],
 		tail: null,
 	};
 }
 
-function shiftBar(act: MatchActions): ActionBarView {
+function shiftBar(act: MatchActions): ActionBarView
+{
 	const slide = (key: string, label: string, dx: number, dy: number): ActionButton =>
-		press(key, label, () => {
-			act.submit({k: "shift", dx, dy});
+		press(key, label, () =>
+		{
+			act.submit(
+				{
+					k: "shift",
+					dx,
+					dy,
+				},
+			);
 		});
 	return {
-		hint: [{text: "Slide everyone:", strong: false}],
+		hint: [
+			{
+				text: "Slide everyone:",
+				strong: false,
+			},
+		],
 		alarm: false,
 		buttons: [
 			slide("left", "← Left", -1, 0),
@@ -698,8 +952,10 @@ function shiftBar(act: MatchActions): ActionBarView {
 
 /* The roster down the left: one card per seat, read from where this seat is sitting. */
 
-function rosterView(v: SeatState): RosterCard[] {
-	return v.fighters.map((f) => {
+function rosterView(v: SeatState): RosterCard[]
+{
+	return v.fighters.map((f) =>
+	{
 		// what this card may say is settled by who is reading it, which is not always who is playing
 		const mine = f.seat === v.seat;
 		const line = f.weapon
@@ -718,7 +974,14 @@ function rosterView(v: SeatState): RosterCard[] {
 			health: f.hp / f.max,
 			// a cap too big to draw as pips reads as a line instead
 			energy: f.cap > 12 ? `${mine ? f.nrg : f.cap} / ${f.cap} energy` : null,
-			pips: f.cap > 12 ? null : {total: f.cap, filled: mine ? (f.nrg ?? 0) : 0},
+			pips:
+				f.cap > 12
+					? null
+					:
+						{
+							total: f.cap,
+							filled: mine ? (f.nrg ?? 0) : 0,
+						},
 			seen: f.seen.length ? f.seen.join(", ") : null,
 			line,
 		};
@@ -727,7 +990,8 @@ function rosterView(v: SeatState): RosterCard[] {
 
 /* The hand: the cards this seat is holding, in whatever order they have been left in. */
 
-function handCard(v: SeatState, local: Local, c: Card, i: number, merges: readonly number[]): HandCard {
+function handCard(v: SeatState, local: Local, c: Card, i: number, merges: readonly number[]): HandCard
+{
 	if (c.k === "f") return foodCard(v, local, c, i);
 	const el = c.k === "el",
 		comp = el && isComp(c.id);
@@ -751,7 +1015,8 @@ function handCard(v: SeatState, local: Local, c: Card, i: number, merges: readon
 }
 
 /** A plate in hand: what it gives now, and how long it has left before that turns on the eater. */
-function foodCard(v: SeatState, local: Local, c: FoodCard, i: number): HandCard {
+function foodCard(v: SeatState, local: Local, c: FoodCard, i: number): HandCard
+{
 	const f = FOOD[c.id]!,
 		off = spoiled(c, v.round),
 		left = c.born + f.keep - v.round;
@@ -776,33 +1041,68 @@ function foodCard(v: SeatState, local: Local, c: FoodCard, i: number): HandCard 
  * What clicking a card asks for. A chaos throw picks first and confirms second, so the first tap is
  * this screen's own business and only the second is a move. Everything else is one.
  */
-function onCard(v: SeatState, local: Local, act: MatchActions, uid: number): void {
+function onCard(v: SeatState, local: Local, act: MatchActions, uid: number): void
+{
 	if (v.phase !== "act") return;
-	if (v.toss) {
-		if (local.tossPick === uid) {
-			act.submit({k: "toss", uid});
-		} else {
-			act.patch({tossPick: uid});
+	if (v.toss)
+	{
+		if (local.tossPick === uid)
+		{
+			act.submit(
+				{
+					k: "toss",
+					uid,
+				},
+			);
+		}
+		else
+		{
+			act.patch(
+				{
+					tossPick: uid,
+				},
+			);
 		}
 		return;
 	}
-	if (local.mode === "mix" && local.mixFrom != null && mixWith(v, local.mixFrom).includes(uid)) {
-		act.submit({k: "merge", uid: local.mixFrom, into: uid});
+	if (local.mode === "mix" && local.mixFrom != null && mixWith(v, local.mixFrom).includes(uid))
+	{
+		act.submit(
+			{
+				k: "merge",
+				uid: local.mixFrom,
+				into: uid,
+			},
+		);
 		return;
 	}
-	act.submit({k: "card", uid});
+	act.submit(
+		{
+			k: "card",
+			uid,
+		},
+	);
 }
 
-function handView(v: SeatState, local: Local, act: MatchActions): HandView {
+function handView(v: SeatState, local: Local, act: MatchActions): HandView
+{
 	const merges = local.mode === "mix" ? mixWith(v, local.mixFrom) : [];
 	return {
 		cards: v.you.hand.map((c, i) => handCard(v, local, c, i, merges)),
-		click: (uid: number) => {
+		click: (uid: number) =>
+		{
 			onCard(v, local, act, uid);
 		},
 		// `to` counts the cards the dragged one left behind, which is where it lands among them
-		reorder: (uid: number, to: number) => {
-			act.submit({k: "reorder", uid, to});
+		reorder: (uid: number, to: number) =>
+		{
+			act.submit(
+				{
+					k: "reorder",
+					uid,
+					to,
+				},
+			);
 		},
 		draggable: v.phase === "act" && !local.handoff,
 	};
@@ -811,40 +1111,66 @@ function handView(v: SeatState, local: Local, act: MatchActions): HandView {
 /* Table talk. */
 
 /** The line an answer hangs off, cut to whatever length the place it is shown in has room for. */
-function quoteOf(v: SeatState, id: number | null, cut: number): ChatQuote | null {
+function quoteOf(v: SeatState, id: number | null, cut: number): ChatQuote | null
+{
 	const m = id ? v.chat.find((q) => q.id === id) : null;
 	if (!m) return null;
-	return {who: m.who, colour: m.c, text: m.t.length > cut ? m.t.slice(0, cut) + "…" : m.t};
+	return {
+		who: m.who,
+		colour: m.c,
+		text: m.t.length > cut ? m.t.slice(0, cut) + "…" : m.t,
+	};
 }
 
-function chatView(v: SeatState, local: Local, act: MatchActions): ChatView {
+function chatView(v: SeatState, local: Local, act: MatchActions): ChatView
+{
 	return {
-		lines: v.chat.map((m) => ({
+		lines: v.chat.map((m) => (
+		{
 			id: m.id,
 			who: m.who,
 			colour: m.c,
 			round: m.r,
 			text: m.t,
 			quote: quoteOf(v, m.to, 44),
-			reply: () => {
-				act.patch({replyTo: m.id});
+			reply: () =>
+			{
+				act.patch(
+					{
+						replyTo: m.id,
+					},
+				);
 			},
 		})),
 		replyingTo: quoteOf(v, local.replyTo, 30),
-		cancelReply: () => {
-			act.patch({replyTo: null});
+		cancelReply: () =>
+		{
+			act.patch(
+				{
+					replyTo: null,
+				},
+			);
 		},
-		say: (text: string) => {
-			act.submit({k: "chat", text, to: local.replyTo ?? 0});
+		say: (text: string) =>
+		{
+			act.submit(
+				{
+					k: "chat",
+					text,
+					to: local.replyTo ?? 0,
+				},
+			);
 		},
 	};
 }
 
 /* The tile inspector down the right, and the reach overlay offered under it. */
 
-function reachChooser(v: SeatState, local: Local, act: MatchActions): ReachChooser {
+function reachChooser(v: SeatState, local: Local, act: MatchActions): ReachChooser
+{
 	return {
-		chips: v.reachable.map((r) => {
+		chips: v.reachable.map((r) =>
+		{
 			const f = v.fighters[r.seat]!;
 			const on = local.reach.includes(r.seat);
 			return {
@@ -853,10 +1179,13 @@ function reachChooser(v: SeatState, local: Local, act: MatchActions): ReachChoos
 				colour: f.colour,
 				budget: r.budget,
 				on,
-				toggle: () => {
-					act.patch({
-						reach: on ? local.reach.filter((s) => s !== r.seat) : [...local.reach, r.seat],
-					});
+				toggle: () =>
+				{
+					act.patch(
+						{
+							reach: on ? local.reach.filter((s) => s !== r.seat) : [...local.reach, r.seat],
+						},
+					);
 				},
 			};
 		}),
@@ -865,45 +1194,152 @@ function reachChooser(v: SeatState, local: Local, act: MatchActions): ReachChoos
 }
 
 /** Who can reach the square being read, or nothing at all while nobody has been asked. */
-function reachFact(v: SeatState, local: Local, i: number): TileFact[] {
+function reachFact(v: SeatState, local: Local, i: number): TileFact[]
+{
 	const drawn = drawnReach(v, local);
 	if (!drawn.length) return [];
 	const who = drawn.filter((r) => r.tiles.includes(i));
-	if (!who.length) return [{label: "In reach of", value: "nobody selected"}];
-	return [{label: "In reach of", value: who.map((r) => v.fighters[r.seat]!.name).join(", ")}];
+	if (!who.length)
+		return [
+			{
+				label: "In reach of",
+				value: "nobody selected",
+			},
+		];
+	return [
+		{
+			label: "In reach of",
+			value: who.map((r) => v.fighters[r.seat]!.name).join(", "),
+		},
+	];
 }
 
-function tileReadout(v: SeatState, local: Local, i: number): TileReadout {
+function tileReadout(v: SeatState, local: Local, i: number): TileReadout
+{
 	const x = i % v.dim,
 		y = (i / v.dim) | 0;
 	const key = v.tiles[i]!.t;
 	const t = key ? T[key]! : null;
 	const facts: TileFact[] = [];
-	if (t) {
-		if (t.enter > 50) facts.push({label: "Entering", value: "impossible"});
-		else facts.push({label: "Entering", value: t.enter + " energy"});
-		if (t.end) facts.push({label: "Ending here", value: t.end + " damage"});
-		if (t.bite) facts.push({label: "Crossing it", value: t.bite + " damage"});
-		if (t.heal) facts.push({label: "Ending here", value: "heals " + t.heal});
-		if (t.aura) facts.push({label: "Within " + (t.rad || 2), value: t.aura + " damage"});
-		if (t.auraHeal) facts.push({label: "Within " + (t.rad || 2), value: "heals " + t.auraHeal});
-		if (t.gain) facts.push({label: "Ending here", value: "+" + t.gain + " energy"});
-		if (t.los) facts.push({label: "Standing here", value: "you are blind"});
-		if (t.anchor) facts.push({label: "Shoves", value: "cannot move you"});
-		if (t.ward) facts.push({label: "Ground effects", value: "cannot touch you"});
-		if (t.gone) facts.push({label: "Touching it", value: "you are gone"});
-		facts.push({label: "Lasts", value: t.life > 900 ? "permanent" : t.life + " more rounds"});
+	if (t)
+	{
+		if (t.enter > 50)
+			facts.push(
+				{
+					label: "Entering",
+					value: "impossible",
+				},
+			);
+		else
+			facts.push(
+				{
+					label: "Entering",
+					value: t.enter + " energy",
+				},
+			);
+		if (t.end)
+			facts.push(
+				{
+					label: "Ending here",
+					value: t.end + " damage",
+				},
+			);
+		if (t.bite)
+			facts.push(
+				{
+					label: "Crossing it",
+					value: t.bite + " damage",
+				},
+			);
+		if (t.heal)
+			facts.push(
+				{
+					label: "Ending here",
+					value: "heals " + t.heal,
+				},
+			);
+		if (t.aura)
+			facts.push(
+				{
+					label: "Within " + (t.rad || 2),
+					value: t.aura + " damage",
+				},
+			);
+		if (t.auraHeal)
+			facts.push(
+				{
+					label: "Within " + (t.rad || 2),
+					value: "heals " + t.auraHeal,
+				},
+			);
+		if (t.gain)
+			facts.push(
+				{
+					label: "Ending here",
+					value: "+" + t.gain + " energy",
+				},
+			);
+		if (t.los)
+			facts.push(
+				{
+					label: "Standing here",
+					value: "you are blind",
+				},
+			);
+		if (t.anchor)
+			facts.push(
+				{
+					label: "Shoves",
+					value: "cannot move you",
+				},
+			);
+		if (t.ward)
+			facts.push(
+				{
+					label: "Ground effects",
+					value: "cannot touch you",
+				},
+			);
+		if (t.gone)
+			facts.push(
+				{
+					label: "Touching it",
+					value: "you are gone",
+				},
+			);
+		facts.push(
+			{
+				label: "Lasts",
+				value: t.life > 900 ? "permanent" : t.life + " more rounds",
+			},
+		);
 	}
 	// cover a seat did not lay is never drawn for them, so the one square where that leaves a fighter
 	// in the dark about their own footing says so in words. It tells this seat only what it already
 	// knows: where it is standing, and that it is hidden there.
-	if (v.you.x === x && v.you.y === y && v.you.hidden) facts.push({label: "Standing here", value: "you are hidden"});
+	if (v.you.x === x && v.you.y === y && v.you.hidden)
+		facts.push(
+			{
+				label: "Standing here",
+				value: "you are hidden",
+			},
+		);
 	// whoever the ground is hiding was never in the view to be read out of it, which is the point:
 	// clicking a square and being told somebody is on it is what the concealment is there to stop
 	const here = standingAt(v, x, y);
 	if (here.length)
-		facts.push({label: "Standing on it", value: here.map((f) => `${f.name}, ${f.hp} HP`).join(" and ")});
-	facts.push({label: "Square", value: `${x + 1}, ${y + 1}`});
+		facts.push(
+			{
+				label: "Standing on it",
+				value: here.map((f) => `${f.name}, ${f.hp} HP`).join(" and "),
+			},
+		);
+	facts.push(
+		{
+			label: "Square",
+			value: `${x + 1}, ${y + 1}`,
+		},
+	);
 	facts.push(...reachFact(v, local, i));
 	return {
 		name: t ? t.n : "Bare ground",
@@ -913,7 +1349,8 @@ function tileReadout(v: SeatState, local: Local, i: number): TileReadout {
 	};
 }
 
-function inspectView(v: SeatState, local: Local, act: MatchActions): InspectView {
+function inspectView(v: SeatState, local: Local, act: MatchActions): InspectView
+{
 	const chooser = local.imode ? reachChooser(v, local, act) : null;
 	if (local.look == null)
 		return {
@@ -924,5 +1361,10 @@ function inspectView(v: SeatState, local: Local, act: MatchActions): InspectView
 			tile: null,
 			chooser,
 		};
-	return {inspecting: local.imode, hint: null, tile: tileReadout(v, local, local.look), chooser};
+	return {
+		inspecting: local.imode,
+		hint: null,
+		tile: tileReadout(v, local, local.look),
+		chooser,
+	};
 }

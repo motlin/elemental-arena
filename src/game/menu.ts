@@ -6,7 +6,8 @@
  */
 
 import {designStore, menuStore, replayStore, simStore, tableStore} from "./bridge.js";
-import type {
+import type
+{
 	ArenaSetup,
 	ArsenalSetup,
 	CheatState,
@@ -36,11 +37,13 @@ import {redraw} from "./view.js";
  * The setup screen as it stands, or nothing at all while a match has the screen. Everything that
  * changes the menu ends here, so React only ever sees the save whole.
  */
-export function drawMenu(): void {
+export function drawMenu(): void
+{
 	menuStore.set(S.screen === "menu" ? menuView() : null);
 }
 
-function menuView(): MenuView {
+function menuView(): MenuView
+{
 	return {
 		arena: arenaSetup(),
 		loadout: loadoutSetup(),
@@ -56,48 +59,76 @@ function menuView(): MenuView {
 
 /* The arena panel: who is playing, and every number the match is dealt from. */
 
-const SWATCHES: readonly Swatch[] = PC.map((colour, i) => ({colour, name: PCN[i]!}));
+const SWATCHES: readonly Swatch[] = PC.map((colour, i) => (
+{
+	colour,
+	name: PCN[i]!,
+}));
 
-function seatRows(): SeatRow[] {
-	return Array.from({length: S.np}, (_, seat) => {
-		const swatch = S.cols[seat]!;
-		return {seat, name: S.names[swatch] ?? "", placeholder: PN[swatch]!, swatch};
-	});
+function seatRows(): SeatRow[]
+{
+	return Array.from(
+		{
+			length: S.np,
+		},
+		(_, seat) =>
+		{
+			const swatch = S.cols[seat]!;
+			return {
+				seat,
+				name: S.names[swatch] ?? "",
+				placeholder: PN[swatch]!,
+				swatch,
+			};
+		},
+	);
 }
 
 /** The colours in play, counted up in seat order, which is how the note under the seats reads. */
-function teamTallies(): TeamTally[] {
+function teamTallies(): TeamTally[]
+{
 	const counts = new Map<number, number>();
-	for (let i = 0; i < S.np; i++) {
+	for (let i = 0; i < S.np; i++)
+	{
 		const colour = S.cols[i]!;
 		counts.set(colour, (counts.get(colour) ?? 0) + 1);
 	}
-	return [...counts].map(([colour, seats]) => ({name: teamName(colour), colour: PC[colour]!, seats}));
+	return [...counts].map(([colour, seats]) => (
+	{
+		name: teamName(colour),
+		colour: PC[colour]!,
+		seats,
+	}));
 }
 
 /** A number box's new value, held inside its range; an empty box falls back to the default. */
-function clamp(value: number, low: number, high: number, fallback: number): number {
+function clamp(value: number, low: number, high: number, fallback: number): number
+{
 	return Number.isFinite(value) ? Math.max(low, Math.min(high, value)) : fallback;
 }
 
-function setSeatCount(seats: number): void {
+function setSeatCount(seats: number): void
+{
 	S.np = seats;
 	if (S.who !== "all" && S.who >= S.np) S.who = "all";
 	drawMenu();
 }
 
 /** A name belongs to a colour, so everyone playing that colour answers to it. */
-function rename(seat: number, name: string): void {
+function rename(seat: number, name: string): void
+{
 	S.names[S.cols[seat]!] = name;
 	drawMenu();
 }
 
-function recolour(seat: number, swatch: number): void {
+function recolour(seat: number, swatch: number): void
+{
 	S.cols[seat] = swatch;
 	drawMenu();
 }
 
-function arenaSetup(): ArenaSetup {
+function arenaSetup(): ArenaSetup
+{
 	return {
 		seats: seatRows(),
 		swatches: SWATCHES,
@@ -115,48 +146,59 @@ function arenaSetup(): ArenaSetup {
 		setSeatCount,
 		rename,
 		recolour,
-		setFootworkUses: (uses) => {
+		setFootworkUses: (uses) =>
+		{
 			S.mvUses = clamp(uses, 0, 99, MVUSES);
 			drawMenu();
 		},
-		setSmash: (on) => {
+		setSmash: (on) =>
+		{
 			S.smash = on;
 			drawMenu();
 		},
-		setPaintball: (on) => {
+		setPaintball: (on) =>
+		{
 			S.paint = on;
 			drawMenu();
 		},
-		setChaos: (on) => {
+		setChaos: (on) =>
+		{
 			S.chaos = on;
 			drawMenu();
 		},
-		setChaosRound: (round) => {
+		setChaosRound: (round) =>
+		{
 			S.chaosRound = clamp(round, 1, 99, CHAOS);
 			drawMenu();
 		},
-		setHideHands: (on) => {
+		setHideHands: (on) =>
+		{
 			S.priv = on;
 			drawMenu();
 		},
-		setDim: (dim) => {
+		setDim: (dim) =>
+		{
 			S.dim = dim;
 			// a board painted for another grid no longer fits the one a match would be played on
-			if (S.preset && S.presetDim !== S.dim) {
+			if (S.preset && S.presetDim !== S.dim)
+			{
 				S.preset = null;
 				S.presetDim = 0;
 			}
 			drawMenu();
 		},
-		setHp: (hp) => {
+		setHp: (hp) =>
+		{
 			S.hp = hp;
 			drawMenu();
 		},
-		setStartNrg: (energy) => {
+		setStartNrg: (energy) =>
+		{
 			S.startNrg = clamp(energy, 0, 99, NRG0);
 			drawMenu();
 		},
-		setOpenHand: (cards) => {
+		setOpenHand: (cards) =>
+		{
 			S.openHand = clamp(cards, 0, 30, HAND0);
 			drawMenu();
 		},
@@ -165,17 +207,25 @@ function arenaSetup(): ArenaSetup {
 
 /* The this-match panel: what gets dealt, and whose hand it gets dealt into. */
 
-function ensureOverride(i: number): Offs {
-	if (!S.pOff[i]) S.pOff[i] = {el: [...S.elOff], w: [...S.wOff]};
+function ensureOverride(i: number): Offs
+{
+	if (!S.pOff[i])
+		S.pOff[i] =
+		{
+			el: [...S.elOff],
+			w: [...S.wOff],
+		};
 	return S.pOff[i];
 }
 
-function toggleChip(kind: "el" | "w", key: string): void {
+function toggleChip(kind: "el" | "w", key: string): void
+{
 	const who = S.who;
 	const list = who === "all" ? (kind === "el" ? S.elOff : S.wOff) : ensureOverride(who)[kind];
 	const at = list.indexOf(key);
 	if (at >= 0) list.splice(at, 1);
-	else {
+	else
+	{
 		const scope = who === "all" ? null : who;
 		const onCount = (kind === "el" ? elsOn(scope) : wsOn(scope)).length;
 		if (onCount <= 1) return; // never leave anyone with an empty pool
@@ -190,13 +240,17 @@ const mvHas = (k: string): boolean => (S.who === "all" ? !!(S.mvShared & MV[k]!.
 const mvOwn = (i: number): number => S.mv[i]! & mvOwnedMask();
 const mvDiffers = (i: number): boolean => mvOwn(i) !== (S.mvShared & mvOwnedMask());
 
-function toggleFootwork(k: string): void {
+function toggleFootwork(k: string): void
+{
 	const on = mvHas(k);
-	if (S.who === "all") {
+	if (S.who === "all")
+	{
 		if (on) S.mvShared &= ~MV[k]!.bit;
 		else S.mvShared |= MV[k]!.bit;
 		for (let i = 0; i < 8; i++) S.mv[i] = S.mvShared; // everyone falls back in line
-	} else {
+	}
+	else
+	{
 		if (on) S.mv[S.who]! &= ~MV[k]!.bit;
 		else S.mv[S.who]! |= MV[k]!.bit;
 	}
@@ -204,19 +258,24 @@ function toggleFootwork(k: string): void {
 	drawMenu();
 }
 
-function setAllFootwork(on: boolean): void {
+function setAllFootwork(on: boolean): void
+{
 	const m = mvOwnedMask();
-	if (S.who === "all") {
+	if (S.who === "all")
+	{
 		S.mvShared = on ? m : 0;
 		for (let i = 0; i < 8; i++) S.mv[i] = S.mvShared;
-	} else S.mv[S.who] = on ? m : 0;
+	}
+	else S.mv[S.who] = on ? m : 0;
 	void save();
 	drawMenu();
 }
 
 /** Puts the seat being edited back on the shared list everybody else draws from. */
-function shareBack(): void {
-	if (S.who !== "all") {
+function shareBack(): void
+{
+	if (S.who !== "all")
+	{
 		delete S.pOff[S.who];
 		S.mv[S.who] = S.mvShared;
 	}
@@ -224,20 +283,37 @@ function shareBack(): void {
 	drawMenu();
 }
 
-function scopeChips(): ScopeChip[] {
-	const chips: ScopeChip[] = [{who: "all", label: "Everyone", colour: "var(--accent)", own: false}];
+function scopeChips(): ScopeChip[]
+{
+	const chips: ScopeChip[] = [
+		{
+			who: "all",
+			label: "Everyone",
+			colour: "var(--accent)",
+			own: false,
+		},
+	];
 	for (let i = 0; i < S.np; i++)
-		chips.push({who: i, label: nameOf(i), colour: PC[S.cols[i]!]!, own: !!S.pOff[i] || mvDiffers(i)});
+		chips.push(
+			{
+				who: i,
+				label: nameOf(i),
+				colour: PC[S.cols[i]!]!,
+				own: !!S.pOff[i] || mvDiffers(i),
+			},
+		);
 	return chips;
 }
 
 const byPrice = (a: [string, ShopItem], b: [string, ShopItem]): number =>
 	(a[1].cost || a[1].price || 0) - (b[1].cost || b[1].price || 0);
 
-function cardChips(table: Record<string, ShopItem>, bought: string[], off: string[]): LoadoutChip[] {
+function cardChips(table: Record<string, ShopItem>, bought: string[], off: string[]): LoadoutChip[]
+{
 	return Object.entries(table)
 		.sort(byPrice)
-		.map(([key, v]) => ({
+		.map(([key, v]) => (
+		{
 			key,
 			name: v.n,
 			colour: v.c!,
@@ -247,7 +323,8 @@ function cardChips(table: Record<string, ShopItem>, bought: string[], off: strin
 		}));
 }
 
-function loadoutSetup(): LoadoutSetup {
+function loadoutSetup(): LoadoutSetup
+{
 	const scope = S.who === "all" ? null : S.who;
 	const owned = mvOwnedMask();
 	const current = S.who === "all" ? S.mvShared & owned : mvOwn(S.who);
@@ -259,7 +336,8 @@ function loadoutSetup(): LoadoutSetup {
 		weapons: cardChips(W, S.wunlocked, offFor("w", scope)),
 		footwork: Object.entries(MV)
 			.sort((a, b) => a[1].price - b[1].price)
-			.map(([key, v]) => ({
+			.map(([key, v]) => (
+			{
 				key,
 				name: v.n,
 				colour: "var(--accent)",
@@ -270,14 +348,17 @@ function loadoutSetup(): LoadoutSetup {
 		allFootwork: current === owned,
 		noFootwork: current === 0,
 		anyFootwork: owned !== 0,
-		setWho: (who) => {
+		setWho: (who) =>
+		{
 			S.who = who;
 			drawMenu();
 		},
-		toggleElement: (key) => {
+		toggleElement: (key) =>
+		{
 			toggleChip("el", key);
 		},
-		toggleWeapon: (key) => {
+		toggleWeapon: (key) =>
+		{
 			toggleChip("w", key);
 		},
 		toggleFootwork,
@@ -288,7 +369,8 @@ function loadoutSetup(): LoadoutSetup {
 
 /* The arsenal panel: the treasury, the shop, the cheat box and the wipe. */
 
-function buy(key: string, price: number, bought: string[]): void {
+function buy(key: string, price: number, bought: string[]): void
+{
 	if (S.coins < price) return;
 	S.coins -= price;
 	bought.push(key);
@@ -296,7 +378,8 @@ function buy(key: string, price: number, bought: string[]): void {
 	drawMenu();
 }
 
-function buyAll(rows: readonly ShopRow[], bought: string[]): void {
+function buyAll(rows: readonly ShopRow[], bought: string[]): void
+{
 	const left = rows.filter((row) => !row.owned);
 	const due = left.reduce((a, row) => a + row.price, 0);
 	if (S.coins < due) return;
@@ -307,7 +390,8 @@ function buyAll(rows: readonly ShopRow[], bought: string[]): void {
 }
 
 /** One shelf of the shop, priced up as a whole so the header can sweep up what is left on it. */
-function shelf(heading: string, rows: ShopRow[], bought: string[]): ShopShelf {
+function shelf(heading: string, rows: ShopRow[], bought: string[]): ShopShelf
+{
 	const left = rows.filter((row) => !row.owned);
 	const due = left.reduce((a, row) => a + row.price, 0);
 
@@ -317,20 +401,24 @@ function shelf(heading: string, rows: ShopRow[], bought: string[]): ShopShelf {
 		due: left.length === 0 ? null : due,
 		left: left.length,
 		affordable: S.coins >= due,
-		buy: (key) => {
+		buy: (key) =>
+		{
 			buy(key, rows.find((row) => row.key === key)?.price ?? 0, bought);
 		},
-		buyAll: () => {
+		buyAll: () =>
+		{
 			buyAll(rows, bought);
 		},
 	};
 }
 
-function elementShelf(): ShopShelf {
+function elementShelf(): ShopShelf
+{
 	const rows = Object.entries(EL)
 		.filter(([, v]) => v.cost)
 		.sort((a, b) => a[1].cost! - b[1].cost!)
-		.map(([key, v]) => ({
+		.map(([key, v]) => (
+		{
 			key,
 			name: v.n,
 			blurb: v.blurb ?? "",
@@ -342,11 +430,13 @@ function elementShelf(): ShopShelf {
 	return shelf("Elements", rows, S.unlocked);
 }
 
-function weaponShelf(): ShopShelf {
+function weaponShelf(): ShopShelf
+{
 	const rows = Object.entries(W)
 		.filter(([, v]) => v.price)
 		.sort((a, b) => a[1].price! - b[1].price!)
-		.map(([key, v]) => ({
+		.map(([key, v]) => (
+		{
 			key,
 			name: v.n,
 			blurb: `${v.d} ${v.dmg} damage, ${v.cost} energy.`,
@@ -358,10 +448,12 @@ function weaponShelf(): ShopShelf {
 	return shelf("Weapons", rows, S.wunlocked);
 }
 
-function footworkShelf(): ShopShelf {
+function footworkShelf(): ShopShelf
+{
 	const rows = Object.entries(MV)
 		.sort((a, b) => a[1].price - b[1].price)
-		.map(([key, v]) => ({
+		.map(([key, v]) => (
+		{
 			key,
 			name: v.n,
 			blurb: `${v.d} ${mvCost(key)} energy each.`,
@@ -377,22 +469,28 @@ const CHEAT = "APPLEYUMMY";
 const MAXTRIES = 5;
 const normCode = (v: string): string => v.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-function cheatState(): CheatState {
+function cheatState(): CheatState
+{
 	if (S.cheat === 2) return "accepted";
 	return S.tries >= MAXTRIES ? "spent" : "open";
 }
 
-function submitCode(code: string): void {
+function submitCode(code: string): void
+{
 	if (cheatState() !== "open") return;
 	const guess = normCode(code);
 	if (!guess) return;
-	if (guess === CHEAT) {
+	if (guess === CHEAT)
+	{
 		S.cheat = 2;
 		S.coins = 9999999999;
-		Object.values(FUSE).forEach((k) => {
+		Object.values(FUSE).forEach((k) =>
+		{
 			S.codex[k] = 1;
 		});
-	} else {
+	}
+	else
+	{
 		S.tries++;
 	}
 	void save();
@@ -400,7 +498,8 @@ function submitCode(code: string): void {
 	drawCodex();
 }
 
-async function wipeProgress(): Promise<void> {
+async function wipeProgress(): Promise<void>
+{
 	S.coins = 0;
 	S.unlocked = [...BASE];
 	S.wunlocked = [...WBASE];
@@ -414,9 +513,12 @@ async function wipeProgress(): Promise<void> {
 	S.saveErr = null;
 	S.cheat = 0;
 	S.tries = 0;
-	try {
+	try
+	{
 		await window.storage.delete("arena:v3", false);
-	} catch (e) {
+	}
+	catch (e)
+	{
 		S.saveErr = "delete failed: " + errText(e);
 	}
 	await save();
@@ -424,7 +526,8 @@ async function wipeProgress(): Promise<void> {
 	drawCodex();
 }
 
-function arsenalSetup(): ArsenalSetup {
+function arsenalSetup(): ArsenalSetup
+{
 	return {
 		coins: S.coins,
 		saveError: S.saveErr || S.loadErr,
@@ -433,28 +536,38 @@ function arsenalSetup(): ArsenalSetup {
 		tries: S.tries,
 		triesAllowed: MAXTRIES,
 		submitCode,
-		resetProgress: () => {
+		resetProgress: () =>
+		{
 			void wipeProgress();
 		},
 	};
 }
 
 /* The board builder: `S.preset` is the arena painted before a match, one terrain key per square. */
-function presetReady(): void {
-	if (!S.preset || S.presetDim !== S.dim) {
+function presetReady(): void
+{
+	if (!S.preset || S.presetDim !== S.dim)
+	{
 		S.preset = Array(S.dim * S.dim).fill(null);
 		S.presetDim = S.dim;
 	}
 }
 /** Where each seat opens the match, which the designer marks out on the board it is painting. */
-function spawnSpots(): SpawnSpot[] {
-	return ringSpots(S.dim, S.np).map(([x, y], seat) => ({index: idx(x, y), name: nameOf(seat), colour: PC[seat]!}));
+function spawnSpots(): SpawnSpot[]
+{
+	return ringSpots(S.dim, S.np).map(([x, y], seat) => (
+	{
+		index: idx(x, y),
+		name: nameOf(seat),
+		colour: PC[seat]!,
+	}));
 }
 /**
  * The board as it stands. The designer paints through the game rather than keeping a copy, so the
  * arena a match is fought over is the one thing either side has to agree on.
  */
-function designView(): DesignView {
+function designView(): DesignView
+{
 	return {
 		dim: S.dim,
 		preset: [...(S.preset ?? [])],
@@ -468,34 +581,47 @@ function designView(): DesignView {
 		close: closeBuilder,
 	};
 }
-function paintSquare(index: number, key: string | null): void {
+function paintSquare(index: number, key: string | null): void
+{
 	if (!S.preset) return;
 	S.preset[index] = key;
 	designStore.set(designView());
 }
-function clearBoard(): void {
+function clearBoard(): void
+{
 	S.preset = Array(S.dim * S.dim).fill(null);
 	designStore.set(designView());
 }
 // the designer draws the ring for as many seats as it likes, and the setup screen follows it
-function designSeats(seats: number): void {
+function designSeats(seats: number): void
+{
 	setSeatCount(seats);
 	designStore.set(designView());
 }
 /** Takes the designer down; a stable reference, so republishing the same board is not news. */
-export function closeBuilder(): void {
+export function closeBuilder(): void
+{
 	designStore.set(null);
 }
-function openDesigner(): void {
+function openDesigner(): void
+{
 	presetReady();
 	designStore.set(designView());
 }
 /* The replay: the frames `logit` snapshotted, handed over whole for React to step through. */
-export function openReplay(): void {
-	replayStore.set({frames: [...S.frames], dim: S.dim, close: closeReplay});
+export function openReplay(): void
+{
+	replayStore.set(
+		{
+			frames: [...S.frames],
+			dim: S.dim,
+			close: closeReplay,
+		},
+	);
 }
 /** Takes the replay down; a stable reference, so republishing the same match is not news. */
-export function closeReplay(): void {
+export function closeReplay(): void
+{
 	replayStore.set(null);
 }
 /**
@@ -503,18 +629,22 @@ export function closeReplay(): void {
  * The card itself is React's to keep, so all the menu hands over is what the save has to build one
  * out of, taken as it stands the moment the screen goes up.
  */
-function openSimulator(): void {
-	simStore.set({
-		weapons: [...S.wunlocked].sort((a, b) => (W[a]!.price || 0) - (W[b]!.price || 0)),
-		elements: [...S.unlocked].sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0)),
-		fusions: [...new Set(Object.values(FUSE).filter((k) => known(k)))],
-		hp: S.hp,
-		close: closeSim,
-	});
+function openSimulator(): void
+{
+	simStore.set(
+		{
+			weapons: [...S.wunlocked].sort((a, b) => (W[a]!.price || 0) - (W[b]!.price || 0)),
+			elements: [...S.unlocked].sort((a, b) => (EL[a]!.cost || 0) - (EL[b]!.cost || 0)),
+			fusions: [...new Set(Object.values(FUSE).filter((k) => known(k)))],
+			hp: S.hp,
+			close: closeSim,
+		},
+	);
 }
 
 /** Takes the simulator down; a stable reference, so republishing the same shelves is not news. */
-export function closeSim(): void {
+export function closeSim(): void
+{
 	simStore.set(null);
 }
 /**
@@ -522,11 +652,13 @@ export function closeSim(): void {
  * below it. The grid itself is React's to paint, so all the menu hands over is how far the save
  * has got -- what has been bought, and what has been mixed in play.
  */
-export function openTable(): void {
+export function openTable(): void
+{
 	tableStore.set(tableView());
 }
 
-function tableView(): TableView {
+function tableView(): TableView
+{
 	return {
 		owned: [...S.unlocked],
 		found: [...new Set(Object.values(FUSE).filter((k) => known(k)))],
@@ -536,16 +668,19 @@ function tableView(): TableView {
 }
 
 /** Takes the table down; a stable reference, so republishing the same save is not news. */
-export function closeTable(): void {
+export function closeTable(): void
+{
 	tableStore.set(null);
 }
 /** How much of the fusion codex the save has turned up, as the arena's codex line reads it. */
-export function codexLine(): string {
+export function codexLine(): string
+{
 	const total = Object.keys(FUSE).length;
 	const found = Object.keys(FUSE).filter((k) => known(FUSE[k]!)).length;
 	return `${found} of ${total} fusions discovered`;
 }
-export function drawCodex(): void {
+export function drawCodex(): void
+{
 	// a fusion turned up mid-match reaches the arena's codex line, and the table over the board too
 	redraw();
 	if (tableStore.get() !== null) tableStore.set(tableView());

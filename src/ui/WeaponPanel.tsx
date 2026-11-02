@@ -2,15 +2,29 @@ import {type CSSProperties, type ReactElement} from "react";
 import type {LeaveRow, WeaponView} from "../game/bridge.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type ChoiceStyle = CSSProperties & {"--lc": string};
+type ChoiceStyle = CSSProperties &
+{
+	"--lc": string;
+};
 
 /** One row of leavings: the question, and every element that can answer it. */
-function Leaves({row}: {readonly row: LeaveRow}): ReactElement {
+function Leaves({row}: {readonly row: LeaveRow}): ReactElement
+{
 	return (
-		<div className="wsub" style={{marginTop: 8}}>
+		<div
+			className="wsub"
+			style={
+			{
+				marginTop: 8,
+			}}
+		>
 			{row.label}{" "}
-			{row.options.map((option) => {
-				const style: ChoiceStyle = {"--lc": option.colour};
+			{row.options.map((option) =>
+			{
+				const style: ChoiceStyle =
+				{
+					"--lc": option.colour,
+				};
 
 				return (
 					// an element can only be offered once per row, so it names its own button
@@ -33,12 +47,20 @@ function Leaves({row}: {readonly row: LeaveRow}): ReactElement {
  * The weapon in hand: what it is, what it does on a hit, what it leaves behind, and the swing
  * itself. Whether the swing is worth making is the hint's job to say, and the game works that out.
  */
-export function WeaponPanel({view}: {readonly view: WeaponView | null}): ReactElement {
-	if (view === null) {
+export function WeaponPanel({view}: {readonly view: WeaponView | null}): ReactElement
+{
+	if (view === null)
+	{
 		return (
 			<div className="wep">
 				<div className="wtop">
-					<span className="wn" style={{color: "var(--muted)"}}>
+					<span
+						className="wn"
+						style={
+						{
+							color: "var(--muted)",
+						}}
+					>
 						Empty hands
 					</span>
 				</div>
@@ -52,7 +74,13 @@ export function WeaponPanel({view}: {readonly view: WeaponView | null}): ReactEl
 	return (
 		<div className="wep">
 			<div className="wtop">
-				<span className="wn" style={{color: view.colour}}>
+				<span
+					className="wn"
+					style={
+					{
+						color: view.colour,
+					}}
+				>
 					{view.name}
 				</span>
 				<span className="wd">{`${view.damage} damage`}</span>
@@ -66,7 +94,13 @@ export function WeaponPanel({view}: {readonly view: WeaponView | null}): ReactEl
 					</>
 				)}
 			</div>
-			<div className="wstrip" style={{background: view.strip}} />
+			<div
+				className="wstrip"
+				style={
+				{
+					background: view.strip,
+				}}
+			/>
 			{view.rows.map((row) => (
 				// the two rows ask different questions, so the question names the row
 				<Leaves key={row.label} row={row} />
@@ -80,7 +114,14 @@ export function WeaponPanel({view}: {readonly view: WeaponView | null}): ReactEl
 					onClick={view.swing}
 				>
 					{`Swing · ${view.cost} energy `}
-					<span style={{opacity: 0.6}}>F</span>
+					<span
+						style={
+						{
+							opacity: 0.6,
+						}}
+					>
+						F
+					</span>
 				</button>
 				<span className="hint">{view.hint}</span>
 			</div>

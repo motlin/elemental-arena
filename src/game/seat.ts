@@ -36,7 +36,8 @@ import {attackTiles, liveTargets, smashMult} from "./combat.js";
 import {COST, T} from "./data/index.js";
 import {standing} from "./intent.js";
 import {wepDmg, wepName} from "./lookups.js";
-import {
+import
+{
 	canEnter,
 	dashTargets,
 	jumpTargets,
@@ -59,7 +60,8 @@ import type {ActionKey, Offset} from "./data/index.js";
 import type {Card, Cell, ChatMsg, LogEntry, Player} from "./types.js";
 
 /** One square, as far as this seat can read it. Ground it cannot see arrives as bare ground. */
-export interface SeatTile {
+export interface SeatTile
+{
 	/** Terrain key, or null on a square this seat reads as bare. */
 	readonly t: string | null;
 	/** Rounds of life left, or 0 on ground this seat cannot see. */
@@ -69,7 +71,8 @@ export interface SeatTile {
 }
 
 /** A fighter, as far as this seat can see them. */
-export interface SeatFighter {
+export interface SeatFighter
+{
 	readonly seat: number;
 	readonly name: string;
 	readonly colour: string;
@@ -95,7 +98,8 @@ export interface SeatFighter {
 }
 
 /** This seat's own fighter, who has no secrets from the person playing them. */
-export interface SeatSelf {
+export interface SeatSelf
+{
 	readonly seat: number;
 	readonly x: number;
 	readonly y: number;
@@ -127,7 +131,8 @@ export interface SeatSelf {
 }
 
 /** One card in a hand a theft has opened, as the seat reading the bar is entitled to read it. */
-export interface SeatStealCard {
+export interface SeatStealCard
+{
 	readonly uid: number;
 	/** What the card is, or the slot it is sitting in while this seat has not been shown it. */
 	readonly label: string;
@@ -135,14 +140,16 @@ export interface SeatStealCard {
 }
 
 /** The hand a theft has opened, in the order its owner is holding it. */
-export interface SeatSteal {
+export interface SeatSteal
+{
 	readonly seat: number;
 	readonly name: string;
 	readonly cards: readonly SeatStealCard[];
 }
 
 /** How far one fighter could walk, which is the overlay the inspect panel's reach chips draw. */
-export interface SeatReach {
+export interface SeatReach
+{
 	readonly seat: number;
 	readonly budget: number;
 	/** Every square the walk could stop on, in board order, the one already stood on included. */
@@ -150,7 +157,8 @@ export interface SeatReach {
 }
 
 /** One card in hand, and everything else in the same hand it would merge with. */
-export interface SeatMix {
+export interface SeatMix
+{
 	readonly uid: number;
 	readonly with: readonly number[];
 }
@@ -160,7 +168,8 @@ export interface SeatMix {
  * and the two lists of cards are uids sorted the same way, so two blocks built from two matches
  * compare byte for byte, which is what the leak test reads.
  */
-export interface SeatLegal {
+export interface SeatLegal
+{
 	/** Squares one step away this seat can walk onto and pay the ground's price for. */
 	readonly step: readonly number[];
 	/** Squares a card may be laid on, whichever card is the one laid. */
@@ -202,7 +211,8 @@ export interface SeatLegal {
 }
 
 /** Everything one seat may be told about the match it is playing. */
-export interface SeatState {
+export interface SeatState
+{
 	readonly seat: number;
 	readonly dim: number;
 	readonly round: number;
@@ -274,28 +284,60 @@ export interface SeatState {
  * Holding to "at the end" is worker/room.ts's job, and matchOver in src/game/intent.ts is what it
  * asks. Nothing here can check it: this function is handed no seat and knows of no wire.
  */
-export function matchLog(): readonly LogEntry[] {
-	return S.log.map((entry) => ({...entry}));
+export function matchLog(): readonly LogEntry[]
+{
+	return S.log.map((entry) => (
+	{
+		...entry,
+	}));
 }
 
 /** A square nobody has laid anything on, which is also what concealed ground reads as. */
-const BARE: SeatTile = {t: null, life: 0, wid: 0};
+const BARE: SeatTile =
+{
+	t: null,
+	life: 0,
+	wid: 0,
+};
 
 /** A card as its owner is handed it back: the same card, minus who has peeked at it. */
-function ownCard(c: Card): Card {
-	if (c.k === "el") return {uid: c.uid, k: "el", id: c.id};
-	if (c.k === "f") return {uid: c.uid, k: "f", id: c.id, born: c.born};
+function ownCard(c: Card): Card
+{
+	if (c.k === "el")
+		return {
+			uid: c.uid,
+			k: "el",
+			id: c.id,
+		};
+	if (c.k === "f")
+		return {
+			uid: c.uid,
+			k: "f",
+			id: c.id,
+			born: c.born,
+		};
 	return {
 		uid: c.uid,
 		k: "w",
 		ids: [...c.ids],
 		els: [...c.els],
-		...(c.leaveSelf === undefined ? {} : {leaveSelf: c.leaveSelf}),
-		...(c.leaveFoe === undefined ? {} : {leaveFoe: c.leaveFoe}),
+		...(c.leaveSelf === undefined
+			? {}
+			:
+				{
+					leaveSelf: c.leaveSelf,
+				}),
+		...(c.leaveFoe === undefined
+			? {}
+			:
+				{
+					leaveFoe: c.leaveFoe,
+				}),
 	};
 }
 
-function selfOf(p: Player): SeatSelf {
+function selfOf(p: Player): SeatSelf
+{
 	return {
 		seat: p.i,
 		x: p.x,
@@ -313,18 +355,23 @@ function selfOf(p: Player): SeatSelf {
 		trail: p.trail,
 		hidden: hidden(p),
 		mv: p.mv,
-		used: {...p.used},
+		used:
+		{
+			...p.used,
+		},
 		held: p.held,
 		hand: p.hand.map(ownCard),
 	};
 }
 
 /** The one rule the board and the roster both read by: can this seat see that fighter at all. */
-function visible(o: Player, me: Player, dark: boolean): boolean {
+function visible(o: Player, me: Player, dark: boolean): boolean
+{
 	return o === me || !!o.lit || (!dark && !hidden(o));
 }
 
-function fighterOf(o: Player, me: Player, dark: boolean): SeatFighter {
+function fighterOf(o: Player, me: Player, dark: boolean): SeatFighter
+{
 	const mine = o === me,
 		open = !S.priv;
 	const c = o.hand.find((q) => q.uid === o.held);
@@ -347,23 +394,30 @@ function fighterOf(o: Player, me: Player, dark: boolean): SeatFighter {
 	};
 }
 
-function tileFor(me: Player, i: number): SeatTile {
+function tileFor(me: Player, i: number): SeatTile
+{
 	const c = S.board[i]!;
 	if (!c.t || !seesTile(me, i % S.dim, (i / S.dim) | 0)) return BARE;
-	return {t: c.t, life: c.life, wid: c.wid};
+	return {
+		t: c.t,
+		life: c.life,
+		wid: c.wid,
+	};
 }
 
 const ACTIONS = Object.keys(COST) as ActionKey[];
 
 /** Which of the priced actions a purse of `nrg` covers, which is the one part of legality a seat owns. */
-function affords(nrg: number): Record<ActionKey, boolean> {
+function affords(nrg: number): Record<ActionKey, boolean>
+{
 	const out = {} as Record<ActionKey, boolean>;
 	for (const key of ACTIONS) out[key] = nrg >= COST[key];
 	return out;
 }
 
 /** What a seat with no move to make is handed: every list empty, and a purse that buys nothing. */
-const NO_MOVES: SeatLegal = {
+const NO_MOVES: SeatLegal =
+{
 	step: [],
 	place: [],
 	taken: [],
@@ -389,12 +443,14 @@ const NO_MOVES: SeatLegal = {
 };
 
 /** A list of squares as the wire carries one: board indexes, in board order, each of them once. */
-function squares(list: readonly Offset[]): number[] {
+function squares(list: readonly Offset[]): number[]
+{
 	return [...new Set(list.map(([x, y]) => idx(x, y)))].sort((a, b) => a - b);
 }
 
 /** Ground with nothing on it, which is what ground this seat cannot see has to read as. */
-function strip(c: Cell): void {
+function strip(c: Cell): void
+{
 	c.t = null;
 	c.el = null;
 	c.life = 0;
@@ -411,15 +467,22 @@ function strip(c: Cell): void {
  * already handed, so there is no square whose answer changes because somebody is hiding on it --
  * and a move that is illegal only because of that somebody comes back legal, which is the fiction.
  */
-function asSeen<T>(me: Player, dark: boolean, ask: () => T): T {
+function asSeen<T>(me: Player, dark: boolean, ask: () => T): T
+{
 	const ghosts = S.players.filter((o) => o.alive && !visible(o, me, dark));
 	const covered = S.board.filter((_, i) => !seesTile(me, i % S.dim, (i / S.dim) | 0));
-	const was = covered.map((c) => ({...c}));
+	const was = covered.map((c) => (
+	{
+		...c,
+	}));
 	ghosts.forEach((o) => (o.alive = false));
 	covered.forEach(strip);
-	try {
+	try
+	{
 		return ask();
-	} finally {
+	}
+	finally
+	{
 		covered.forEach((c, k) => Object.assign(c, was[k]!));
 		ghosts.forEach((o) => (o.alive = true));
 	}
@@ -431,23 +494,31 @@ function asSeen<T>(me: Player, dark: boolean, ask: () => T): T {
  * and then the fills themselves run inside the same view, so cover this seat cannot read does not
  * bend a route around it and say so.
  */
-function reachFor(me: Player, dark: boolean): SeatReach[] {
+function reachFor(me: Player, dark: boolean): SeatReach[]
+{
 	const seen = S.players.filter((o) => o.alive && visible(o, me, dark));
 	return asSeen(me, dark, () =>
-		seen.map((o) => {
+		seen.map((o) =>
+		{
 			const budget = moveBudget(o);
-			return {seat: o.i, budget, tiles: [...reachable(o, budget).keys()].sort((a, b) => a - b)};
+			return {
+				seat: o.i,
+				budget,
+				tiles: [...reachable(o, budget).keys()].sort((a, b) => a - b),
+			};
 		}),
 	);
 }
 
 /** Every square with a glare on it, which nobody has to be protected from: a glare is the opposite. */
-function litSquares(): number[] {
+function litSquares(): number[]
+{
 	return S.board.flatMap((_, i) => (isLit(i % S.dim, (i / S.dim) | 0) ? [i] : []));
 }
 
 /** The hand a theft has opened, as this seat may read it, or null while no theft is under way. */
-function stealFor(me: Player): SeatSteal | null {
+function stealFor(me: Player): SeatSteal | null
+{
 	if (standing(me.i) !== null) return null;
 	const v = S.steal === null ? null : S.players[S.steal];
 	if (!v) return null;
@@ -457,7 +528,8 @@ function stealFor(me: Player): SeatSteal | null {
 	return {
 		seat: v.i,
 		name: v.name,
-		cards: v.hand.map((c, i) => ({
+		cards: v.hand.map((c, i) => (
+		{
 			uid: c.uid,
 			label: shown(c) ? cardLabel(c) : `Card ${i + 1}`,
 			facedown: !shown(c),
@@ -473,11 +545,13 @@ function stealFor(me: Player): SeatSteal | null {
  */
 
 /** The squares next door this seat could walk onto, at a price it can pay. */
-function stepSquares(p: Player): number[] {
+function stepSquares(p: Player): number[]
+{
 	if (p.rootTurns > 0) return [];
 	const out: number[] = [];
 	for (let y = p.y - 1; y <= p.y + 1; y++)
-		for (let x = p.x - 1; x <= p.x + 1; x++) {
+		for (let x = p.x - 1; x <= p.x + 1; x++)
+		{
 			if ((x === p.x && y === p.y) || !canEnter(x, y, p)) continue;
 			const c = S.board[idx(x, y)]!;
 			const cost = p.float ? 1 : c.t ? T[c.t]!.enter : 1;
@@ -487,22 +561,33 @@ function stepSquares(p: Player): number[] {
 }
 
 /** Where a card may be laid, and where one that kills on contact would be turned down. */
-function placeSquares(p: Player): {place: number[]; taken: number[]} {
+function placeSquares(p: Player):
+{
+	place: number[];
+	taken: number[];
+}
+{
 	const place: number[] = [],
 		taken: number[] = [];
 	for (let y = 0; y < S.dim; y++)
-		for (let x = 0; x < S.dim; x++) {
+		for (let x = 0; x < S.dim; x++)
+		{
 			const d = cheb(p.x, p.y, x, y);
 			if (d === 0 || d > 4 || sealed(x, y)) continue;
 			place.push(idx(x, y));
 			if (occupant(x, y)) taken.push(idx(x, y));
 		}
-	return {place, taken};
+	return {
+		place,
+		taken,
+	};
 }
 
 /** Which cards in a hand merge with which, asked card by card so no screen state picks the source. */
-function mixFor(p: Player): SeatMix[] {
-	return p.hand.map((c) => ({
+function mixFor(p: Player): SeatMix[]
+{
+	return p.hand.map((c) => (
+	{
 		uid: c.uid,
 		with: mixPartners(p, c)
 			.map((q) => q.uid)
@@ -511,7 +596,8 @@ function mixFor(p: Player): SeatMix[] {
 }
 
 /** The cards in hand that kill on contact, which is the half of `badPlace` `taken` does not answer. */
-function lethalFor(p: Player): number[] {
+function lethalFor(p: Player): number[]
+{
 	return p.hand
 		.filter((c) => c.k === "el" && lethalRaw(c.id))
 		.map((c) => c.uid)
@@ -519,7 +605,8 @@ function lethalFor(p: Player): number[] {
 }
 
 /** Every question the match screen asks about what is clickable, asked all at once. */
-function movesFor(p: Player): SeatLegal {
+function movesFor(p: Player): SeatLegal
+{
 	const weapon = held(p);
 	const under = S.board[idx(p.x, p.y)]!.t;
 	const {place, taken} = placeSquares(p);
@@ -554,7 +641,8 @@ function movesFor(p: Player): SeatLegal {
  * half the questions below ask `cur()` who is playing rather than taking a fighter, so there is no
  * honest answer to "what may you do" for anybody whose turn it is not, and no use for one either.
  */
-function legalFor(me: Player, dark: boolean): SeatLegal {
+function legalFor(me: Player, dark: boolean): SeatLegal
+{
 	if (standing(me.i) !== null) return NO_MOVES;
 	return asSeen(me, dark, () => movesFor(me));
 }
@@ -563,7 +651,8 @@ function legalFor(me: Player, dark: boolean): SeatLegal {
  * Everything seat `seat` may be told, right now. Throws rather than guessing for a seat that is not
  * in the match: a silent empty view would be a match one player could not see at all.
  */
-export function seatState(seat: number): SeatState {
+export function seatState(seat: number): SeatState
+{
 	const me = S.players[seat];
 	if (!me) throw new Error(`no seat ${seat} in this match`);
 	const dark = blind(me);
@@ -591,6 +680,9 @@ export function seatState(seat: number): SeatState {
 		litsq: litSquares(),
 		reachable: reachFor(me, dark),
 		smashMult: smashMult(),
-		chat: S.chat.map((m) => ({...m})),
+		chat: S.chat.map((m) => (
+		{
+			...m,
+		})),
 	};
 }

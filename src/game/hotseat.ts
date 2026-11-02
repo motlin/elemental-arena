@@ -33,8 +33,13 @@ import type {Local, MatchActions} from "./render.js";
  * What the screen knows that the arena does not, read out of `S`. The animations come out with it:
  * they are handed over once and then forgotten, so each one plays on exactly one screen.
  */
-function local(): Local {
-	const fx = S.fx.map(([index, animation]) => ({index, animation}));
+function local(): Local
+{
+	const fx = S.fx.map(([index, animation]) => (
+	{
+		index,
+		animation,
+	}));
 	S.fx = [];
 	return {
 		mode: S.mode,
@@ -58,7 +63,8 @@ function local(): Local {
  * Writes the screen's own state back where the rules and the keyboard will find it. Only the fields
  * the caller named are touched: a patch that says nothing about Inspect leaves Inspect alone.
  */
-function patch(next: Partial<Local>): void {
+function patch(next: Partial<Local>): void
+{
 	if ("mode" in next) S.mode = next.mode ?? null;
 	if ("sel" in next) S.sel = next.sel ?? null;
 	if ("mixFrom" in next) S.mixFrom = next.mixFrom ?? null;
@@ -76,21 +82,31 @@ function patch(next: Partial<Local>): void {
  * takes is the path a move off a socket will take. A refusal changes nothing, which is what a click
  * on something that was never going to work has always done.
  */
-const ACTIONS: MatchActions = {
-	submit: (intent) => {
+const ACTIONS: MatchActions =
+{
+	submit: (intent) =>
+	{
 		applyIntent(S.turn, intent);
 	},
 	patch,
 	undo,
 	leave: leaveMatch,
 	// the first tap only arms the button; the second is the move
-	forfeit: () => {
-		if (forfeitArmed()) applyIntent(S.turn, {k: "forfeit"});
+	forfeit: () =>
+	{
+		if (forfeitArmed())
+			applyIntent(
+				S.turn,
+				{
+					k: "forfeit",
+				},
+			);
 		else tapForfeit();
 	},
 	toggleTheme: flipTheme,
 	openTable,
-	cancelSteal: () => {
+	cancelSteal: () =>
+	{
 		S.steal = null;
 		render();
 	},
@@ -101,10 +117,12 @@ const ACTIONS: MatchActions = {
  * the view is built fresh, which costs nothing: a move always changes something, so React is told
  * to repaint whatever it was already showing.
  */
-export function render(): void {
+export function render(): void
+{
 	// an online match draws itself, out of the seat views a server sends it: src/game/online.ts
 	if (S.screen === "online") return;
-	if (!S.players.length || S.screen !== "game") {
+	if (!S.players.length || S.screen !== "game")
+	{
 		matchStore.set(null);
 		handoffStore.set(null);
 		return;
@@ -112,6 +130,16 @@ export function render(): void {
 	checkRefill();
 	auditReveal();
 	const p = S.players[S.turn]!;
-	handoffStore.set(S.handoff ? {seat: p.i, name: p.name, colour: p.c, dismiss: dropCurtain} : null);
+	handoffStore.set(
+		S.handoff
+			?
+				{
+					seat: p.i,
+					name: p.name,
+					colour: p.c,
+					dismiss: dropCurtain,
+				}
+			: null,
+	);
 	matchStore.set(matchView(seatState(S.turn), local(), ACTIONS));
 }

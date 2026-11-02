@@ -5,9 +5,19 @@ import {rgba} from "../game/lookups.js";
 import type {Frame} from "../game/types.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type TileStyle = CSSProperties & {"--tc"?: string; "--tcs"?: string};
-type GlyphStyle = CSSProperties & {"--pc": string};
-type BoardStyle = CSSProperties & {"--cell": string};
+type TileStyle = CSSProperties &
+{
+	"--tc"?: string;
+	"--tcs"?: string;
+};
+type GlyphStyle = CSSProperties &
+{
+	"--pc": string;
+};
+type BoardStyle = CSSProperties &
+{
+	"--cell": string;
+};
 
 /** How long the replay rests on a frame before stepping to the next one. */
 const STEP = 900;
@@ -20,18 +30,25 @@ const CELL_MIN = 11;
 const CELL_MAX = 34;
 
 /** Largest tile size the frame's board can be drawn at in the room this viewport leaves it. */
-function cellSize(dim: number): number {
+function cellSize(dim: number): number
+{
 	const avail = Math.min(window.innerWidth - SIDE_ROOM, BOARD_MAX);
 	return Math.max(CELL_MIN, Math.min(CELL_MAX, Math.floor(avail / dim) - 2));
 }
 
 /** The board as one frame remembers it: the ground that was down, and who was standing on it. */
-function Board({frame, dim}: {readonly frame: Frame; readonly dim: number}): ReactElement {
-	const style: BoardStyle = {gridTemplateColumns: `repeat(${dim},var(--cell))`, "--cell": `${cellSize(dim)}px`};
+function Board({frame, dim}: {readonly frame: Frame; readonly dim: number}): ReactElement
+{
+	const style: BoardStyle =
+	{
+		gridTemplateColumns: `repeat(${dim},var(--cell))`,
+		"--cell": `${cellSize(dim)}px`,
+	};
 
 	return (
 		<div className="rvboard" style={style}>
-			{frame.board.map((key, i) => {
+			{frame.board.map((key, i) =>
+			{
 				const ground = key === null ? undefined : T[key];
 				const seat = frame.players.findIndex((q) => q.alive && q.y * dim + q.x === i);
 				const who = frame.players[seat];
@@ -40,8 +57,18 @@ function Board({frame, dim}: {readonly frame: Frame; readonly dim: number}): Rea
 				if (ground !== undefined) classes.push("terr");
 				if (ground?.solid !== undefined) classes.push("solid");
 				if (ground?.dead !== undefined) classes.push("gonezone");
-				const tile: TileStyle = ground === undefined ? {} : {"--tc": ground.c, "--tcs": rgba(ground.c, 0.44)};
-				const glyph: GlyphStyle = {"--pc": who ? who.c : ""};
+				const tile: TileStyle =
+					ground === undefined
+						? {}
+						:
+							{
+								"--tc": ground.c,
+								"--tcs": rgba(ground.c, 0.44),
+							};
+				const glyph: GlyphStyle =
+				{
+					"--pc": who ? who.c : "",
+				};
 
 				return (
 					// A square is only ever named by where it sits on the board.
@@ -55,11 +82,16 @@ function Board({frame, dim}: {readonly frame: Frame; readonly dim: number}): Rea
 }
 
 /** Everyone in the match as that frame had them: health, and the cards they were holding. */
-function Fighters({frame}: {readonly frame: Frame}): ReactElement {
+function Fighters({frame}: {readonly frame: Frame}): ReactElement
+{
 	return (
 		<div className="rvside">
-			{frame.players.map((q, seat) => {
-				const style: GlyphStyle = {"--pc": q.c};
+			{frame.players.map((q, seat) =>
+			{
+				const style: GlyphStyle =
+				{
+					"--pc": q.c,
+				};
 
 				return (
 					// Seats keep their order for the whole match, so the seat is the fighter's name here.
@@ -70,7 +102,13 @@ function Fighters({frame}: {readonly frame: Frame}): ReactElement {
 							<span className="rvhp">{q.alive ? `${q.hp} hp` : "out"}</span>
 						</div>
 						<div className="bar">
-							<i style={{width: `${(q.hp / q.max) * 100}%`, background: q.c}} />
+							<i
+								style={
+								{
+									width: `${(q.hp / q.max) * 100}%`,
+									background: q.c,
+								}}
+							/>
 						</div>
 						<div className="rvcards">
 							{q.hand.length === 0 ? (
@@ -91,7 +129,8 @@ function Fighters({frame}: {readonly frame: Frame}): ReactElement {
 	);
 }
 
-export interface ReplayViewerViewProps extends ReplayView {
+export interface ReplayViewerViewProps extends ReplayView
+{
 	/** Which frame is on screen, as an index into `frames`. */
 	readonly at: number;
 	/** Winds to another frame, which also stops the replay playing itself. */
@@ -112,7 +151,8 @@ export function ReplayViewerView({
 	go,
 	playing,
 	togglePlay,
-}: ReplayViewerViewProps): ReactElement {
+}: ReplayViewerViewProps): ReactElement
+{
 	const frame = frames[at];
 
 	return (
@@ -129,7 +169,8 @@ export function ReplayViewerView({
 						type="button"
 						className="ghost"
 						aria-label="Previous frame"
-						onClick={() => {
+						onClick={() =>
+						{
 							go(at - 1);
 						}}
 					>
@@ -142,7 +183,8 @@ export function ReplayViewerView({
 						type="button"
 						className="ghost"
 						aria-label="Next frame"
-						onClick={() => {
+						onClick={() =>
+						{
 							go(at + 1);
 						}}
 					>
@@ -154,7 +196,8 @@ export function ReplayViewerView({
 						max={Math.max(0, frames.length - 1)}
 						value={at}
 						aria-label="Replay position"
-						onChange={(e) => {
+						onChange={(e) =>
+						{
 							go(+e.target.value);
 						}}
 					/>
@@ -165,10 +208,31 @@ export function ReplayViewerView({
 				) : (
 					<>
 						<p className="rvnote">
-							<b style={{color: frame.c}}>{frame.who || "The arena"}</b>
-							<span style={{color: "var(--muted)"}}>{` · round ${frame.r}`}</span>
+							<b
+								style={
+								{
+									color: frame.c,
+								}}
+							>
+								{frame.who || "The arena"}
+							</b>
+							<span
+								style={
+								{
+									color: "var(--muted)",
+								}}
+							>{` · round ${frame.r}`}</span>
 							<br />
-							<span style={frame.say ? {fontStyle: "italic"} : undefined}>
+							<span
+								style={
+									frame.say
+										?
+											{
+												fontStyle: "italic",
+											}
+										: undefined
+								}
+							>
 								{`${frame.say ? "says " : ""}${frame.t}`}
 							</span>
 						</p>
@@ -187,23 +251,28 @@ export function ReplayViewerView({
  * Owns where in the match the replay is parked and whether it is running itself. Both only exist
  * while the replay is up, so every visit opens on the first frame, stopped.
  */
-function ReplayBox(view: ReplayView): ReactElement {
+function ReplayBox(view: ReplayView): ReactElement
+{
 	const [at, setAt] = useState(0);
 	const [playing, setPlaying] = useState(false);
 	const last = view.frames.length - 1;
 
 	// One timer per frame rather than one for the whole run: the effect re-arms it after each step,
 	// and simply stops arming it once the last frame is up.
-	useEffect(() => {
+	useEffect(() =>
+	{
 		if (!playing) return undefined;
-		if (at >= last) {
+		if (at >= last)
+		{
 			setPlaying(false);
 			return undefined;
 		}
-		const timer = setTimeout(() => {
+		const timer = setTimeout(() =>
+		{
 			setAt(at + 1);
 		}, STEP);
-		return () => {
+		return () =>
+		{
 			clearTimeout(timer);
 		};
 	}, [playing, at, last]);
@@ -213,12 +282,15 @@ function ReplayBox(view: ReplayView): ReactElement {
 			{...view}
 			at={at}
 			playing={playing}
-			go={(next) => {
+			go={(next) =>
+			{
 				setPlaying(false);
 				setAt(Math.max(0, Math.min(last, next)));
 			}}
-			togglePlay={() => {
-				if (playing) {
+			togglePlay={() =>
+			{
+				if (playing)
+				{
 					setPlaying(false);
 					return;
 				}
@@ -234,7 +306,8 @@ function ReplayBox(view: ReplayView): ReactElement {
  * The match played back a log line at a time: the board as it stood, who was where, and what each
  * fighter was holding. Nothing here can be acted on -- the frames are a record, not a position.
  */
-export function ReplayViewer(): ReactElement | null {
+export function ReplayViewer(): ReactElement | null
+{
 	const view = useSyncExternalStore(replayStore.subscribe, replayStore.get, replayStore.get);
 
 	return view === null ? null : <ReplayBox {...view} />;

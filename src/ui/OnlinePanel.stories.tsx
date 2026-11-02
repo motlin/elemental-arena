@@ -3,10 +3,14 @@ import {OnlinePanel} from "./OnlinePanel.js";
 import {sampleLobby} from "./setupSamples.js";
 import "../styles/index.css";
 
-const meta = {
+const meta =
+{
 	title: "Arena/OnlinePanel",
 	component: OnlinePanel,
-	parameters: {layout: "centered"},
+	parameters:
+	{
+		layout: "centered",
+	},
 	tags: ["autodocs"],
 	args: sampleLobby(),
 } satisfies Meta<typeof OnlinePanel>;
@@ -18,12 +22,27 @@ type Story = StoryObj<typeof meta>;
 export const NothingOpenYet: Story = {};
 
 /** A match dealt and waiting: one link to send round, and a seat to take in it. */
-export const AMatchOpened: Story = {args: sampleLobby("quiet-forge")};
+export const AMatchOpened: Story =
+{
+	args: sampleLobby("quiet-forge"),
+};
 
 /** The host request in flight, which spends the button until the server answers. */
-export const Opening: Story = {args: {...sampleLobby(), opening: true}};
+export const Opening: Story =
+{
+	args:
+	{
+		...sampleLobby(),
+		opening: true,
+	},
+};
 
 /** The server turned the match down, which is the one thing the panel has to say out loud. */
-export const TheServerSaidNo: Story = {
-	args: {...sampleLobby(), error: "the match server answered 500"},
+export const TheServerSaidNo: Story =
+{
+	args:
+	{
+		...sampleLobby(),
+		error: "the match server answered 500",
+	},
 };

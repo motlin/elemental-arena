@@ -3,15 +3,21 @@ import {overStore, type OverView} from "../game/bridge.js";
 import type {LogEntry} from "../game/types.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type GlyphStyle = CSSProperties & {"--pc": string};
+type GlyphStyle = CSSProperties &
+{
+	"--pc": string;
+};
 
-interface MatchLogProps {
+interface MatchLogProps
+{
 	readonly log: readonly LogEntry[];
 }
 
 /** The match from the first card to the last blow, with each round called out as it starts. */
-function MatchLog({log}: MatchLogProps): ReactElement {
-	if (log.length === 0) {
+function MatchLog({log}: MatchLogProps): ReactElement
+{
+	if (log.length === 0)
+	{
 		return (
 			<div className="lg">
 				<span className="txt">Nothing happened.</span>
@@ -29,7 +35,13 @@ function MatchLog({log}: MatchLogProps): ReactElement {
 					<div className={entry.say ? "lg lgsay" : "lg"}>
 						<span className="rd">{entry.r}</span>
 						<span>
-							<span className="who" style={{color: entry.c}}>
+							<span
+								className="who"
+								style={
+								{
+									color: entry.c,
+								}}
+							>
 								{entry.who || "The arena"}
 							</span>
 							<span className="txt">{` ${entry.say ? "says " : ""}${entry.t}`}</span>
@@ -41,7 +53,8 @@ function MatchLog({log}: MatchLogProps): ReactElement {
 	);
 }
 
-export interface GameOverScreenViewProps extends OverView {
+export interface GameOverScreenViewProps extends OverView
+{
 	/** Whether the match log is unrolled under the buttons. */
 	readonly logOpen: boolean;
 	readonly toggleLog: () => void;
@@ -61,8 +74,12 @@ export function GameOverScreenView({
 	back,
 	logOpen,
 	toggleLog,
-}: GameOverScreenViewProps): ReactElement {
-	const glyphStyle: GlyphStyle = {"--pc": colour};
+}: GameOverScreenViewProps): ReactElement
+{
+	const glyphStyle: GlyphStyle =
+	{
+		"--pc": colour,
+	};
 
 	return (
 		<div className="over">
@@ -93,14 +110,16 @@ export function GameOverScreenView({
  * Owns the one thing the screen decides for itself: whether the log is unrolled. It only exists
  * while the screen is up, so the next match starts with the log rolled away again.
  */
-function GameOverBox(view: OverView): ReactElement {
+function GameOverBox(view: OverView): ReactElement
+{
 	const [logOpen, setLogOpen] = useState(false);
 
 	return (
 		<GameOverScreenView
 			{...view}
 			logOpen={logOpen}
-			toggleLog={() => {
+			toggleLog={() =>
+			{
 				setLogOpen((open) => !open);
 			}}
 		/>
@@ -111,7 +130,8 @@ function GameOverBox(view: OverView): ReactElement {
  * What is left when the last team standing is the only team standing: who won, what they banked,
  * the log of how it went, and the two ways off the screen.
  */
-export function GameOverScreen(): ReactElement | null {
+export function GameOverScreen(): ReactElement | null
+{
 	const view = useSyncExternalStore(overStore.subscribe, overStore.get, overStore.get);
 
 	return view === null ? null : <GameOverBox {...view} />;

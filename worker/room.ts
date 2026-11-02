@@ -54,11 +54,22 @@ export const IDLE_MS = 60 * 60 * 1000;
 export const BURST = 24;
 const PER_SECOND = 8;
 
-function json(body: unknown, status = 200): Response {
-	return new Response(JSON.stringify(body), {status, headers: {"content-type": "application/json"}});
+function json(body: unknown, status = 200): Response
+{
+	return new Response(
+		JSON.stringify(body),
+		{
+			status,
+			headers:
+			{
+				"content-type": "application/json",
+			},
+		},
+	);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown>
+{
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -67,7 +78,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * of its allowance to talk. It rides on the socket's attachment, so it survives hibernation and
  * costs no storage write -- the room may sleep between two moves of a match that lasts an hour.
  */
-interface Held {
+interface Held
+{
 	/** The seat this socket claimed, or null for one that has not said hello yet. */
 	readonly seat: number | null;
 	readonly budget: number;
@@ -75,9 +87,15 @@ interface Held {
 	readonly at: number;
 }
 
-function heldBy(ws: WebSocket): Held {
+function heldBy(ws: WebSocket): Held
+{
 	const held: unknown = ws.deserializeAttachment();
-	if (!isRecord(held)) return {seat: null, budget: BURST, at: 0};
+	if (!isRecord(held))
+		return {
+			seat: null,
+			budget: BURST,
+			at: 0,
+		};
 	return {
 		seat: typeof held["seat"] === "number" ? held["seat"] : null,
 		budget: typeof held["budget"] === "number" ? held["budget"] : BURST,
@@ -86,19 +104,23 @@ function heldBy(ws: WebSocket): Held {
 }
 
 /** Which seat a socket claimed, or null for one that has not said hello yet. */
-function seatOf(ws: WebSocket): number | null {
+function seatOf(ws: WebSocket): number | null
+{
 	return heldBy(ws).seat;
 }
 
-export class MatchRoom {
+export class MatchRoom
+{
 	readonly #ctx: DurableObjectState;
 
-	constructor(ctx: DurableObjectState) {
+	constructor(ctx: DurableObjectState)
+	{
 		this.#ctx = ctx;
 	}
 
 	// the Workers runtime calls this, not the rest of the codebase
-	async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request): Promise<Response>
+	{
 		/* Whatever was posted is taken here, before any door below decides whether it wants it. A door
 		   that answers without reading the body -- a second open on a match that already exists is the
 		   one that bites -- leaves the stream unread, and the runtime ends the room over it with
@@ -108,12 +130,18 @@ export class MatchRoom {
 		return this.#answer(request, sent);
 	}
 
-	async #answer(request: Request, sent: unknown): Promise<Response> {
+	async #answer(request: Request, sent: unknown): Promise<Response>
+	{
 		const {pathname} = new URL(request.url);
 		if (pathname.endsWith("/open")) return this.#open(sent);
 		if (pathname.endsWith("/join")) return this.#join();
 		if (pathname.endsWith("/socket")) return this.#socket(request);
-		return json({error: "no such door"}, 404);
+		return json(
+			{
+				error: "no such door",
+			},
+			404,
+		);
 	}
 
 	/**
@@ -121,17 +149,39 @@ export class MatchRoom {
 	 * fistful of tokens in their hands would be a host who could sit down as anybody. Seats are
 	 * asked for one at a time below, so a token only ever exists in the hands of the seat it claims.
 	 */
-	async #open(sent: unknown): Promise<Response> {
-		if (await this.#ctx.storage.get<MatchSnapshot>(MATCH)) return json({error: "already open"}, 409);
+	async #open(sent: unknown): Promise<Response>
+	{
+		if (await this.#ctx.storage.get<MatchSnapshot>(MATCH))
+			return json(
+				{
+					error: "already open",
+				},
+				409,
+			);
 		const setup = parseSetup(sent ?? {});
-		if (!setup) return json({error: "that is not a setup"}, 400);
+		if (!setup)
+			return json(
+				{
+					error: "that is not a setup",
+				},
+				400,
+			);
 		await this.#ctx.storage.put(MATCH, openMatch(setup));
 		await this.#ctx.storage.put(
 			TOKENS,
-			Array.from({length: setup.seats}, (): Seat => null),
+			Array.from(
+				{
+					length: setup.seats,
+				},
+				(): Seat => null,
+			),
 		);
 		await this.#touch();
-		return json({seats: setup.seats});
+		return json(
+			{
+				seats: setup.seats,
+			},
+		);
 	}
 
 	/**
@@ -144,42 +194,83 @@ export class MatchRoom {
 	 * Object takes one message at a time, and the runtime holds the next one while this one is
 	 * waiting on its own storage.
 	 */
-	async #join(): Promise<Response> {
-		if (!(await this.#ctx.storage.get<MatchSnapshot>(MATCH))) return json({error: "no match here"}, 404);
+	async #join(): Promise<Response>
+	{
+		if (!(await this.#ctx.storage.get<MatchSnapshot>(MATCH)))
+			return json(
+				{
+					error: "no match here",
+				},
+				404,
+			);
 		const tokens = (await this.#ctx.storage.get<Seat[]>(TOKENS)) ?? [];
 		const seat = tokens.indexOf(null);
-		if (seat < 0) return json({error: "that match is full"}, 409);
+		if (seat < 0)
+			return json(
+				{
+					error: "that match is full",
+				},
+				409,
+			);
 		const token = crypto.randomUUID();
 		await this.#ctx.storage.put(TOKENS, [...tokens.slice(0, seat), token, ...tokens.slice(seat + 1)]);
 		await this.#touch();
-		return json({seat, token});
+		return json(
+			{
+				seat,
+				token,
+			},
+		);
 	}
 
-	async #socket(request: Request): Promise<Response> {
-		if (request.headers.get("upgrade") !== "websocket") return json({error: "websockets only"}, 426);
-		if (!(await this.#ctx.storage.get<MatchSnapshot>(MATCH))) return json({error: "no match here"}, 404);
+	async #socket(request: Request): Promise<Response>
+	{
+		if (request.headers.get("upgrade") !== "websocket")
+			return json(
+				{
+					error: "websockets only",
+				},
+				426,
+			);
+		if (!(await this.#ctx.storage.get<MatchSnapshot>(MATCH)))
+			return json(
+				{
+					error: "no match here",
+				},
+				404,
+			);
 		const pair = new WebSocketPair();
 		// accepted through the state rather than the socket, so the room may hibernate between moves
 		this.#ctx.acceptWebSocket(pair[1]);
-		return new Response(null, {status: 101, webSocket: pair[0]});
+		return new Response(
+			null,
+			{
+				status: 101,
+				webSocket: pair[0],
+			},
+		);
 	}
 
 	// the Workers runtime calls this, not the rest of the codebase
-	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void>
+	{
 		// before the bytes are so much as read, because reading them is part of what is being rationed
 		if (!this.#allowed(ws)) return;
 		const raw = typeof message === "string" ? message : new TextDecoder().decode(message);
 		const said = parseClientMessage(raw);
-		if (!said) {
+		if (!said)
+		{
 			this.#hangUp(ws, "that is not something a client says");
 			return;
 		}
-		if (said.k === "hello") {
+		if (said.k === "hello")
+		{
 			await this.#seat(ws, said.seat, said.token);
 			return;
 		}
 		const seat = seatOf(ws);
-		if (seat === null) {
+		if (seat === null)
+		{
 			this.#hangUp(ws, "claim a seat before you move");
 			return;
 		}
@@ -187,7 +278,8 @@ export class MatchRoom {
 	}
 
 	// the Workers runtime calls this, not the rest of the codebase
-	async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+	async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void>
+	{
 		// 1005 means the peer sent no code at all, which is not one a close frame may carry back
 		ws.close(code === 1005 ? 1000 : code, reason);
 		// the seat stays this socket's token's; what the others are told is that nobody is in it
@@ -200,9 +292,11 @@ export class MatchRoom {
 	 * costs a storage write rather than a write and an alarm.
 	 */
 	// the Workers runtime calls this, not the rest of the codebase
-	async alarm(): Promise<void> {
+	async alarm(): Promise<void>
+	{
 		const touched = (await this.#ctx.storage.get<number>(TOUCHED)) ?? 0;
-		if (Date.now() - touched < IDLE_MS) {
+		if (Date.now() - touched < IDLE_MS)
+		{
 			await this.#ctx.storage.setAlarm(touched + IDLE_MS);
 			return;
 		}
@@ -211,7 +305,8 @@ export class MatchRoom {
 		await this.#ctx.storage.deleteAll();
 	}
 
-	async #touch(): Promise<void> {
+	async #touch(): Promise<void>
+	{
 		await this.#ctx.storage.put(TOUCHED, Date.now());
 		if ((await this.#ctx.storage.getAlarm()) === null) await this.#ctx.storage.setAlarm(Date.now() + IDLE_MS);
 	}
@@ -221,14 +316,28 @@ export class MatchRoom {
 	 * per message and refills with time; a socket past it is told so, and one that carries on past
 	 * that is hung up on, because a client still talking into a refusal is not a person clicking.
 	 */
-	#allowed(ws: WebSocket): boolean {
+	#allowed(ws: WebSocket): boolean
+	{
 		const held = heldBy(ws);
 		const now = Date.now();
 		const budget = Math.min(BURST, held.budget + ((now - held.at) * PER_SECOND) / 1000) - 1;
-		ws.serializeAttachment({...held, budget, at: now});
+		ws.serializeAttachment(
+			{
+				...held,
+				budget,
+				at: now,
+			},
+		);
 		if (budget >= 0) return true;
 		if (budget < -BURST) this.#hangUp(ws, "you are talking too fast");
-		else send(ws, {k: "refused", why: "you are talking too fast"});
+		else
+			send(
+				ws,
+				{
+					k: "refused",
+					why: "you are talking too fast",
+				},
+			);
 		return false;
 	}
 
@@ -240,31 +349,54 @@ export class MatchRoom {
 	 * out of their own match for as long as the room went on believing in a connection that had
 	 * dropped, which is exactly the case reconnecting exists for.
 	 */
-	async #seat(ws: WebSocket, seat: number, token: string): Promise<void> {
+	async #seat(ws: WebSocket, seat: number, token: string): Promise<void>
+	{
 		const tokens = (await this.#ctx.storage.get<Seat[]>(TOKENS)) ?? [];
-		if (tokens[seat] !== token) {
+		if (tokens[seat] !== token)
+		{
 			this.#hangUp(ws, "that seat is not yours");
 			return;
 		}
 		for (const other of this.#ctx.getWebSockets())
 			if (other !== ws && seatOf(other) === seat) this.#hangUp(other, "you sat down in that seat somewhere else");
-		ws.serializeAttachment({...heldBy(ws), seat});
-		send(ws, {k: "seated", v: PROTOCOL_VERSION, seat});
+		ws.serializeAttachment(
+			{
+				...heldBy(ws),
+				seat,
+			},
+		);
+		send(
+			ws,
+			{
+				k: "seated",
+				v: PROTOCOL_VERSION,
+				seat,
+			},
+		);
 		await this.#touch();
 		await this.#tellEverybody();
 		await this.#tellPresence();
 	}
 
-	async #move(ws: WebSocket, seat: number, intent: Parameters<typeof applyIntent>[1]): Promise<void> {
+	async #move(ws: WebSocket, seat: number, intent: Parameters<typeof applyIntent>[1]): Promise<void>
+	{
 		const snap = await this.#ctx.storage.get<MatchSnapshot>(MATCH);
-		if (!snap) {
+		if (!snap)
+		{
 			this.#hangUp(ws, "no match here");
 			return;
 		}
 		importMatch(snap);
 		const verdict = applyIntent(seat, intent);
-		if (!verdict.ok) {
-			send(ws, {k: "refused", why: verdict.why});
+		if (!verdict.ok)
+		{
+			send(
+				ws,
+				{
+					k: "refused",
+					why: verdict.why,
+				},
+			);
 			return;
 		}
 		await this.#ctx.storage.put(MATCH, exportMatch());
@@ -281,16 +413,31 @@ export class MatchRoom {
 	 * see matchLog in src/game/seat.ts. It follows a seat sitting back down as readily as a move, so
 	 * somebody who dropped in the last round is still shown how it ended.
 	 */
-	async #tellEverybody(): Promise<void> {
+	async #tellEverybody(): Promise<void>
+	{
 		const snap = await this.#ctx.storage.get<MatchSnapshot>(MATCH);
 		if (!snap) return;
 		importMatch(snap);
 		const log = matchOver() ? matchLog() : null;
-		for (const ws of this.#ctx.getWebSockets()) {
+		for (const ws of this.#ctx.getWebSockets())
+		{
 			const seat = seatOf(ws);
 			if (seat === null) continue;
-			send(ws, {k: "state", state: seatState(seat)});
-			if (log !== null) send(ws, {k: "over", log});
+			send(
+				ws,
+				{
+					k: "state",
+					state: seatState(seat),
+				},
+			);
+			if (log !== null)
+				send(
+					ws,
+					{
+						k: "over",
+						log,
+					},
+				);
 		}
 	}
 
@@ -301,24 +448,43 @@ export class MatchRoom {
 	 *
 	 * `gone` is the socket being closed as this is sent, which the runtime may still be handing back.
 	 */
-	async #tellPresence(gone?: WebSocket): Promise<void> {
+	async #tellPresence(gone?: WebSocket): Promise<void>
+	{
 		const tokens = (await this.#ctx.storage.get<Seat[]>(TOKENS)) ?? [];
 		const sitting = this.#ctx.getWebSockets().filter((ws) => ws !== gone && seatOf(ws) !== null);
 		const here = tokens.map((_, seat) => sitting.some((ws) => seatOf(ws) === seat));
-		for (const ws of sitting) send(ws, {k: "presence", here});
+		for (const ws of sitting)
+			send(
+				ws,
+				{
+					k: "presence",
+					here,
+				},
+			);
 	}
 
-	#hangUp(ws: WebSocket, why: string): void {
-		send(ws, {k: "closed", why});
+	#hangUp(ws: WebSocket, why: string): void
+	{
+		send(
+			ws,
+			{
+				k: "closed",
+				why,
+			},
+		);
 		ws.close(1008, why);
 	}
 }
 
 /** A socket that has already gone is not an error worth ending a move over. */
-function send(ws: WebSocket, message: ServerMessage): void {
-	try {
+function send(ws: WebSocket, message: ServerMessage): void
+{
+	try
+	{
 		ws.send(encode(message));
-	} catch {
+	}
+	catch
+	{
 		/* the far end left */
 	}
 }

@@ -16,11 +16,14 @@ import {sampleMatch} from "../../src/ui/matchSample.js";
  */
 
 /** Stands in for the Claude-artifact `window.storage` that public/storage-shim.js provides. */
-vi.stubGlobal("storage", {
-	get: async () => Promise.resolve(null),
-	set: async () => Promise.resolve(),
-	delete: async () => Promise.resolve(),
-});
+vi.stubGlobal(
+	"storage",
+	{
+		get: async () => Promise.resolve(null),
+		set: async () => Promise.resolve(),
+		delete: async () => Promise.resolve(),
+	},
+);
 
 /* The entry module is what hands the rules the drawing they call for, so a screen only goes up and
    comes down for real once it has loaded. It reads the save on the way in, hence the stub above. */
@@ -39,7 +42,8 @@ const DEEP = [
 ];
 
 /** The match screen as the game last published it. */
-function match(): MatchView {
+function match(): MatchView
+{
 	const view = matchStore.get();
 	expect(view).not.toBeNull();
 	return view!;
@@ -50,7 +54,8 @@ function match(): MatchView {
  * chaos throw waiting on an answer, Inspect reading a square, and a line of talk answering another.
  * Anything left empty is a field the comparison would have nothing to say about.
  */
-function livePosition(): void {
+function livePosition(): void
+{
 	S.np = 2;
 	S.dim = 9;
 	S.priv = false;
@@ -66,8 +71,17 @@ function livePosition(): void {
 	p.nrg = 9;
 	p.cap = 9;
 	p.hand = [
-		{uid: 9001, k: "el", id: "fire"},
-		{uid: 9002, k: "w", ids: ["dagger"], els: ["steam", "fire"]},
+		{
+			uid: 9001,
+			k: "el",
+			id: "fire",
+		},
+		{
+			uid: 9002,
+			k: "w",
+			ids: ["dagger"],
+			els: ["steam", "fire"],
+		},
 	];
 	p.held = 9002;
 	S.toss = true; // the bar a chaos throw puts up is the one that both says something and offers buttons
@@ -83,7 +97,8 @@ function livePosition(): void {
 }
 
 /** Where every value in a view sits, named by the path down to it. An empty list is a leaf. */
-function paths(value: unknown, at: string): string[] {
+function paths(value: unknown, at: string): string[]
+{
 	if (Array.isArray(value)) return value.length ? value.flatMap((item) => paths(item, `${at}[]`)) : [at];
 	if (typeof value === "object" && value !== null)
 		return Object.entries(value).flatMap(([key, v]) => paths(v, at ? `${at}.${key}` : key));
@@ -95,25 +110,30 @@ function paths(value: unknown, at: string): string[] {
  * filled in in the other is still the same field, so a branch only counts where nothing hangs off
  * it.
  */
-function shape(view: MatchView): string[] {
+function shape(view: MatchView): string[]
+{
 	const all = [...new Set(paths(view, ""))];
 	return all
 		.filter((path) => !all.some((other) => other.startsWith(`${path}.`) || other.startsWith(`${path}[`)))
 		.sort();
 }
 
-describe("the sample the match screen is posed from", () => {
-	beforeAll(() => {
+describe("the sample the match screen is posed from", () =>
+{
+	beforeAll(() =>
+	{
 		livePosition();
 	});
 
-	it("is read all the way down, or the comparison would be saying nothing", () => {
+	it("is read all the way down, or the comparison would be saying nothing", () =>
+	{
 		const unreached = DEEP.filter((path) => !shape(sampleMatch()).includes(path));
 
 		expect(unreached).toStrictEqual([]);
 	});
 
-	it("stands a real position up in the same shape, so no panel is posed from a stale one", () => {
+	it("stands a real position up in the same shape, so no panel is posed from a stale one", () =>
+	{
 		expect(shape(sampleMatch())).toStrictEqual(shape(match()));
 	});
 });

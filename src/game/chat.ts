@@ -16,7 +16,8 @@ import {redraw} from "./view.js";
 export const SAY_MAX = 120;
 
 /** One thing that was said, by the number a reply points at it with. */
-export function chatById(id: number): ChatMsg | undefined {
+export function chatById(id: number): ChatMsg | undefined
+{
 	return S.chat.find((m) => m.id === id);
 }
 
@@ -24,19 +25,22 @@ export function chatById(id: number): ChatMsg | undefined {
  * Says something at the table, answering whatever the reply bar is pointing at. Angle brackets go
  * because the message is printed, and a message with nothing left in it is not said at all.
  */
-export function say(text: string): void {
+export function say(text: string): void
+{
 	const t = text.trim().replace(/[<>]/g, "").slice(0, SAY_MAX);
 	if (!t) return;
 	const p = cur();
 	const par = S.replyTo ? chatById(S.replyTo) : null;
-	S.chat.push({
-		id: S.cid++,
-		who: p ? p.name : "",
-		c: p ? p.c : "var(--muted)",
-		r: S.round,
-		t,
-		to: par ? par.id : null,
-	});
+	S.chat.push(
+		{
+			id: S.cid++,
+			who: p ? p.name : "",
+			c: p ? p.c : "var(--muted)",
+			r: S.round,
+			t,
+			to: par ? par.id : null,
+		},
+	);
 	logit(par ? `to ${par.who}: “${t}”` : `“${t}”`, undefined, true);
 	S.replyTo = null;
 	redraw();

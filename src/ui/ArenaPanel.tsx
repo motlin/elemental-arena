@@ -3,12 +3,16 @@ import type {ArenaSetup, SeatRow, Swatch, TeamTally} from "../game/bridge.js";
 import {NumberBox, Slider, Toggle} from "./SetupFields.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type GlyphStyle = CSSProperties & {"--pc": string};
+type GlyphStyle = CSSProperties &
+{
+	"--pc": string;
+};
 
 /** The most seats an arena is ever dealt for, which is as many colours as there are. */
 const MAX_SEATS = 8;
 
-interface SeatProps {
+interface SeatProps
+{
 	readonly row: SeatRow;
 	readonly swatches: readonly Swatch[];
 	readonly rename: (seat: number, name: string) => void;
@@ -16,10 +20,18 @@ interface SeatProps {
 }
 
 /** One seat: the name it answers to, and the colours it can play in. */
-function Seat({row, swatches, rename, recolour}: SeatProps): ReactElement {
+function Seat({row, swatches, rename, recolour}: SeatProps): ReactElement
+{
 	// a seat always plays one of the swatches offered, so the blank is only there for the types
-	const playing = swatches[row.swatch] ?? {colour: "", name: ""};
-	const glyph: GlyphStyle = {"--pc": playing.colour};
+	const playing = swatches[row.swatch] ??
+	{
+		colour: "",
+		name: "",
+	};
+	const glyph: GlyphStyle =
+	{
+		"--pc": playing.colour,
+	};
 
 	return (
 		<div className="nrow">
@@ -29,7 +41,8 @@ function Seat({row, swatches, rename, recolour}: SeatProps): ReactElement {
 				value={row.name}
 				placeholder={row.placeholder}
 				aria-label={`Name for the ${playing.name} side`}
-				onChange={(e) => {
+				onChange={(e) =>
+				{
 					rename(row.seat, e.target.value);
 				}}
 			/>
@@ -39,10 +52,14 @@ function Seat({row, swatches, rename, recolour}: SeatProps): ReactElement {
 						key={swatch.colour}
 						type="button"
 						className="sw"
-						style={{background: swatch.colour}}
+						style={
+						{
+							background: swatch.colour,
+						}}
 						aria-pressed={row.swatch === i}
 						title={swatch.name}
-						onClick={() => {
+						onClick={() =>
+						{
 							recolour(row.seat, i);
 						}}
 					/>
@@ -53,12 +70,19 @@ function Seat({row, swatches, rename, recolour}: SeatProps): ReactElement {
 }
 
 /** Who is on whose side, which is a question of colour: one colour is one team. */
-function TeamNote({teams, seats}: {readonly teams: readonly TeamTally[]; readonly seats: number}): ReactElement {
+function TeamNote({teams, seats}: {readonly teams: readonly TeamTally[]; readonly seats: number}): ReactElement
+{
 	return (
 		<div className="loadhint teamnote">
 			{teams.map((team) => (
 				<span key={team.colour} className="tm">
-					<span className="d" style={{background: team.colour}} />
+					<span
+						className="d"
+						style={
+						{
+							background: team.colour,
+						}}
+					/>
 					{team.seats > 1 ? `${team.name} x${team.seats}` : team.name}
 				</span>
 			))}
@@ -102,7 +126,8 @@ export function ArenaPanel({
 	setHp,
 	setStartNrg,
 	setOpenHand,
-}: ArenaSetup): ReactElement {
+}: ArenaSetup): ReactElement
+{
 	return (
 		<div className="card-panel">
 			<h2>Arena</h2>

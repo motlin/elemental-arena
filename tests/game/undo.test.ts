@@ -11,7 +11,8 @@ import {S, idx} from "../../src/game/state.js";
 import type {Player} from "../../src/game/types.js";
 import {canUndo, clearUndo, pushUndo, undo} from "../../src/game/undo.js";
 
-function activeMatch(): void {
+function activeMatch(): void
+{
 	S.np = 2;
 	S.dim = 9;
 	S.preset = null;
@@ -28,14 +29,16 @@ function activeMatch(): void {
 	clearUndo();
 }
 
-function published(): MatchView {
+function published(): MatchView
+{
 	render();
 	const view = matchStore.get();
 	expect(view).not.toBeNull();
 	return view!;
 }
 
-function lay(x: number, y: number, key: string, by: number | null = null): void {
+function lay(x: number, y: number, key: string, by: number | null = null): void
+{
 	const cell = S.board[idx(x, y)]!;
 	cell.t = key;
 	cell.el = null;
@@ -43,7 +46,8 @@ function lay(x: number, y: number, key: string, by: number | null = null): void 
 	cell.by = by;
 }
 
-function conceal(player: Player, x: number, y: number): void {
+function conceal(player: Player, x: number, y: number): void
+{
 	player.x = x;
 	player.y = y;
 	lay(x, y, "shadow", player.i);
@@ -51,8 +55,10 @@ function conceal(player: Player, x: number, y: number): void {
 
 beforeEach(activeMatch);
 
-describe("undoing arena actions", () => {
-	it("puts a stepped fighter back, refunds the energy, and truncates the log", () => {
+describe("undoing arena actions", () =>
+{
+	it("puts a stepped fighter back, refunds the energy, and truncates the log", () =>
+	{
 		const player = S.players[0]!;
 
 		tryStep(5, 4);
@@ -64,7 +70,8 @@ describe("undoing arena actions", () => {
 		expect(published().board.tiles[idx(4, 4)]!.occupants.map((occupant) => occupant.seat)).toStrictEqual([0]);
 	});
 
-	it("unwinds several moves newest-first", () => {
+	it("unwinds several moves newest-first", () =>
+	{
 		tryStep(5, 4);
 		tryStep(6, 4);
 
@@ -75,10 +82,12 @@ describe("undoing arena actions", () => {
 		expect([S.players[0]!.x, S.players[0]!.y, canUndo()]).toStrictEqual([4, 4, false]);
 	});
 
-	it("refuses to grow past 20 entries", () => {
+	it("refuses to grow past 20 entries", () =>
+	{
 		const player = S.players[0]!;
 		player.x = 0;
-		for (let step = 0; step < 21; step++) {
+		for (let step = 0; step < 21; step++)
+		{
 			pushUndo();
 			player.x = step + 1;
 		}
@@ -88,39 +97,86 @@ describe("undoing arena actions", () => {
 		expect([S.players[0]!.x, canUndo()]).toStrictEqual([1, false]);
 	});
 
-	it("restores both cards and the uid after merging an already-known fusion", () => {
+	it("restores both cards and the uid after merging an already-known fusion", () =>
+	{
 		const player = S.players[0]!;
 		player.hand = [
-			{uid: 10, k: "el", id: "fire"},
-			{uid: 20, k: "el", id: "water"},
+			{
+				uid: 10,
+				k: "el",
+				id: "fire",
+			},
+			{
+				uid: 20,
+				k: "el",
+				id: "water",
+			},
 		];
 		player.nrg = 10;
 		S.uid = 100;
-		S.codex = {steam: 1};
+		S.codex =
+		{
+			steam: 1,
+		};
 		S.coins = 1000;
 
 		startMix(10);
 		clickCard(20);
-		expect(player.hand).toStrictEqual([{uid: 100, k: "el", id: "steam"}]);
+		expect(player.hand).toStrictEqual([
+			{
+				uid: 100,
+				k: "el",
+				id: "steam",
+			},
+		]);
 
 		undo();
 
-		expect({hand: S.players[0]!.hand, uid: S.uid, codex: S.codex, coins: S.coins}).toStrictEqual({
-			hand: [
-				{uid: 10, k: "el", id: "fire"},
-				{uid: 20, k: "el", id: "water"},
-			],
-			uid: 100,
-			codex: {steam: 1},
-			coins: 1000,
-		});
+		expect(
+			{
+				hand: S.players[0]!.hand,
+				uid: S.uid,
+				codex: S.codex,
+				coins: S.coins,
+			},
+		).toStrictEqual(
+			{
+				hand: [
+					{
+						uid: 10,
+						k: "el",
+						id: "fire",
+					},
+					{
+						uid: 20,
+						k: "el",
+						id: "water",
+					},
+				],
+				uid: 100,
+				codex:
+				{
+					steam: 1,
+				},
+				coins: 1000,
+			},
+		);
 	});
 
-	it("commits a merge that discovers a new fusion", () => {
+	it("commits a merge that discovers a new fusion", () =>
+	{
 		const player = S.players[0]!;
 		player.hand = [
-			{uid: 10, k: "el", id: "fire"},
-			{uid: 20, k: "el", id: "water"},
+			{
+				uid: 10,
+				k: "el",
+				id: "fire",
+			},
+			{
+				uid: 20,
+				k: "el",
+				id: "water",
+			},
 		];
 		player.nrg = 10;
 		S.uid = 100;
@@ -130,24 +186,53 @@ describe("undoing arena actions", () => {
 		clickCard(20);
 		undo();
 
-		expect({hand: S.players[0]!.hand, codex: S.codex, canUndo: canUndo()}).toStrictEqual({
-			hand: [{uid: 100, k: "el", id: "steam"}],
-			codex: {steam: 1},
-			canUndo: false,
-		});
+		expect(
+			{
+				hand: S.players[0]!.hand,
+				codex: S.codex,
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				hand: [
+					{
+						uid: 100,
+						k: "el",
+						id: "steam",
+					},
+				],
+				codex:
+				{
+					steam: 1,
+				},
+				canUndo: false,
+			},
+		);
 	});
 
-	it("restores a placed-on cell, its owner, and the replay length", () => {
+	it("restores a placed-on cell, its owner, and the replay length", () =>
+	{
 		const player = S.players[0]!;
 		player.hand = [
-			{uid: 10, k: "el", id: "fire"},
-			{uid: 20, k: "el", id: "water"},
+			{
+				uid: 10,
+				k: "el",
+				id: "fire",
+			},
+			{
+				uid: 20,
+				k: "el",
+				id: "water",
+			},
 		];
 		S.sel = 10;
 		const target = S.board[idx(5, 4)]!;
 		target.by = 1;
 		logit("before placement");
-		const before = {...target};
+		const before =
+		{
+			...target,
+		};
 		const framesLength = S.frames.length;
 
 		doPlace(5, 4);
@@ -155,17 +240,32 @@ describe("undoing arena actions", () => {
 
 		undo();
 
-		expect({cell: S.board[idx(5, 4)], framesLength: S.frames.length}).toStrictEqual({
-			cell: before,
-			framesLength,
-		});
+		expect(
+			{
+				cell: S.board[idx(5, 4)],
+				framesLength: S.frames.length,
+			},
+		).toStrictEqual(
+			{
+				cell: before,
+				framesLength,
+			},
+		);
 		expect(published().board.tiles[idx(5, 4)]!.terrain).toBe(false);
 	});
 
-	it("rewinds damage and coins when an attack does not kill", () => {
+	it("rewinds damage and coins when an attack does not kill", () =>
+	{
 		const attacker = S.players[0]!,
 			victim = S.players[1]!;
-		attacker.hand = [{uid: 10, k: "w", ids: ["sword"], els: []}];
+		attacker.hand = [
+			{
+				uid: 10,
+				k: "w",
+				ids: ["sword"],
+				els: [],
+			},
+		];
 		attacker.held = 10;
 		victim.x = 5;
 		victim.y = 4;
@@ -174,26 +274,51 @@ describe("undoing arena actions", () => {
 		S.matchCoins = 0;
 
 		doAttack(5, 4);
-		expect({hp: victim.hp, coins: S.coins, matchCoins: S.matchCoins, canUndo: canUndo()}).toStrictEqual({
-			hp: 20,
-			coins: 110,
-			matchCoins: 10,
-			canUndo: true,
-		});
+		expect(
+			{
+				hp: victim.hp,
+				coins: S.coins,
+				matchCoins: S.matchCoins,
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				hp: 20,
+				coins: 110,
+				matchCoins: 10,
+				canUndo: true,
+			},
+		);
 
 		undo();
 
-		expect({hp: S.players[1]!.hp, coins: S.coins, matchCoins: S.matchCoins}).toStrictEqual({
-			hp: 30,
-			coins: 100,
-			matchCoins: 0,
-		});
+		expect(
+			{
+				hp: S.players[1]!.hp,
+				coins: S.coins,
+				matchCoins: S.matchCoins,
+			},
+		).toStrictEqual(
+			{
+				hp: 30,
+				coins: 100,
+				matchCoins: 0,
+			},
+		);
 	});
 
-	it("commits an attack that kills", () => {
+	it("commits an attack that kills", () =>
+	{
 		const attacker = S.players[0]!,
 			victim = S.players[1]!;
-		attacker.hand = [{uid: 10, k: "w", ids: ["sword"], els: []}];
+		attacker.hand = [
+			{
+				uid: 10,
+				k: "w",
+				ids: ["sword"],
+				els: [],
+			},
+		];
 		attacker.held = 10;
 		victim.x = 5;
 		victim.y = 4;
@@ -201,57 +326,126 @@ describe("undoing arena actions", () => {
 
 		doAttack(5, 4);
 
-		expect({alive: victim.alive, hp: victim.hp, canUndo: canUndo()}).toStrictEqual({
-			alive: false,
-			hp: 0,
-			canUndo: false,
-		});
+		expect(
+			{
+				alive: victim.alive,
+				hp: victim.hp,
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				alive: false,
+				hp: 0,
+				canUndo: false,
+			},
+		);
 	});
 
-	it("commits an attack that strikes a hidden fighter", () => {
+	it("commits an attack that strikes a hidden fighter", () =>
+	{
 		const attacker = S.players[0]!,
 			victim = S.players[1]!;
-		attacker.hand = [{uid: 10, k: "w", ids: ["sword"], els: []}];
+		attacker.hand = [
+			{
+				uid: 10,
+				k: "w",
+				ids: ["sword"],
+				els: [],
+			},
+		];
 		attacker.held = 10;
 		conceal(victim, 5, 4);
 
 		doAttack(5, 4);
 
-		expect({hp: victim.hp, canUndo: canUndo()}).toStrictEqual({hp: 50, canUndo: false});
+		expect(
+			{
+				hp: victim.hp,
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				hp: 50,
+				canUndo: false,
+			},
+		);
 	});
 
-	it("commits marking a rival card", () => {
+	it("commits marking a rival card", () =>
+	{
 		const player = S.players[0]!,
 			rival = S.players[1]!;
 		player.mv = 16384;
 		rival.x = 5;
 		rival.y = 4;
-		rival.hand = [{uid: 10, k: "el", id: "fire"}];
+		rival.hand = [
+			{
+				uid: 10,
+				k: "el",
+				id: "fire",
+			},
+		];
 
 		doMark(5, 4);
 
-		expect({card: rival.hand[0], canUndo: canUndo()}).toStrictEqual({
-			card: {uid: 10, k: "el", id: "fire", mark: true},
-			canUndo: false,
-		});
+		expect(
+			{
+				card: rival.hand[0],
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				card:
+				{
+					uid: 10,
+					k: "el",
+					id: "fire",
+					mark: true,
+				},
+				canUndo: false,
+			},
+		);
 	});
 
-	it("commits taking a rival card", () => {
+	it("commits taking a rival card", () =>
+	{
 		const player = S.players[0]!,
 			rival = S.players[1]!;
 		player.hand = [];
-		rival.hand = [{uid: 10, k: "el", id: "fire"}];
+		rival.hand = [
+			{
+				uid: 10,
+				k: "el",
+				id: "fire",
+			},
+		];
 
 		takeCard(rival, 10);
 
-		expect({hand: player.hand, rivalHand: rival.hand, canUndo: canUndo()}).toStrictEqual({
-			hand: [{uid: 10, k: "el", id: "fire", mark: false}],
-			rivalHand: [],
-			canUndo: false,
-		});
+		expect(
+			{
+				hand: player.hand,
+				rivalHand: rival.hand,
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				hand: [
+					{
+						uid: 10,
+						k: "el",
+						id: "fire",
+						mark: false,
+					},
+				],
+				rivalHand: [],
+				canUndo: false,
+			},
+		);
 	});
 
-	it("clears the stack when the turn ends", () => {
+	it("clears the stack when the turn ends", () =>
+	{
 		tryStep(5, 4);
 		expect(canUndo()).toBe(true);
 
@@ -260,15 +454,27 @@ describe("undoing arena actions", () => {
 		expect(canUndo()).toBe(false);
 	});
 
-	it("commits falling into a hole", () => {
+	it("commits falling into a hole", () =>
+	{
 		lay(5, 4, "space");
 
 		tryStep(5, 4);
 
-		expect({alive: S.players[0]!.alive, canUndo: canUndo()}).toStrictEqual({alive: false, canUndo: false});
+		expect(
+			{
+				alive: S.players[0]!.alive,
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				alive: false,
+				canUndo: false,
+			},
+		);
 	});
 
-	it("commits scattering onto random ground", () => {
+	it("commits scattering onto random ground", () =>
+	{
 		lay(5, 4, "rift");
 
 		tryStep(5, 4);
@@ -276,29 +482,55 @@ describe("undoing arena actions", () => {
 		expect(canUndo()).toBe(false);
 	});
 
-	it("commits tossing the last card when rendering refills the hand", () => {
+	it("commits tossing the last card when rendering refills the hand", () =>
+	{
 		const player = S.players[0]!;
-		player.hand = [{uid: 10, k: "el", id: "fire"}];
+		player.hand = [
+			{
+				uid: 10,
+				k: "el",
+				id: "fire",
+			},
+		];
 
 		doToss(10);
 		expect(canUndo()).toBe(true);
 		render();
 
-		expect({handSize: player.hand.length, canUndo: canUndo()}).toStrictEqual({handSize: 5, canUndo: false});
+		expect(
+			{
+				handSize: player.hand.length,
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				handSize: 5,
+				canUndo: false,
+			},
+		);
 	});
 
-	it("commits stepping onto a rival hiding tile", () => {
+	it("commits stepping onto a rival hiding tile", () =>
+	{
 		lay(5, 4, "shadow", 1);
 
 		tryStep(5, 4);
 
-		expect({position: [S.players[0]!.x, S.players[0]!.y], canUndo: canUndo()}).toStrictEqual({
-			position: [5, 4],
-			canUndo: false,
-		});
+		expect(
+			{
+				position: [S.players[0]!.x, S.players[0]!.y],
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				position: [5, 4],
+				canUndo: false,
+			},
+		);
 	});
 
-	it("commits the stack when rendering after cover is wiped from a hidden fighter", () => {
+	it("commits the stack when rendering after cover is wiped from a hidden fighter", () =>
+	{
 		const victim = S.players[1]!;
 		conceal(victim, 5, 4);
 		pushUndo();
@@ -309,7 +541,8 @@ describe("undoing arena actions", () => {
 		expect(canUndo()).toBe(false);
 	});
 
-	it("publishes a working undo action and whether it is available", () => {
+	it("publishes a working undo action and whether it is available", () =>
+	{
 		expect(published().topbar.canUndo).toBe(false);
 
 		tryStep(5, 4);
@@ -319,54 +552,100 @@ describe("undoing arena actions", () => {
 		topbar.undo();
 		const republished = published();
 
-		expect({position: [S.players[0]!.x, S.players[0]!.y], canUndo: republished.topbar.canUndo}).toStrictEqual({
-			position: [4, 4],
-			canUndo: false,
-		});
+		expect(
+			{
+				position: [S.players[0]!.x, S.players[0]!.y],
+				canUndo: republished.topbar.canUndo,
+			},
+		).toStrictEqual(
+			{
+				position: [4, 4],
+				canUndo: false,
+			},
+		);
 	});
 
-	it("refuses to undo while the handoff curtain is up", () => {
+	it("refuses to undo while the handoff curtain is up", () =>
+	{
 		tryStep(5, 4);
 		S.handoff = true;
 
 		undo();
 
-		expect({position: [S.players[0]!.x, S.players[0]!.y], canUndo: canUndo()}).toStrictEqual({
-			position: [5, 4],
-			canUndo: true,
-		});
+		expect(
+			{
+				position: [S.players[0]!.x, S.players[0]!.y],
+				canUndo: canUndo(),
+			},
+		).toStrictEqual(
+			{
+				position: [5, 4],
+				canUndo: true,
+			},
+		);
 	});
 
-	it("undoes with Ctrl+Z and Cmd+Z before the wipe shortcut", () => {
+	it("undoes with Ctrl+Z and Cmd+Z before the wipe shortcut", () =>
+	{
 		tryStep(5, 4);
-		const controlUndo = new KeyboardEvent("keydown", {key: "z", ctrlKey: true, cancelable: true});
+		const controlUndo = new KeyboardEvent(
+			"keydown",
+			{
+				key: "z",
+				ctrlKey: true,
+				cancelable: true,
+			},
+		);
 		window.dispatchEvent(controlUndo);
 
-		expect({
-			position: [S.players[0]!.x, S.players[0]!.y],
-			defaultPrevented: controlUndo.defaultPrevented,
-		}).toStrictEqual({
-			position: [4, 4],
-			defaultPrevented: true,
-		});
+		expect(
+			{
+				position: [S.players[0]!.x, S.players[0]!.y],
+				defaultPrevented: controlUndo.defaultPrevented,
+			},
+		).toStrictEqual(
+			{
+				position: [4, 4],
+				defaultPrevented: true,
+			},
+		);
 
 		tryStep(5, 4);
-		const commandUndo = new KeyboardEvent("keydown", {key: "z", metaKey: true, cancelable: true});
+		const commandUndo = new KeyboardEvent(
+			"keydown",
+			{
+				key: "z",
+				metaKey: true,
+				cancelable: true,
+			},
+		);
 		window.dispatchEvent(commandUndo);
 
-		expect({
-			position: [S.players[0]!.x, S.players[0]!.y],
-			defaultPrevented: commandUndo.defaultPrevented,
-		}).toStrictEqual({
-			position: [4, 4],
-			defaultPrevented: true,
-		});
+		expect(
+			{
+				position: [S.players[0]!.x, S.players[0]!.y],
+				defaultPrevented: commandUndo.defaultPrevented,
+			},
+		).toStrictEqual(
+			{
+				position: [4, 4],
+				defaultPrevented: true,
+			},
+		);
 	});
 
-	it("undoes with the bare U key", () => {
+	it("undoes with the bare U key", () =>
+	{
 		tryStep(5, 4);
 
-		window.dispatchEvent(new KeyboardEvent("keydown", {key: "u"}));
+		window.dispatchEvent(
+			new KeyboardEvent(
+				"keydown",
+				{
+					key: "u",
+				},
+			),
+		);
 
 		expect([S.players[0]!.x, S.players[0]!.y, canUndo()]).toStrictEqual([4, 4, false]);
 	});

@@ -5,12 +5,19 @@ import "../styles/index.css";
 
 const MATCH = sampleMatch();
 
-const meta = {
+const meta =
+{
 	title: "Arena/MatchScreen",
 	component: MatchScreenView,
-	parameters: {layout: "fullscreen"},
+	parameters:
+	{
+		layout: "fullscreen",
+	},
 	tags: ["autodocs"],
-	args: {view: MATCH},
+	args:
+	{
+		view: MATCH,
+	},
 } satisfies Meta<typeof MatchScreenView>;
 
 export default meta;
@@ -20,23 +27,54 @@ type Story = StoryObj<typeof meta>;
 export const MidMatch: Story = {};
 
 /** Inspect on, which lights its button up and offers the reach overlay under the readout. */
-export const Inspecting: Story = {
-	args: {view: {...MATCH, topbar: {...MATCH.topbar, inspecting: true}}},
+export const Inspecting: Story =
+{
+	args:
+	{
+		view:
+		{
+			...MATCH,
+			topbar:
+			{
+				...MATCH.topbar,
+				inspecting: true,
+			},
+		},
+	},
 };
 
 /** One tap into a forfeit, where the button warns rather than asks. */
-export const ForfeitArmed: Story = {
-	args: {
-		view: {...MATCH, topbar: {...MATCH.topbar, forfeitLabel: "Tap again to fall", forfeitArmed: true}},
+export const ForfeitArmed: Story =
+{
+	args:
+	{
+		view:
+		{
+			...MATCH,
+			topbar:
+			{
+				...MATCH.topbar,
+				forfeitLabel: "Tap again to fall",
+				forfeitArmed: true,
+			},
+		},
 	},
 };
 
 /** Chaos mode is owed a card, so the turn cannot be ended until one is thrown away. */
-export const ChaosOwedACard: Story = {
-	args: {
-		view: {
+export const ChaosOwedACard: Story =
+{
+	args:
+	{
+		view:
+		{
 			...MATCH,
-			topbar: {...MATCH.topbar, round: "ROUND 6  ·  4/9 ENERGY  ·  CHAOS MODE", canEndTurn: false},
+			topbar:
+			{
+				...MATCH.topbar,
+				round: "ROUND 6  ·  4/9 ENERGY  ·  CHAOS MODE",
+				canEndTurn: false,
+			},
 		},
 	},
 };

@@ -1,5 +1,6 @@
 import {describe, it, expect, afterEach} from "vitest";
-import {
+import
+{
 	designStore,
 	handoffStore,
 	menuStore,
@@ -20,15 +21,24 @@ import {
 } from "../../src/game/bridge.js";
 import type {Frame, LogEntry} from "../../src/game/types.js";
 
-function view(overrides: Partial<HandoffView> = {}): HandoffView {
-	return {seat: 0, name: "Vermilion", colour: "#ff4d8d", dismiss: noop, ...overrides};
+function view(overrides: Partial<HandoffView> = {}): HandoffView
+{
+	return {
+		seat: 0,
+		name: "Vermilion",
+		colour: "#ff4d8d",
+		dismiss: noop,
+		...overrides,
+	};
 }
 
-function noop(): void {
+function noop(): void
+{
 	// a stable reference, so republishing the same seat compares equal
 }
 
-afterEach(() => {
+afterEach(() =>
+{
 	handoffStore.set(null);
 	overStore.set(null);
 	simStore.set(null);
@@ -38,23 +48,40 @@ afterEach(() => {
 	menuStore.set(null);
 });
 
-describe("handoffStore", () => {
-	it("starts with the curtain down", () => {
+describe("handoffStore", () =>
+{
+	it("starts with the curtain down", () =>
+	{
 		expect(handoffStore.get()).toBeNull();
 	});
 
-	it("hands subscribers the view it was last given", () => {
+	it("hands subscribers the view it was last given", () =>
+	{
 		const seen: (HandoffView | null)[] = [];
 		const unsubscribe = handoffStore.subscribe(() => seen.push(handoffStore.get()));
 
-		handoffStore.set(view({name: "Cyan"}));
+		handoffStore.set(
+			view(
+				{
+					name: "Cyan",
+				},
+			),
+		);
 		handoffStore.set(null);
 		unsubscribe();
 
-		expect(seen).toStrictEqual([view({name: "Cyan"}), null]);
+		expect(seen).toStrictEqual([
+			view(
+				{
+					name: "Cyan",
+				},
+			),
+			null,
+		]);
 	});
 
-	it("stays quiet when the same view is republished", () => {
+	it("stays quiet when the same view is republished", () =>
+	{
 		let calls = 0;
 		const unsubscribe = handoffStore.subscribe(() => calls++);
 
@@ -65,7 +92,8 @@ describe("handoffStore", () => {
 		expect(calls).toBe(1);
 	});
 
-	it("stays quiet while the curtain is down and the game keeps redrawing", () => {
+	it("stays quiet while the curtain is down and the game keeps redrawing", () =>
+	{
 		let calls = 0;
 		const unsubscribe = handoffStore.subscribe(() => calls++);
 
@@ -76,7 +104,8 @@ describe("handoffStore", () => {
 		expect(calls).toBe(0);
 	});
 
-	it("stops notifying once unsubscribed", () => {
+	it("stops notifying once unsubscribed", () =>
+	{
 		let calls = 0;
 		const unsubscribe = handoffStore.subscribe(() => calls++);
 
@@ -87,7 +116,8 @@ describe("handoffStore", () => {
 	});
 });
 
-function over(overrides: Partial<OverView> = {}): OverView {
+function over(overrides: Partial<OverView> = {}): OverView
+{
 	return {
 		seat: 0,
 		colour: "#ff4d8d",
@@ -103,23 +133,40 @@ function over(overrides: Partial<OverView> = {}): OverView {
 /** One stable empty log, so republishing an unchanged screen compares equal. */
 const EMPTY_LOG: readonly LogEntry[] = [];
 
-describe("overStore", () => {
-	it("starts with no match ended", () => {
+describe("overStore", () =>
+{
+	it("starts with no match ended", () =>
+	{
 		expect(overStore.get()).toBeNull();
 	});
 
-	it("hands subscribers the screen it was last given", () => {
+	it("hands subscribers the screen it was last given", () =>
+	{
 		const seen: (OverView | null)[] = [];
 		const unsubscribe = overStore.subscribe(() => seen.push(overStore.get()));
 
-		overStore.set(over({headline: "Nobody walks out"}));
+		overStore.set(
+			over(
+				{
+					headline: "Nobody walks out",
+				},
+			),
+		);
 		overStore.set(null);
 		unsubscribe();
 
-		expect(seen).toStrictEqual([over({headline: "Nobody walks out"}), null]);
+		expect(seen).toStrictEqual([
+			over(
+				{
+					headline: "Nobody walks out",
+				},
+			),
+			null,
+		]);
 	});
 
-	it("stays quiet when the same screen is republished", () => {
+	it("stays quiet when the same screen is republished", () =>
+	{
 		let calls = 0;
 		const unsubscribe = overStore.subscribe(() => calls++);
 
@@ -130,39 +177,79 @@ describe("overStore", () => {
 		expect(calls).toBe(1);
 	});
 
-	it("speaks up when another line lands in the log", () => {
+	it("speaks up when another line lands in the log", () =>
+	{
 		let calls = 0;
 		const unsubscribe = overStore.subscribe(() => calls++);
 
 		overStore.set(over());
-		overStore.set(over({log: [{r: 1, who: "Cyan", c: "#4dd8ff", t: "took the arena", say: false}]}));
+		overStore.set(
+			over(
+				{
+					log: [
+						{
+							r: 1,
+							who: "Cyan",
+							c: "#4dd8ff",
+							t: "took the arena",
+							say: false,
+						},
+					],
+				},
+			),
+		);
 		unsubscribe();
 
 		expect(calls).toBe(2);
 	});
 });
 
-function sim(overrides: Partial<SimView> = {}): SimView {
-	return {weapons: ["dagger"], elements: ["fire"], fusions: [], hp: 60, close: noop, ...overrides};
+function sim(overrides: Partial<SimView> = {}): SimView
+{
+	return {
+		weapons: ["dagger"],
+		elements: ["fire"],
+		fusions: [],
+		hp: 60,
+		close: noop,
+		...overrides,
+	};
 }
 
-describe("simStore", () => {
-	it("starts with the simulator shut", () => {
+describe("simStore", () =>
+{
+	it("starts with the simulator shut", () =>
+	{
 		expect(simStore.get()).toBeNull();
 	});
 
-	it("hands subscribers the shelves it was last given", () => {
+	it("hands subscribers the shelves it was last given", () =>
+	{
 		const seen: (SimView | null)[] = [];
 		const unsubscribe = simStore.subscribe(() => seen.push(simStore.get()));
 
-		simStore.set(sim({fusions: ["steam"]}));
+		simStore.set(
+			sim(
+				{
+					fusions: ["steam"],
+				},
+			),
+		);
 		simStore.set(null);
 		unsubscribe();
 
-		expect(seen).toStrictEqual([sim({fusions: ["steam"]}), null]);
+		expect(seen).toStrictEqual([
+			sim(
+				{
+					fusions: ["steam"],
+				},
+			),
+			null,
+		]);
 	});
 
-	it("counts the same unlocks as no news, even in a fresh array", () => {
+	it("counts the same unlocks as no news, even in a fresh array", () =>
+	{
 		let calls = 0;
 		const unsubscribe = simStore.subscribe(() => calls++);
 
@@ -173,28 +260,45 @@ describe("simStore", () => {
 		expect(calls).toBe(1);
 	});
 
-	it("speaks up once something new has been unlocked", () => {
+	it("speaks up once something new has been unlocked", () =>
+	{
 		let calls = 0;
 		const unsubscribe = simStore.subscribe(() => calls++);
 
 		simStore.set(sim());
-		simStore.set(sim({elements: ["fire", "water"]}));
+		simStore.set(
+			sim(
+				{
+					elements: ["fire", "water"],
+				},
+			),
+		);
 		unsubscribe();
 
 		expect(calls).toBe(2);
 	});
 });
 
-function table(overrides: Partial<TableView> = {}): TableView {
-	return {owned: ["fire"], found: [], footwork: [], close: noop, ...overrides};
+function table(overrides: Partial<TableView> = {}): TableView
+{
+	return {
+		owned: ["fire"],
+		found: [],
+		footwork: [],
+		close: noop,
+		...overrides,
+	};
 }
 
-describe("tableStore", () => {
-	it("starts with the table shut", () => {
+describe("tableStore", () =>
+{
+	it("starts with the table shut", () =>
+	{
 		expect(tableStore.get()).toBeNull();
 	});
 
-	it("stays quiet when the same save is republished", () => {
+	it("stays quiet when the same save is republished", () =>
+	{
 		let calls = 0;
 		const unsubscribe = tableStore.subscribe(() => calls++);
 
@@ -205,12 +309,19 @@ describe("tableStore", () => {
 		expect(calls).toBe(1);
 	});
 
-	it("counts a fusion turned up mid-match as news", () => {
+	it("counts a fusion turned up mid-match as news", () =>
+	{
 		const seen: (readonly string[] | undefined)[] = [];
 		const unsubscribe = tableStore.subscribe(() => seen.push(tableStore.get()?.found));
 
 		tableStore.set(table());
-		tableStore.set(table({found: ["steam"]}));
+		tableStore.set(
+			table(
+				{
+					found: ["steam"],
+				},
+			),
+		);
 		unsubscribe();
 
 		expect(seen).toStrictEqual([[], ["steam"]]);
@@ -220,16 +331,25 @@ describe("tableStore", () => {
 /** The frames a match hands over, which the replay only ever reads. */
 const FRAMES: Frame[] = [];
 
-function replay(overrides: Partial<ReplayView> = {}): ReplayView {
-	return {frames: FRAMES, dim: 9, close: noop, ...overrides};
+function replay(overrides: Partial<ReplayView> = {}): ReplayView
+{
+	return {
+		frames: FRAMES,
+		dim: 9,
+		close: noop,
+		...overrides,
+	};
 }
 
-describe("replayStore", () => {
-	it("starts with the replay shut", () => {
+describe("replayStore", () =>
+{
+	it("starts with the replay shut", () =>
+	{
 		expect(replayStore.get()).toBeNull();
 	});
 
-	it("stays quiet when the same match is republished", () => {
+	it("stays quiet when the same match is republished", () =>
+	{
 		let calls = 0;
 		const unsubscribe = replayStore.subscribe(() => calls++);
 
@@ -240,25 +360,39 @@ describe("replayStore", () => {
 		expect(calls).toBe(1);
 	});
 
-	it("counts a match played on another grid as news", () => {
+	it("counts a match played on another grid as news", () =>
+	{
 		const seen: (number | undefined)[] = [];
 		const unsubscribe = replayStore.subscribe(() => seen.push(replayStore.get()?.dim));
 
 		replayStore.set(replay());
-		replayStore.set(replay({dim: 13}));
+		replayStore.set(
+			replay(
+				{
+					dim: 13,
+				},
+			),
+		);
 		unsubscribe();
 
 		expect(seen).toStrictEqual([9, 13]);
 	});
 });
 
-function design(overrides: Partial<DesignView> = {}): DesignView {
+function design(overrides: Partial<DesignView> = {}): DesignView
+{
 	return {
 		dim: 3,
 		preset: [null, null, null, null, null, null, null, null, null],
 		elements: ["fire"],
 		fusions: [],
-		spawns: [{index: 0, name: "Vermilion", colour: "#ff4d8d"}],
+		spawns: [
+			{
+				index: 0,
+				name: "Vermilion",
+				colour: "#ff4d8d",
+			},
+		],
 		seats: 2,
 		setSeats: noop,
 		paint: noop,
@@ -268,12 +402,15 @@ function design(overrides: Partial<DesignView> = {}): DesignView {
 	};
 }
 
-describe("designStore", () => {
-	it("starts with the designer shut", () => {
+describe("designStore", () =>
+{
+	it("starts with the designer shut", () =>
+	{
 		expect(designStore.get()).toBeNull();
 	});
 
-	it("stays quiet when the same board is republished", () => {
+	it("stays quiet when the same board is republished", () =>
+	{
 		let calls = 0;
 		const unsubscribe = designStore.subscribe(() => calls++);
 
@@ -284,30 +421,48 @@ describe("designStore", () => {
 		expect(calls).toBe(1);
 	});
 
-	it("counts one square painted as news", () => {
+	it("counts one square painted as news", () =>
+	{
 		const seen: (readonly (string | null)[] | undefined)[] = [];
 		const unsubscribe = designStore.subscribe(() => seen.push(designStore.get()?.preset));
 
 		designStore.set(design());
-		designStore.set(design({preset: ["fire", null, null, null, null, null, null, null, null]}));
+		designStore.set(
+			design(
+				{
+					preset: ["fire", null, null, null, null, null, null, null, null],
+				},
+			),
+		);
 		unsubscribe();
 
 		expect(seen.map((preset) => preset?.[0])).toStrictEqual([null, "fire"]);
 	});
 
-	it("counts the ring being drawn for another table as news", () => {
+	it("counts the ring being drawn for another table as news", () =>
+	{
 		const seen: (number | undefined)[] = [];
 		const unsubscribe = designStore.subscribe(() => seen.push(designStore.get()?.spawns.length));
 
 		designStore.set(design());
 		designStore.set(
-			design({
-				seats: 3,
-				spawns: [
-					{index: 0, name: "Vermilion", colour: "#ff4d8d"},
-					{index: 8, name: "Cyan", colour: "#4dd8ff"},
-				],
-			}),
+			design(
+				{
+					seats: 3,
+					spawns: [
+						{
+							index: 0,
+							name: "Vermilion",
+							colour: "#ff4d8d",
+						},
+						{
+							index: 8,
+							name: "Cyan",
+							colour: "#4dd8ff",
+						},
+					],
+				},
+			),
 		);
 		unsubscribe();
 
@@ -315,11 +470,31 @@ describe("designStore", () => {
 	});
 });
 
-function menu(): MenuView {
-	const arena = {
-		seats: [{seat: 0, name: "", placeholder: "Vermilion", swatch: 0}],
-		swatches: [{colour: "#ff4d8d", name: "Rose"}],
-		teams: [{name: "Vermilion", colour: "#ff4d8d", seats: 1}],
+function menu(): MenuView
+{
+	const arena =
+	{
+		seats: [
+			{
+				seat: 0,
+				name: "",
+				placeholder: "Vermilion",
+				swatch: 0,
+			},
+		],
+		swatches: [
+			{
+				colour: "#ff4d8d",
+				name: "Rose",
+			},
+		],
+		teams: [
+			{
+				name: "Vermilion",
+				colour: "#ff4d8d",
+				seats: 1,
+			},
+		],
 		footworkUses: 3,
 		smash: false,
 		paintball: false,
@@ -344,9 +519,17 @@ function menu(): MenuView {
 		setStartNrg: noop,
 		setOpenHand: noop,
 	} satisfies ArenaSetup;
-	const loadout = {
+	const loadout =
+	{
 		who: "all",
-		scopes: [{who: "all", label: "Everyone", colour: "var(--accent)", own: false}],
+		scopes: [
+			{
+				who: "all",
+				label: "Everyone",
+				colour: "var(--accent)",
+				own: false,
+			},
+		],
 		elements: [],
 		weapons: [],
 		footwork: [],
@@ -360,7 +543,8 @@ function menu(): MenuView {
 		setAllFootwork: noop,
 		share: null,
 	} satisfies LoadoutSetup;
-	const arsenal = {
+	const arsenal =
+	{
 		coins: 0,
 		saveError: null,
 		shelves: [],
@@ -384,12 +568,15 @@ function menu(): MenuView {
 	};
 }
 
-describe("menuStore", () => {
-	it("starts with nothing published", () => {
+describe("menuStore", () =>
+{
+	it("starts with nothing published", () =>
+	{
 		expect(menuStore.get()).toBeNull();
 	});
 
-	it("hands subscribers the screen it was last given", () => {
+	it("hands subscribers the screen it was last given", () =>
+	{
 		const seen: (number | undefined)[] = [];
 		const unsubscribe = menuStore.subscribe(() => seen.push(menuStore.get()?.arsenal.coins));
 
@@ -402,7 +589,8 @@ describe("menuStore", () => {
 
 	/* Unlike the screens the match redraws behind, the setup screen is only published once
 	   something on it has changed, so a second publication is a second change. */
-	it("counts every republished screen as news", () => {
+	it("counts every republished screen as news", () =>
+	{
 		let calls = 0;
 		const unsubscribe = menuStore.subscribe(() => calls++);
 
@@ -413,7 +601,8 @@ describe("menuStore", () => {
 		expect(calls).toBe(2);
 	});
 
-	it("stays quiet while a match has the screen and the game keeps redrawing", () => {
+	it("stays quiet while a match has the screen and the game keeps redrawing", () =>
+	{
 		let calls = 0;
 		const unsubscribe = menuStore.subscribe(() => calls++);
 

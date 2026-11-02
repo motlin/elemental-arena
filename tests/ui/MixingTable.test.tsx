@@ -11,62 +11,83 @@ const ELS = Object.keys(EL);
 const EVERY_FUSION = [...new Set(Object.values(FUSE))];
 
 /** Puts the table up the way the menu does, with whatever the save has turned up so far. */
-function open(overrides: Partial<TableView> = {}): void {
-	act(() => {
-		tableStore.set({
-			owned: ["fire", "water", "earth"],
-			found: [],
-			footwork: [],
-			close: () => undefined,
-			...overrides,
-		});
+function open(overrides: Partial<TableView> = {}): void
+{
+	act(() =>
+	{
+		tableStore.set(
+			{
+				owned: ["fire", "water", "earth"],
+				found: [],
+				footwork: [],
+				close: () => undefined,
+				...overrides,
+			},
+		);
 	});
 }
 
 /** Every mixed cell in the grid, reading rows top to bottom, without the name headers. */
-function cells(): HTMLElement[] {
+function cells(): HTMLElement[]
+{
 	return [...document.querySelectorAll<HTMLElement>(".matrix .mc:not(.hdr)")];
 }
 
 /** The cell where the row element meets the column element. */
-function cell(row: string, col: string): HTMLElement {
+function cell(row: string, col: string): HTMLElement
+{
 	return cells()[ELS.indexOf(row) * ELS.length + ELS.indexOf(col)]!;
 }
 
 /** A name header along an edge; there are two of each, and either one selects the element. */
-function header(name: string): HTMLElement {
-	return screen.getAllByRole("button", {name})[0]!;
+function header(name: string): HTMLElement
+{
+	return screen.getAllByRole(
+		"button",
+		{
+			name,
+		},
+	)[0]!;
 }
 
 /** A piece of footwork in the palette below the grid. */
-function footwork(name: string): HTMLElement {
+function footwork(name: string): HTMLElement
+{
 	return [...document.querySelectorAll<HTMLElement>(".bpal .bp")].find((b) => b.textContent === name)!;
 }
 
-function detail(): string {
+function detail(): string
+{
 	return document.querySelector(".tdetail")?.textContent ?? "";
 }
 
-function click(el: HTMLElement): void {
-	act(() => {
+function click(el: HTMLElement): void
+{
+	act(() =>
+	{
 		el.click();
 	});
 }
 
-afterEach(() => {
-	act(() => {
+afterEach(() =>
+{
+	act(() =>
+	{
 		tableStore.set(null);
 	});
 });
 
-describe("MixingTable", () => {
-	it("paints nothing while the table is shut", () => {
+describe("MixingTable", () =>
+{
+	it("paints nothing while the table is shut", () =>
+	{
 		const {container} = render(<MixingTable />);
 
 		expect(container.innerHTML).toBe("");
 	});
 
-	it("lays out a cell for every pair of elements, the diagonal included", () => {
+	it("lays out a cell for every pair of elements, the diagonal included", () =>
+	{
 		render(<MixingTable />);
 
 		open();
@@ -74,16 +95,23 @@ describe("MixingTable", () => {
 		expect(cells().length).toBe(ELS.length * ELS.length);
 	});
 
-	it("names only the fusions turned up in play, and keeps the rest to itself", () => {
+	it("names only the fusions turned up in play, and keeps the rest to itself", () =>
+	{
 		render(<MixingTable />);
 
-		open({owned: ELS, found: ["steam"]});
+		open(
+			{
+				owned: ELS,
+				found: ["steam"],
+			},
+		);
 
 		expect([...document.querySelectorAll(".mc.found")].map((c) => c.textContent)).toStrictEqual(["Steam", "Steam"]);
 		expect(cell("earth", "fire").textContent).toBe("? ? ?");
 	});
 
-	it("opens reading out fire, the element every save starts on", () => {
+	it("opens reading out fire, the element every save starts on", () =>
+	{
 		render(<MixingTable />);
 
 		open();
@@ -92,9 +120,15 @@ describe("MixingTable", () => {
 		expect(detail()).toContain("base element");
 	});
 
-	it("reads out a fusion once its cell is picked", () => {
+	it("reads out a fusion once its cell is picked", () =>
+	{
 		render(<MixingTable />);
-		open({owned: ELS, found: ["steam"]});
+		open(
+			{
+				owned: ELS,
+				found: ["steam"],
+			},
+		);
 
 		click(cell("fire", "water"));
 
@@ -102,9 +136,15 @@ describe("MixingTable", () => {
 		expect(detail()).toContain("Fire + Water");
 	});
 
-	it("lights up the elements the picked fusion is made from", () => {
+	it("lights up the elements the picked fusion is made from", () =>
+	{
 		render(<MixingTable />);
-		open({owned: ELS, found: ["steam"]});
+		open(
+			{
+				owned: ELS,
+				found: ["steam"],
+			},
+		);
 
 		click(cell("fire", "water"));
 
@@ -116,7 +156,8 @@ describe("MixingTable", () => {
 		]);
 	});
 
-	it("names the price of an element the save has not bought", () => {
+	it("names the price of an element the save has not bought", () =>
+	{
 		render(<MixingTable />);
 		open();
 
@@ -125,18 +166,28 @@ describe("MixingTable", () => {
 		expect(detail()).toContain("Buy Air for 100 coin to read this.");
 	});
 
-	it("says what to mix for a fusion nobody has turned up yet", () => {
+	it("says what to mix for a fusion nobody has turned up yet", () =>
+	{
 		render(<MixingTable />);
-		open({owned: ELS});
+		open(
+			{
+				owned: ELS,
+			},
+		);
 
 		click(cell("fire", "water"));
 
 		expect(detail()).toContain("Mix Fire + Water in a match to find out what it makes.");
 	});
 
-	it("reads out a piece of footwork in the arsenal", () => {
+	it("reads out a piece of footwork in the arsenal", () =>
+	{
 		render(<MixingTable />);
-		open({footwork: ["jump"]});
+		open(
+			{
+				footwork: ["jump"],
+			},
+		);
 
 		click(footwork("Jump"));
 
@@ -144,7 +195,8 @@ describe("MixingTable", () => {
 		expect(detail()).toContain("1 energy a use");
 	});
 
-	it("keeps an unbought piece of footwork to itself", () => {
+	it("keeps an unbought piece of footwork to itself", () =>
+	{
 		render(<MixingTable />);
 		open();
 
@@ -154,20 +206,34 @@ describe("MixingTable", () => {
 		expect(detail()).toContain("Buy it for 150 coin to find out.");
 	});
 
-	it("shuts through the view it published", () => {
+	it("shuts through the view it published", () =>
+	{
 		const close = vi.fn<() => void>();
 		render(<MixingTable />);
-		open({close});
+		open(
+			{
+				close,
+			},
+		);
 
-		click(screen.getByRole("button", {name: "Close"}));
+		click(
+			screen.getByRole(
+				"button",
+				{
+					name: "Close",
+				},
+			),
+		);
 
 		expect(close).toHaveBeenCalledOnce();
 	});
 
 	/** Walks every entry the table can be asked about and reports whatever renders badly. */
-	function everyDetail(): string[] {
+	function everyDetail(): string[]
+	{
 		const broken: string[] = [];
-		const read = (what: string, el: HTMLElement): void => {
+		const read = (what: string, el: HTMLElement): void =>
+		{
 			click(el);
 			const text = detail();
 			if (text === "") broken.push(`${what}: nothing rendered`);
@@ -188,9 +254,16 @@ describe("MixingTable", () => {
 
 	it(
 		"reads out every element, every fusion, and every piece of footwork",
-		() => {
+		() =>
+		{
 			render(<MixingTable />);
-			open({owned: ELS, found: EVERY_FUSION, footwork: Object.keys(MV)});
+			open(
+				{
+					owned: ELS,
+					found: EVERY_FUSION,
+					footwork: Object.keys(MV),
+				},
+			);
 
 			expect(everyDetail()).toStrictEqual([]);
 		},
@@ -199,7 +272,8 @@ describe("MixingTable", () => {
 
 	it(
 		"reads out every undiscovered entry too",
-		() => {
+		() =>
+		{
 			render(<MixingTable />);
 			open();
 

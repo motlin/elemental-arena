@@ -11,7 +11,8 @@ import {S, idx} from "../../src/game/state.js";
  * one leaves nothing of the last behind.
  */
 
-function aMatch(seats = 2, dim = 9): void {
+function aMatch(seats = 2, dim = 9): void
+{
 	S.np = seats;
 	S.dim = dim;
 	S.preset = null;
@@ -19,8 +20,10 @@ function aMatch(seats = 2, dim = 9): void {
 	startMatch();
 }
 
-describe("lifting a match out of the game and back in", () => {
-	it("carries the board, the fighters and their hands", () => {
+describe("lifting a match out of the game and back in", () =>
+{
+	it("carries the board, the fighters and their hands", () =>
+	{
 		aMatch();
 		S.board[idx(3, 3)]!.t = "lava";
 		S.players[1]!.hp = 17;
@@ -35,7 +38,8 @@ describe("lifting a match out of the game and back in", () => {
 		expect(S.players.map((p) => p.hand.length)).toStrictEqual(snap.players.map((p) => p.hand.length));
 	});
 
-	it("is plain data, so it survives the wire and the disk unchanged", () => {
+	it("is plain data, so it survives the wire and the disk unchanged", () =>
+	{
 		aMatch();
 
 		const snap = exportMatch();
@@ -43,10 +47,14 @@ describe("lifting a match out of the game and back in", () => {
 		expect(JSON.parse(JSON.stringify(snap))).toStrictEqual(snap);
 	});
 
-	it("leaves the device's own business out of it", () => {
+	it("leaves the device's own business out of it", () =>
+	{
 		aMatch();
 		S.coins = 4200;
-		S.codex = {steam: 1};
+		S.codex =
+		{
+			steam: 1,
+		};
 		S.theme = "day";
 
 		const wire = JSON.stringify(exportMatch());
@@ -58,7 +66,8 @@ describe("lifting a match out of the game and back in", () => {
 
 	/* The replay is the match log with the whole board stapled to every line. Neither belongs on a
 	   server that is meant not to know which client it is talking to. */
-	it("leaves the replay frames behind", () => {
+	it("leaves the replay frames behind", () =>
+	{
 		aMatch();
 		logit("swung at nothing in particular");
 		expect(S.frames.length).toBe(1);
@@ -71,10 +80,22 @@ describe("lifting a match out of the game and back in", () => {
 		expect(snap.log.map((line) => line.t)).toStrictEqual(["swung at nothing in particular"]);
 	});
 
-	it("clears what the last match left in the game before loading the next", () => {
+	it("clears what the last match left in the game before loading the next", () =>
+	{
 		aMatch();
 		const snap = exportMatch();
-		S.frames.push({r: 9, who: "ghost", c: "#fff", t: "haunting", say: false, turn: 0, board: [], players: []});
+		S.frames.push(
+			{
+				r: 9,
+				who: "ghost",
+				c: "#fff",
+				t: "haunting",
+				say: false,
+				turn: 0,
+				board: [],
+				players: [],
+			},
+		);
 		S.look = 12;
 		S.imode = true;
 		S.fx.push([3, "bloom"]);
@@ -84,7 +105,8 @@ describe("lifting a match out of the game and back in", () => {
 		expect([S.frames, S.look, S.imode, S.fx]).toStrictEqual([[], null, false, []]);
 	});
 
-	it("keeps two matches out of each other's way in one isolate", () => {
+	it("keeps two matches out of each other's way in one isolate", () =>
+	{
 		aMatch(2, 9);
 		S.players[0]!.name = "First";
 		const first = exportMatch();

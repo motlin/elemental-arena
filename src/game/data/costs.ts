@@ -20,7 +20,8 @@ export type ActionKey =
 	| "light";
 
 /** Energy each action costs, keyed by the action name used in `S.mode`. */
-export const COST: Record<ActionKey, number> = {
+export const COST: Record<ActionKey, number> =
+{
 	place: 2,
 	merge: 2,
 	jump: 1,

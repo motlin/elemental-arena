@@ -14,17 +14,26 @@ import {MatchRoom} from "./room.js";
 
 export {MatchRoom};
 
-export interface Env {
+export interface Env
+{
 	readonly MATCH: DurableObjectNamespace;
 }
 
 /** A match code: what a player pastes to their opponent, so it has to be safe in a URL. */
 const DOOR = /^\/api\/match\/([A-Za-z0-9_-]{4,64})\/(open|join|socket)$/;
 
-export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+export default
+{
+	async fetch(request: Request, env: Env): Promise<Response>
+	{
 		const code = DOOR.exec(new URL(request.url).pathname)?.[1];
-		if (code === undefined) return new Response("no such door", {status: 404});
+		if (code === undefined)
+			return new Response(
+				"no such door",
+				{
+					status: 404,
+				},
+			);
 		const room = env.MATCH.get(env.MATCH.idFromName(code));
 		return room.fetch(request);
 	},

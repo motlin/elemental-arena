@@ -1,22 +1,26 @@
 /* The setup screen: title, settings fields, shop rows, chips. */
-.menu {
+.menu
+{
 	display: grid;
 	place-items: center;
 	min-height: 100vh;
 	padding: 40px 20px;
 }
-.menuwrap {
+.menuwrap
+{
 	width: 100%;
 	max-width: 880px;
 }
-.titlerow {
+.titlerow
+{
 	display: flex;
 	align-items: center;
 	gap: 28px;
 	margin-bottom: 36px;
 	flex-wrap: wrap;
 }
-.sigil {
+.sigil
+{
 	width: 96px;
 	height: 96px;
 	position: relative;
@@ -29,7 +33,8 @@
    Do not pair it with translateZ(0): that leaves the underlying transform mismatched against the
    rotate() keyframe, the two interpolate as matrices, and rotate(360deg) as a matrix is the
    identity -- the mark would sit perfectly still. */
-.sigil i {
+.sigil i
+{
 	position: absolute;
 	inset: 0;
 	background-repeat: no-repeat;
@@ -38,19 +43,24 @@
 	animation: spin 14s linear infinite;
 }
 /* Colours are baked into the texture, so anything that restyles --hot restates the triangle. */
-.sigil i:nth-child(1) {
+.sigil i:nth-child(1)
+{
 	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,3 97,90 3,90" fill="%23ff6b3d"/></svg>');
 }
-.sigil i:nth-child(2) {
+.sigil i:nth-child(2)
+{
 	background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,97 97,10 3,10" fill="%232f9dff"/></svg>');
 	animation-direction: reverse;
 }
-@keyframes spin {
-	to {
+@keyframes spin
+{
+	to
+	{
 		transform: rotate(360deg);
 	}
 }
-h1 {
+h1
+{
 	font-family: var(--display);
 	font-weight: 700;
 	font-size: clamp(40px, 8vw, 74px);
@@ -59,21 +69,24 @@ h1 {
 	line-height: 0.92;
 	margin: 0;
 }
-h1 span {
+h1 span
+{
 	display: block;
 	color: var(--muted);
 	font-size: 0.4em;
 	letter-spacing: 0.3em;
 	margin-top: 12px;
 }
-.card-panel {
+.card-panel
+{
 	background: var(--panel);
 	border: 1px solid var(--rule);
 	border-radius: 4px;
 	padding: 24px;
 	margin-bottom: 18px;
 }
-.card-panel h2 {
+.card-panel h2
+{
 	font-family: var(--display);
 	text-transform: uppercase;
 	letter-spacing: 0.2em;
@@ -82,35 +95,42 @@ h1 span {
 	color: var(--muted);
 	font-weight: 600;
 }
-.field {
+.field
+{
 	margin-bottom: 22px;
 }
-.field:last-child {
+.field:last-child
+{
 	margin-bottom: 0;
 }
-.field label {
+.field label
+{
 	display: flex;
 	justify-content: space-between;
 	align-items: baseline;
 	margin-bottom: 10px;
 }
-.lname {
+.lname
+{
 	font-family: var(--display);
 	text-transform: uppercase;
 	letter-spacing: 0.14em;
 	font-size: 12px;
 }
-.lval {
+.lval
+{
 	font-family: var(--mono);
 	font-size: 19px;
 	color: var(--accent);
 }
-input[type="range"] {
+input[type="range"]
+{
 	width: 100%;
 	accent-color: var(--accent);
 	height: 22px;
 }
-.numbox {
+.numbox
+{
 	width: 100%;
 	background: var(--panel2);
 	border: 1px solid var(--rule);
@@ -121,15 +141,18 @@ input[type="range"] {
 	font-size: 19px;
 	letter-spacing: 0.06em;
 }
-.numbox:focus {
+.numbox:focus
+{
 	border-color: var(--accent);
 	outline: none;
 }
-.seg {
+.seg
+{
 	display: flex;
 	gap: 8px;
 }
-.seg button {
+.seg button
+{
 	flex: 1;
 	padding: 11px 0;
 	border: 1px solid var(--rule);
@@ -138,12 +161,14 @@ input[type="range"] {
 	font-size: 15px;
 	color: var(--muted);
 }
-.seg button[aria-pressed="true"] {
+.seg button[aria-pressed="true"]
+{
 	border-color: var(--accent);
 	color: var(--accent);
 	background: #7ce0ff14;
 }
-.start {
+.start
+{
 	width: 100%;
 	padding: 19px;
 	background: var(--hot);
@@ -156,76 +181,90 @@ input[type="range"] {
 	font-weight: 700;
 	box-shadow: 0 0 34px -8px var(--hot);
 }
-.start:hover {
+.start:hover
+{
 	filter: brightness(1.1);
 }
-.shoprow {
+.shoprow
+{
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	padding: 15px 0;
 	border-top: 1px solid var(--rule);
 }
-.shoprow:first-of-type {
+.shoprow:first-of-type
+{
 	border-top: none;
 }
-.shopname {
+.shopname
+{
 	display: flex;
 	align-items: center;
 	gap: 12px;
 }
-.dot {
+.dot
+{
 	width: 15px;
 	height: 15px;
 	border-radius: 50%;
 	flex: none;
 }
-.shopname b {
+.shopname b
+{
 	font-family: var(--display);
 	text-transform: uppercase;
 	letter-spacing: 0.14em;
 	font-size: 14px;
 	font-weight: 600;
 }
-.shopname small {
+.shopname small
+{
 	display: block;
 	color: var(--muted);
 	font-size: 12px;
 	font-family: var(--body);
 }
-.buy {
+.buy
+{
 	padding: 9px 17px;
 	border: 1px solid var(--rule);
 	border-radius: 3px;
 	font-family: var(--mono);
 	font-size: 13px;
 }
-.buy:hover:not(:disabled) {
+.buy:hover:not(:disabled)
+{
 	border-color: var(--accent);
 	color: var(--accent);
 }
-.buy:disabled {
+.buy:disabled
+{
 	opacity: 0.35;
 	cursor: not-allowed;
 }
-.owned {
+.owned
+{
 	font-family: var(--mono);
 	font-size: 12px;
 	color: #7dffb0;
 	letter-spacing: 0.1em;
 }
-.treasury {
+.treasury
+{
 	display: flex;
 	justify-content: space-between;
 	align-items: baseline;
 	margin-bottom: 18px;
 }
-.chips {
+.chips
+{
 	display: flex;
 	flex-wrap: wrap;
 	gap: 7px;
 }
-.chip {
+.chip
+{
 	padding: 7px 12px;
 	border: 1px solid var(--rule);
 	border-radius: 3px;
@@ -237,21 +276,25 @@ input[type="range"] {
 	color: var(--muted);
 	opacity: 0.5;
 }
-.chip[aria-pressed="true"] {
+.chip[aria-pressed="true"]
+{
 	opacity: 1;
 	border-color: var(--cc);
 	color: var(--cc);
 	background: var(--cc) 14;
 }
-.chip:hover:not(.locked) {
+.chip:hover:not(.locked)
+{
 	opacity: 1;
 }
-.chip.locked {
+.chip.locked
+{
 	opacity: 0.28;
 	cursor: not-allowed;
 	border-style: dashed;
 }
-.forwho {
+.forwho
+{
 	font-family: var(--body);
 	text-transform: none;
 	letter-spacing: 0;
@@ -259,39 +302,46 @@ input[type="range"] {
 	color: var(--accent);
 	font-weight: 400;
 }
-.chip.whoc[aria-pressed="true"] {
+.chip.whoc[aria-pressed="true"]
+{
 	border-width: 2px;
 }
-.chip.mvall {
+.chip.mvall
+{
 	border-color: var(--rule);
 	color: var(--muted);
 	opacity: 1;
 	font-weight: 600;
 }
-.chip.mvall:hover:not(:disabled) {
+.chip.mvall:hover:not(:disabled)
+{
 	border-color: var(--ink);
 	color: var(--ink);
 }
-.chip.mvall:disabled {
+.chip.mvall:disabled
+{
 	opacity: 1;
 	cursor: default;
 	border-color: var(--go);
 	color: var(--go);
 	background: var(--go) 1f;
 }
-.linkish {
+.linkish
+{
 	color: var(--accent);
 	text-decoration: underline;
 	padding: 0;
 	font-size: inherit;
 }
-.loadhint {
+.loadhint
+{
 	color: var(--muted);
 	font-size: 11.5px;
 	margin: 0 0 14px;
 	line-height: 1.55;
 }
-.shophead {
+.shophead
+{
 	font-family: var(--display);
 	text-transform: uppercase;
 	letter-spacing: 0.2em;
@@ -304,7 +354,8 @@ input[type="range"] {
 	justify-content: space-between;
 	gap: 10px;
 }
-.bulk {
+.bulk
+{
 	border: 1px solid var(--go);
 	color: var(--go);
 	border-radius: 3px;
@@ -314,53 +365,65 @@ input[type="range"] {
 	letter-spacing: 0.04em;
 	text-transform: none;
 }
-.bulk:hover:not(:disabled) {
+.bulk:hover:not(:disabled)
+{
 	background: var(--go);
 	color: var(--onaccent);
 }
-.bulk:disabled {
+.bulk:disabled
+{
 	opacity: 0.3;
 	cursor: not-allowed;
 }
-.bulkdone {
+.bulkdone
+{
 	font-family: var(--mono);
 	font-size: 10px;
 	color: #7dffb0;
 	letter-spacing: 0.08em;
 	text-transform: none;
 }
-.treasury b {
+.treasury b
+{
 	font-family: var(--mono);
 	font-size: 26px;
 	color: #ffd24a;
 }
-.lhint {
+.lhint
+{
 	font-size: 12px;
 	color: var(--muted);
 }
-.field.tucked {
+.field.tucked
+{
 	margin-top: 12px;
 }
-.teamnote {
+.teamnote
+{
 	margin: 12px 0 0;
 }
-.whonote {
+.whonote
+{
 	margin: 9px 0 0;
 }
-.shophead:not(:first-child) {
+.shophead:not(:first-child)
+{
 	margin-top: 20px;
 }
-.savewarn {
+.savewarn
+{
 	margin-top: 14px;
 	font-size: 11.5px;
 	color: #ff8f6b;
 }
-.cheatrow {
+.cheatrow
+{
 	margin-top: 18px;
 	display: flex;
 	gap: 8px;
 }
-.cheatin {
+.cheatin
+{
 	flex: 1;
 	min-width: 0;
 	background: none;
@@ -373,52 +436,64 @@ input[type="range"] {
 	letter-spacing: 0.12em;
 	text-transform: uppercase;
 }
-.cheatmsg {
+.cheatmsg
+{
 	margin-top: 9px;
 	font-size: 11.5px;
 	color: var(--muted);
 }
-.cheatmsg.good {
+.cheatmsg.good
+{
 	color: #7dffb0;
 }
-.cheatmsg.bad {
+.cheatmsg.bad
+{
 	color: #ff8f6b;
 }
-.menubtn {
+.menubtn
+{
 	width: 100%;
 	margin-bottom: 10px;
 }
-.menubtn.last {
+.menubtn.last
+{
 	margin-bottom: 14px;
 }
-.wipe {
+.wipe
+{
 	margin-top: 18px;
 	width: 100%;
 }
-.wipe.armed {
+.wipe.armed
+{
 	border-color: #ff8f6b;
 	color: #ff8f6b;
 }
-.teamline {
+.teamline
+{
 	margin-top: 6px;
 }
 
 /* The online panel: one row per seat of an opened match, and the box a pasted link goes in. */
-.invite {
+.invite
+{
 	display: flex;
 	gap: 8px;
 	margin-bottom: 8px;
 }
-.invite:last-child {
+.invite:last-child
+{
 	margin-bottom: 0;
 }
-.invite .numbox {
+.invite .numbox
+{
 	flex: 1;
 	min-width: 0;
 	font-size: 13px;
 	padding: 8px 10px;
 }
-.invite .buy {
+.invite .buy
+{
 	flex: none;
 	white-space: nowrap;
 }

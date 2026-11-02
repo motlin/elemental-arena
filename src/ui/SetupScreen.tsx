@@ -6,7 +6,8 @@ import {LoadoutPanel} from "./LoadoutPanel.js";
 import {OnlinePanel} from "./OnlinePanel.js";
 
 /** The mark over the title: two triangles turning against each other. */
-function Sigil(): ReactElement {
+function Sigil(): ReactElement
+{
 	return (
 		<div className="sigil">
 			<i />
@@ -19,7 +20,10 @@ function Sigil(): ReactElement {
  * The setup screen and the online panel beside it. The two come from stores of their own -- one is
  * the save, the other is a match server -- and meet here rather than in either module.
  */
-type SetupProps = MenuView & {readonly online: LobbyView | null};
+type SetupProps = MenuView &
+{
+	readonly online: LobbyView | null;
+};
 
 /**
  * The setup screen itself, posed from plain props so Storybook and tests can look at it without a
@@ -36,7 +40,8 @@ export function SetupScreenView({
 	openDesigner,
 	openTable,
 	start,
-}: SetupProps): ReactElement {
+}: SetupProps): ReactElement
+{
 	return (
 		<div className="menu">
 			<div className="menuwrap">
@@ -77,7 +82,8 @@ export function SetupScreenView({
  * Everything between matches: who is playing, what they are dealt, what the treasury has bought,
  * and the door into the arena. It is up whenever a match is not.
  */
-export function SetupScreen(): ReactElement | null {
+export function SetupScreen(): ReactElement | null
+{
 	const view = useSyncExternalStore(menuStore.subscribe, menuStore.get, menuStore.get);
 	const online = useSyncExternalStore(lobbyStore.subscribe, lobbyStore.get, lobbyStore.get);
 

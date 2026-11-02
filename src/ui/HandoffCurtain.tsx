@@ -2,14 +2,21 @@ import {useSyncExternalStore, type CSSProperties, type ReactElement} from "react
 import {handoffStore, type HandoffView} from "../game/bridge.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type GlyphStyle = CSSProperties & {"--pc": string};
+type GlyphStyle = CSSProperties &
+{
+	"--pc": string;
+};
 
 /**
  * The curtain itself, posed from plain props so Storybook and tests can look at it without a match
  * running.
  */
-export function HandoffCurtainView({seat, name, colour, dismiss}: HandoffView): ReactElement {
-	const glyphStyle: GlyphStyle = {"--pc": colour};
+export function HandoffCurtainView({seat, name, colour, dismiss}: HandoffView): ReactElement
+{
+	const glyphStyle: GlyphStyle =
+	{
+		"--pc": colour,
+	};
 
 	return (
 		<div className="handoff">
@@ -30,7 +37,8 @@ export function HandoffCurtainView({seat, name, colour, dismiss}: HandoffView): 
  * device over cannot read the next player's cards, and the next player confirms by name before
  * anything is revealed.
  */
-export function HandoffCurtain(): ReactElement | null {
+export function HandoffCurtain(): ReactElement | null
+{
 	const view = useSyncExternalStore(handoffStore.subscribe, handoffStore.get, handoffStore.get);
 
 	return view === null ? null : <HandoffCurtainView {...view} />;

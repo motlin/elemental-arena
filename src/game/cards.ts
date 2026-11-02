@@ -16,11 +16,30 @@ export const cardLabel = (c: Card): string => (c.k === "el" ? elName(c.id) : c.k
 /** True once a plate has been held past its keep, counted from the round it was dealt. */
 export const spoiled = (c: FoodCard, round: number): boolean => round - c.born >= FOOD[c.id]!.keep;
 /** What a plate gives when eaten now: fresh, all of it; spoiled, half of it and a bite of life. */
-export function foodGain(c: FoodCard, round: number): {nrg: number; rot: number} {
-	const f = FOOD[c.id]!;
-	return spoiled(c, round) ? {nrg: Math.ceil(f.nrg / 2), rot: f.rot} : {nrg: f.nrg, rot: 0};
+export function foodGain(
+	c: FoodCard,
+	round: number,
+):
+{
+	nrg: number;
+	rot: number;
 }
-function eat(p: Player, c: FoodCard): void {
+{
+	const f = FOOD[c.id]!;
+	return spoiled(c, round)
+		?
+			{
+				nrg: Math.ceil(f.nrg / 2),
+				rot: f.rot,
+			}
+		:
+			{
+				nrg: f.nrg,
+				rot: 0,
+			};
+}
+function eat(p: Player, c: FoodCard): void
+{
 	pushUndo();
 	const {nrg, rot} = foodGain(c, S.round);
 	p.hand = p.hand.filter((q) => q.uid !== c.uid);
@@ -38,61 +57,80 @@ function eat(p: Player, c: FoodCard): void {
 	redraw();
 	checkAlive();
 }
-function snapshot(entry: LogEntry): void {
-	S.frames.push({
-		...entry,
-		turn: S.turn,
-		board: S.board.map((c) => c.t),
-		players: S.players.map((q) => ({
-			name: q.name,
-			c: q.c,
-			team: q.team,
-			x: q.x,
-			y: q.y,
-			hp: q.hp,
-			max: q.max,
-			alive: q.alive,
-			hand: q.hand.map(cardLabel),
-			held: q.held,
-		})),
-	});
+function snapshot(entry: LogEntry): void
+{
+	S.frames.push(
+		{
+			...entry,
+			turn: S.turn,
+			board: S.board.map((c) => c.t),
+			players: S.players.map((q) => (
+			{
+				name: q.name,
+				c: q.c,
+				team: q.team,
+				x: q.x,
+				y: q.y,
+				hp: q.hp,
+				max: q.max,
+				alive: q.alive,
+				hand: q.hand.map(cardLabel),
+				held: q.held,
+			})),
+		},
+	);
 }
-export function logit(t: string, who?: Player | null, say?: boolean): void {
+export function logit(t: string, who?: Player | null, say?: boolean): void
+{
 	const p = who === undefined ? S.players[S.turn]! || null : who;
-	const entry = {r: S.round, who: p ? p.name : "", c: p ? p.c : "var(--muted)", t, say: !!say};
+	const entry =
+	{
+		r: S.round,
+		who: p ? p.name : "",
+		c: p ? p.c : "var(--muted)",
+		t,
+		say: !!say,
+	};
 	S.log.push(entry);
 	snapshot(entry);
 }
-export function spend(n: number): boolean {
+export function spend(n: number): boolean
+{
 	const p = cur();
 	if (p.nrg < n) return false;
 	pushUndo();
 	p.nrg -= n;
 	return true;
 }
-function mixable(c: Card | null): boolean {
+function mixable(c: Card | null): boolean
+{
 	return !!c && c.k === "el" && !isComp(c.id);
 }
-function mixSource(p: Player): Card | null {
+function mixSource(p: Player): Card | null
+{
 	return p.hand.find((q) => q.uid === S.mixFrom) || null;
 }
-function canPair(a: Card | null, b: Card | null): boolean {
+function canPair(a: Card | null, b: Card | null): boolean
+{
 	if (!a || !b || a.uid === b.uid) return false;
 	if (a.k === "f" || b.k === "f") return false;
 	if (a.k === "w" || b.k === "w") return true;
 	return mixable(a) && mixable(b) && !!FUSE[fkey(a.id, b.id)];
 }
-export function mixPartners(p: Player, a?: Card | null): Card[] {
+export function mixPartners(p: Player, a?: Card | null): Card[]
+{
 	a = a || mixSource(p) || selCard(p) || held(p);
 	if (!a) return [];
 	return p.hand.filter((q) => canPair(a, q));
 }
-export function startMix(uid: number): void {
+export function startMix(uid: number): void
+{
 	S.mixFrom = uid;
 	S.mode = "mix";
 	redraw();
 }
-function doMix(u2: number): void {
+function doMix(u2: number): void
+{
 	const p = cur(),
 		a = mixSource(p),
 		b = p.hand.find((q) => q.uid === u2);
@@ -103,25 +141,48 @@ function doMix(u2: number): void {
 	const slot = ib < ia ? ia - 1 : ia;
 	if (!canPair(a, b)) return;
 	let made: Card | null = null;
-	if (a.k === "el" && b.k === "el") {
+	if (a.k === "el" && b.k === "el")
+	{
 		const res = FUSE[fkey(a.id, b.id)];
 		if (!res || !spend(COST.merge)) return;
-		made = {uid: S.uid++, k: "el", id: res};
-		if (!S.codex[res]) {
+		made =
+		{
+			uid: S.uid++,
+			k: "el",
+			id: res,
+		};
+		if (!S.codex[res])
+		{
 			markIrreversible();
 			S.codex[res] = 1;
 			void save();
 			redrawCodex();
 		}
-	} else if (a.k === "w" && b.k === "w") {
+	}
+	else if (a.k === "w" && b.k === "w")
+	{
 		if (!spend(COST.merge)) return;
-		made = {uid: S.uid++, k: "w", ids: [...a.ids, ...b.ids], els: [...a.els, ...b.els]};
-	} else {
+		made =
+		{
+			uid: S.uid++,
+			k: "w",
+			ids: [...a.ids, ...b.ids],
+			els: [...a.els, ...b.els],
+		};
+	}
+	else
+	{
 		const el = a.k === "el" ? a : b.k === "el" ? b : null,
 			w = a.k === "w" ? a : b.k === "w" ? b : null;
 		if (!el || !w) return;
 		if (!spend(COST.merge)) return;
-		made = {uid: S.uid++, k: "w", ids: [...w.ids], els: [...w.els, el.id]};
+		made =
+		{
+			uid: S.uid++,
+			k: "w",
+			ids: [...w.ids],
+			els: [...w.els, el.id],
+		};
 	}
 	if (!made) return;
 	logit(`merged ${cardLabel(a)} with ${cardLabel(b)} into ${cardLabel(made)}`);
@@ -133,7 +194,8 @@ function doMix(u2: number): void {
 	S.mode = null;
 	redraw();
 }
-export function doToss(uid: number): void {
+export function doToss(uid: number): void
+{
 	const p = cur();
 	const c = p.hand.find((q) => q.uid === uid);
 	pushUndo();
@@ -152,7 +214,8 @@ export function doToss(uid: number): void {
  * lifted out rather than against the hand as it stood. Hand order is the arena's own business and
  * not the screen's: it travels in the snapshot, and it is what the keyboard numbers the cards by.
  */
-export function moveCard(uid: number, to: number): void {
+export function moveCard(uid: number, to: number): void
+{
 	const p = cur();
 	const from = p.hand.findIndex((q) => q.uid === uid);
 	if (from < 0 || to < 0 || to >= p.hand.length) return;
@@ -161,13 +224,16 @@ export function moveCard(uid: number, to: number): void {
 	p.hand.splice(to, 0, c);
 	redraw();
 }
-export function clickCard(uid: number): void {
+export function clickCard(uid: number): void
+{
 	if (S.phase !== "act") return;
 	const p = cur(),
 		c = p.hand.find((q) => q.uid === uid);
 	if (!c) return;
-	if (S.toss) {
-		if (S.tossPick !== uid) {
+	if (S.toss)
+	{
+		if (S.tossPick !== uid)
+		{
 			S.tossPick = uid;
 			redraw();
 			return;
@@ -175,25 +241,31 @@ export function clickCard(uid: number): void {
 		doToss(uid);
 		return;
 	}
-	if (S.mode === "mix" && mixPartners(p).some((q) => q.uid === uid)) {
+	if (S.mode === "mix" && mixPartners(p).some((q) => q.uid === uid))
+	{
 		doMix(uid);
 		return;
 	}
-	if (c.k === "f") {
+	if (c.k === "f")
+	{
 		eat(p, c);
 		return;
 	}
-	if (c.k === "w") {
+	if (c.k === "w")
+	{
 		p.held = p.held === uid ? null : uid;
 		S.sel = null;
 		S.mode = null;
-	} else {
+	}
+	else
+	{
 		S.sel = S.sel === uid ? null : uid;
 		S.mode = null;
 	}
 	redraw();
 }
-export function doPlace(x: number, y: number): void {
+export function doPlace(x: number, y: number): void
+{
 	const p = cur(),
 		c = selCard(p);
 	if (!c) return;
@@ -218,19 +290,24 @@ export function doPlace(x: number, y: number): void {
 }
 // a raw element that kills on contact cannot be dropped straight onto somebody
 export const lethalRaw = (k: string): boolean => !!(EL[k] && T[EL[k].t]?.gone);
-export function badPlace(el: string, x: number, y: number): boolean {
+export function badPlace(el: string, x: number, y: number): boolean
+{
 	return lethalRaw(el) && !!occupant(x, y);
 }
-export function sealed(x: number, y: number): boolean {
+export function sealed(x: number, y: number): boolean
+{
 	const c = S.board[idx(x, y)]!;
 	return !!(c.t && T[c.t]!.dead);
 }
 // the ground opening under you throws you clear; walking in is what kills
-function evict(v: Player): boolean {
-	for (let r = 1; r <= Math.max(S.dim, 4); r++) {
+function evict(v: Player): boolean
+{
+	for (let r = 1; r <= Math.max(S.dim, 4); r++)
+	{
 		const ring: Offset[] = [];
 		for (let dy = -r; dy <= r; dy++)
-			for (let dx = -r; dx <= r; dx++) {
+			for (let dx = -r; dx <= r; dx++)
+			{
 				if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
 				const nx = v.x + dx,
 					ny = v.y + dy;
@@ -239,7 +316,8 @@ function evict(v: Player): boolean {
 				if (c.t && (T[c.t]!.gone || T[c.t]!.solid)) continue;
 				ring.push([nx, ny]);
 			}
-		if (ring.length) {
+		if (ring.length)
+		{
 			markIrreversible();
 			const [nx, ny] = ring[(Math.random() * ring.length) | 0]!;
 			const ox = v.x,
@@ -254,17 +332,21 @@ function evict(v: Player): boolean {
 	}
 	return false; // nowhere left to stand
 }
-export function claim(x: number, y: number): void {
+export function claim(x: number, y: number): void
+{
 	const c = S.board[idx(x, y)]!;
 	if (!c.t || !T[c.t]!.gone) return;
-	occupantsAt(x, y).forEach((v) => {
+	occupantsAt(x, y).forEach((v) =>
+	{
 		if (v.alive && !evict(v)) voidOut(v);
 	});
 }
-export function setTerrain(x: number, y: number, k: string): void {
+export function setTerrain(x: number, y: number, k: string): void
+{
 	const r = T[k]!.spread || 0;
 	for (let dy = -r; dy <= r; dy++)
-		for (let dx = -r; dx <= r; dx++) {
+		for (let dx = -r; dx <= r; dx++)
+		{
 			const nx = x + dx,
 				ny = y + dy;
 			if (!inb(nx, ny) || sealed(nx, ny)) continue;
@@ -274,23 +356,28 @@ export function setTerrain(x: number, y: number, k: string): void {
 			S.fx.push([idx(nx, ny), "bloom"]);
 			claim(nx, ny);
 		}
-	if (!S.codex[k] && CFORGE[k]) {
+	if (!S.codex[k] && CFORGE[k])
+	{
 		markIrreversible();
 		S.codex[k] = 1;
 		void save();
 		redrawCodex();
 	}
 }
-export function place(x: number, y: number, el: string): void {
+export function place(x: number, y: number, el: string): void
+{
 	if (sealed(x, y)) return;
-	if (isComp(el)) {
+	if (isComp(el))
+	{
 		setTerrain(x, y, el);
 		return;
 	}
 	const c = S.board[idx(x, y)]!;
-	if (c.el) {
+	if (c.el)
+	{
 		const nk = FUSE[fkey(c.el, el)];
-		if (nk) {
+		if (nk)
+		{
 			setTerrain(x, y, nk);
 			return;
 		}
@@ -298,7 +385,9 @@ export function place(x: number, y: number, el: string): void {
 		c.t = EL[el]!.t;
 		c.life = T[c.t]!.life;
 		c.by = layingFor();
-	} else {
+	}
+	else
+	{
 		c.el = el;
 		c.t = EL[el]!.t;
 		c.life = T[c.t]!.life;

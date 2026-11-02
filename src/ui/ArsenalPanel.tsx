@@ -8,15 +8,24 @@ const TEASE = "? ? ? Buy it to find out what it does.";
 const ARMED_FOR = 3500;
 
 /** The dot beside a row: the thing's own colour, or the accent for footwork, which has none. */
-function dotStyle(row: ShopRow): {background: string; boxShadow: string} {
+function dotStyle(row: ShopRow):
+{
+	background: string;
+	boxShadow: string;
+}
+{
 	const colour = row.colour ?? (row.owned ? "var(--accent)" : "var(--muted)");
 	const lit = row.colour !== null || row.owned;
 
-	return {background: colour, boxShadow: lit ? `0 0 10px ${colour}` : "none"};
+	return {
+		background: colour,
+		boxShadow: lit ? `0 0 10px ${colour}` : "none",
+	};
 }
 
 /** One row of the shop: what it is, what it does once bought, and what it costs until then. */
-function Row({row, buy}: {readonly row: ShopRow; readonly buy: (key: string) => void}): ReactElement {
+function Row({row, buy}: {readonly row: ShopRow; readonly buy: (key: string) => void}): ReactElement
+{
 	return (
 		<div className="shoprow">
 			<div className="shopname">
@@ -33,7 +42,8 @@ function Row({row, buy}: {readonly row: ShopRow; readonly buy: (key: string) => 
 					type="button"
 					className="buy"
 					disabled={!row.affordable}
-					onClick={() => {
+					onClick={() =>
+					{
 						buy(row.key);
 					}}
 				>
@@ -45,7 +55,8 @@ function Row({row, buy}: {readonly row: ShopRow; readonly buy: (key: string) => 
 }
 
 /** One shelf, headed by the button that sweeps up everything still on it. */
-function Shelf({shelf}: {readonly shelf: ShopShelf}): ReactElement {
+function Shelf({shelf}: {readonly shelf: ShopShelf}): ReactElement
+{
 	return (
 		<>
 			<div className="shophead">
@@ -72,7 +83,8 @@ function Shelf({shelf}: {readonly shelf: ShopShelf}): ReactElement {
 }
 
 /** What the cheat box says about where the guessing stands. */
-function cheatNote(state: CheatState, tries: number, allowed: number): string {
+function cheatNote(state: CheatState, tries: number, allowed: number): string
+{
 	if (state === "accepted") return "Code accepted. Treasury filled and the whole codex revealed.";
 	if (state === "spent") return `Out of guesses. All ${allowed} were wrong.`;
 	if (tries === 0) return `You get ${allowed} guesses. Spend them carefully.`;
@@ -81,12 +93,14 @@ function cheatNote(state: CheatState, tries: number, allowed: number): string {
 }
 
 /** The tone the note is said in: banked, spent, or still just counting down. */
-function cheatTone(state: CheatState, tries: number): string {
+function cheatTone(state: CheatState, tries: number): string
+{
 	if (state === "accepted") return "good";
 	return state === "spent" || tries > 0 ? "bad" : "";
 }
 
-interface CheatBoxProps {
+interface CheatBoxProps
+{
 	readonly state: CheatState;
 	readonly tries: number;
 	readonly allowed: number;
@@ -94,9 +108,11 @@ interface CheatBoxProps {
 }
 
 /** The code box, which empties itself after every guess so the next one starts clean. */
-function CheatBox({state, tries, allowed, submit}: CheatBoxProps): ReactElement {
+function CheatBox({state, tries, allowed, submit}: CheatBoxProps): ReactElement
+{
 	const [code, setCode] = useState("");
-	const guess = (): void => {
+	const guess = (): void =>
+	{
 		submit(code);
 		setCode("");
 	};
@@ -111,10 +127,12 @@ function CheatBox({state, tries, allowed, submit}: CheatBoxProps): ReactElement 
 						placeholder="Enter code"
 						aria-label="Cheat code"
 						value={code}
-						onChange={(e) => {
+						onChange={(e) =>
+						{
 							setCode(e.target.value);
 						}}
-						onKeyDown={(e) => {
+						onKeyDown={(e) =>
+						{
 							if (e.key !== "Enter") return;
 							e.preventDefault();
 							guess();
@@ -131,12 +149,14 @@ function CheatBox({state, tries, allowed, submit}: CheatBoxProps): ReactElement 
 }
 
 /** Wipes the treasury, but only on the second press: the first one only says what it is about to do. */
-function WipeButton({wipe}: {readonly wipe: () => void}): ReactElement {
+function WipeButton({wipe}: {readonly wipe: () => void}): ReactElement
+{
 	const [armed, setArmed] = useState(false);
 	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(
-		() => () => {
+		() => () =>
+		{
 			if (timer.current !== null) clearTimeout(timer.current);
 		},
 		[],
@@ -146,11 +166,14 @@ function WipeButton({wipe}: {readonly wipe: () => void}): ReactElement {
 		<button
 			type="button"
 			className={armed ? "ghost wipe armed" : "ghost wipe"}
-			onClick={() => {
+			onClick={() =>
+			{
 				if (timer.current !== null) clearTimeout(timer.current);
-				if (!armed) {
+				if (!armed)
+				{
 					setArmed(true);
-					timer.current = setTimeout(() => {
+					timer.current = setTimeout(() =>
+					{
 						setArmed(false);
 					}, ARMED_FOR);
 					return;
@@ -174,7 +197,8 @@ export function ArsenalPanel({
 	triesAllowed,
 	submitCode,
 	resetProgress,
-}: ArsenalSetup): ReactElement {
+}: ArsenalSetup): ReactElement
+{
 	return (
 		<div className="card-panel">
 			<h2>Arsenal</h2>

@@ -2,7 +2,8 @@ import {type ReactElement} from "react";
 import type {InspectView, ReachChooser, TileReadout} from "../game/bridge.js";
 
 /** One line of the readout: what is being measured, and what it comes to. */
-function Fact({label, value}: {readonly label: string; readonly value: string}): ReactElement {
+function Fact({label, value}: {readonly label: string; readonly value: string}): ReactElement
+{
 	return (
 		<div className="k">
 			<span>{label}</span>
@@ -12,11 +13,26 @@ function Fact({label, value}: {readonly label: string; readonly value: string}):
 }
 
 /** What the square being read is, what it does, and every number it carries. */
-function Readout({tile}: {readonly tile: TileReadout}): ReactElement {
+function Readout({tile}: {readonly tile: TileReadout}): ReactElement
+{
 	return (
 		<>
-			<b style={{color: tile.colour ?? "var(--muted)"}}>{tile.name}</b>
-			<div style={{marginTop: 5}}>{tile.blurb}</div>
+			<b
+				style={
+				{
+					color: tile.colour ?? "var(--muted)",
+				}}
+			>
+				{tile.name}
+			</b>
+			<div
+				style={
+				{
+					marginTop: 5,
+				}}
+			>
+				{tile.blurb}
+			</div>
 			{tile.facts.map((fact, i) => (
 				// ground that both hurts and feeds writes "Ending here" twice, so only the order is unique
 				<Fact key={i} label={fact.label} value={fact.value} />
@@ -26,10 +42,17 @@ function Readout({tile}: {readonly tile: TileReadout}): ReactElement {
 }
 
 /** Who the reach overlay can be drawn for, which is everyone this seat can see. */
-function Chooser({chooser}: {readonly chooser: ReachChooser}): ReactElement {
+function Chooser({chooser}: {readonly chooser: ReachChooser}): ReactElement
+{
 	return (
 		<>
-			<div className="bhead" style={{margin: "14px 0 7px"}}>
+			<div
+				className="bhead"
+				style={
+				{
+					margin: "14px 0 7px",
+				}}
+			>
 				Show who can reach where
 			</div>
 			<div className="bpal">
@@ -42,7 +65,13 @@ function Chooser({chooser}: {readonly chooser: ReachChooser}): ReactElement {
 						aria-pressed={chip.on}
 						onClick={chip.toggle}
 					>
-						<span className="d" style={{background: chip.colour}} />
+						<span
+							className="d"
+							style={
+							{
+								background: chip.colour,
+							}}
+						/>
 						{`${chip.name} · ${chip.budget}`}
 					</button>
 				))}
@@ -56,7 +85,8 @@ function Chooser({chooser}: {readonly chooser: ReachChooser}): ReactElement {
  * The tile readout down the right: whatever square Inspect was last pointed at, and the overlay
  * that draws how far each fighter could get on their turn.
  */
-export function TileInspector({view}: {readonly view: InspectView}): ReactElement {
+export function TileInspector({view}: {readonly view: InspectView}): ReactElement
+{
 	return (
 		<div id="tileinfo">
 			{view.tile === null ? <span>{view.hint}</span> : <Readout tile={view.tile} />}

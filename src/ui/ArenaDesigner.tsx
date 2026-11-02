@@ -4,9 +4,19 @@ import type {TerrainDef} from "../game/data/index.js";
 import {elColor, elName, terrOf, rgba} from "../game/lookups.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type TileStyle = CSSProperties & {"--tc"?: string; "--tcs"?: string};
-type GlyphStyle = CSSProperties & {"--pc": string};
-type BoardStyle = CSSProperties & {"--cell": string};
+type TileStyle = CSSProperties &
+{
+	"--tc"?: string;
+	"--tcs"?: string;
+};
+type GlyphStyle = CSSProperties &
+{
+	"--pc": string;
+};
+type BoardStyle = CSSProperties &
+{
+	"--cell": string;
+};
 
 /** The two entries in the tool row: a hole opened now, and the eraser. */
 const BREAK = "collapsed";
@@ -24,37 +34,46 @@ const CELL_MIN = 12;
 const CELL_MAX = 40;
 
 /** Largest tile size the board can be drawn at in the room this viewport leaves it. */
-function cellSize(dim: number): number {
+function cellSize(dim: number): number
+{
 	const avail = Math.min(window.innerWidth - OVERLAY_PAD, BOARD_MAX);
 	return Math.max(CELL_MIN, Math.min(CELL_MAX, Math.floor(avail / dim) - 2));
 }
 
 /** What a material is called in the palette: the two tools read as what they do to the ground. */
-function toolName(key: string): string {
+function toolName(key: string): string
+{
 	if (key === BREAK) return "Break";
 	if (key === ERASE) return "Erase";
 	return elName(key);
 }
 
 /** The ground one painted square lays, or nothing at all where the square is still bare. */
-function groundAt(key: string | null | undefined): TerrainDef | undefined {
+function groundAt(key: string | null | undefined): TerrainDef | undefined
+{
 	return key === null || key === undefined ? undefined : terrOf(key);
 }
 
 /** Whether ground walls a square off or opens a hole in it. Terrain flags are set or absent, never
     zero, so a flag is on whenever it is there at all. */
-function seals(terrain: TerrainDef | undefined): boolean {
+function seals(terrain: TerrainDef | undefined): boolean
+{
 	return terrain?.solid !== undefined || terrain?.gone !== undefined;
 }
 
 /** The colour dot every material wears beside its name; the eraser lays nothing, so it wears grey. */
-function Swatch({tool}: {readonly tool: string}): ReactElement {
-	const style: CSSProperties = {background: tool === ERASE ? "var(--muted)" : elColor(tool)};
+function Swatch({tool}: {readonly tool: string}): ReactElement
+{
+	const style: CSSProperties =
+	{
+		background: tool === ERASE ? "var(--muted)" : elColor(tool),
+	};
 
 	return <span className="d" style={style} />;
 }
 
-interface PaletteProps {
+interface PaletteProps
+{
 	readonly heading: string;
 	readonly tools: readonly string[];
 	/** What to say when the save has nothing of this kind yet. */
@@ -65,7 +84,8 @@ interface PaletteProps {
 }
 
 /** One row of materials to paint with, or a line saying there are none. */
-function Palette({heading, tools, bare, picked, pick}: PaletteProps): ReactElement {
+function Palette({heading, tools, bare, picked, pick}: PaletteProps): ReactElement
+{
 	return (
 		<>
 			<div className="bhead">{heading}</div>
@@ -79,7 +99,8 @@ function Palette({heading, tools, bare, picked, pick}: PaletteProps): ReactEleme
 							type="button"
 							className="bp mat"
 							aria-pressed={picked === tool}
-							onClick={() => {
+							onClick={() =>
+							{
 								pick(tool);
 							}}
 						>
@@ -93,7 +114,8 @@ function Palette({heading, tools, bare, picked, pick}: PaletteProps): ReactEleme
 	);
 }
 
-interface SquareProps {
+interface SquareProps
+{
 	readonly ground: string | null;
 	/** The seat that starts here, if this is one of the spawn squares. */
 	readonly spawn: SpawnSpot | undefined;
@@ -104,14 +126,16 @@ interface SquareProps {
 }
 
 /** What a square says when the pointer rests on it: who starts there, or what is underfoot. */
-function squareTitle(spawn: SpawnSpot | undefined, terrain: TerrainDef | undefined): string {
+function squareTitle(spawn: SpawnSpot | undefined, terrain: TerrainDef | undefined): string
+{
 	if (spawn !== undefined) return `${spawn.name} starts here`;
 	if (terrain === undefined) return "";
 	return `${terrain.n}: ${terrain.d}`;
 }
 
 /** One square of the arena: the ground painted on it, and the fighter who starts there. */
-function Square({ground, spawn, seat, press, sweep}: SquareProps): ReactElement {
+function Square({ground, spawn, seat, press, sweep}: SquareProps): ReactElement
+{
 	const terrain = groundAt(ground);
 	// a spawn square is left exactly as it was painted, so it says what that will cost its seat
 	const sealed = spawn !== undefined && seals(terrain);
@@ -120,8 +144,21 @@ function Square({ground, spawn, seat, press, sweep}: SquareProps): ReactElement 
 	if (terrain?.solid !== undefined) classes.push("solid");
 	if (terrain?.dead !== undefined) classes.push("gonezone");
 	if (sealed) classes.push("willclear");
-	const style: TileStyle = terrain === undefined ? {} : {"--tc": terrain.c, "--tcs": rgba(terrain.c, 0.44)};
-	const glyph: GlyphStyle | undefined = spawn === undefined ? undefined : {"--pc": spawn.colour};
+	const style: TileStyle =
+		terrain === undefined
+			? {}
+			:
+				{
+					"--tc": terrain.c,
+					"--tcs": rgba(terrain.c, 0.44),
+				};
+	const glyph: GlyphStyle | undefined =
+		spawn === undefined
+			? undefined
+			:
+				{
+					"--pc": spawn.colour,
+				};
 	const title = squareTitle(spawn, terrain);
 
 	return (
@@ -129,7 +166,8 @@ function Square({ground, spawn, seat, press, sweep}: SquareProps): ReactElement 
 			className={classes.join(" ")}
 			style={style}
 			title={title}
-			onPointerDown={(e) => {
+			onPointerDown={(e) =>
+			{
 				e.preventDefault();
 				press();
 			}}
@@ -140,7 +178,8 @@ function Square({ground, spawn, seat, press, sweep}: SquareProps): ReactElement 
 	);
 }
 
-interface BoardProps {
+interface BoardProps
+{
 	readonly dim: number;
 	readonly preset: readonly (string | null)[];
 	readonly spawns: readonly SpawnSpot[];
@@ -153,27 +192,37 @@ interface BoardProps {
  * The grid itself. A stroke starts where the pointer goes down and paints every square it crosses
  * until the pointer comes up, which it does wherever on the page that happens.
  */
-function Board({dim, preset, spawns, paint, tool}: BoardProps): ReactElement {
+function Board({dim, preset, spawns, paint, tool}: BoardProps): ReactElement
+{
 	const painting = useRef(false);
-	const style: BoardStyle = {gridTemplateColumns: `repeat(${dim},var(--cell))`, "--cell": `${cellSize(dim)}px`};
+	const style: BoardStyle =
+	{
+		gridTemplateColumns: `repeat(${dim},var(--cell))`,
+		"--cell": `${cellSize(dim)}px`,
+	};
 
-	useEffect(() => {
-		const stop = (): void => {
+	useEffect(() =>
+	{
+		const stop = (): void =>
+		{
 			painting.current = false;
 		};
 		window.addEventListener("pointerup", stop);
-		return () => {
+		return () =>
+		{
 			window.removeEventListener("pointerup", stop);
 		};
 	}, []);
 
-	const lay = (index: number): void => {
+	const lay = (index: number): void =>
+	{
 		paint(index, tool === ERASE ? null : tool);
 	};
 
 	return (
 		<div className="bboard" style={style}>
-			{preset.map((ground, i) => {
+			{preset.map((ground, i) =>
+			{
 				const seat = spawns.findIndex((spot) => spot.index === i);
 
 				return (
@@ -183,11 +232,13 @@ function Board({dim, preset, spawns, paint, tool}: BoardProps): ReactElement {
 						ground={ground}
 						spawn={spawns[seat]}
 						seat={seat}
-						press={() => {
+						press={() =>
+						{
 							painting.current = true;
 							lay(i);
 						}}
-						sweep={() => {
+						sweep={() =>
+						{
 							if (painting.current) lay(i);
 						}}
 					/>
@@ -198,14 +249,16 @@ function Board({dim, preset, spawns, paint, tool}: BoardProps): ReactElement {
 }
 
 /** What a spawn square painted over costs the seat that starts on it, or nothing at all. */
-function spawnNote(preset: readonly (string | null)[], spawns: readonly SpawnSpot[]): string {
+function spawnNote(preset: readonly (string | null)[], spawns: readonly SpawnSpot[]): string
+{
 	const sealed = spawns.filter((spot) => seals(groundAt(preset[spot.index]))).length;
 
 	if (sealed === 0) return "";
 	return `${sealed} spawn ${sealed === 1 ? "square has" : "squares have"} a wall or a hole on it. That is left exactly as you painted it: a hole there takes that player out on turn one.`;
 }
 
-export interface ArenaDesignerViewProps extends DesignView {
+export interface ArenaDesignerViewProps extends DesignView
+{
 	/** The material the next square gets painted with, or `erase` to clear it. */
 	readonly tool: string;
 	readonly pickTool: (tool: string) => void;
@@ -228,7 +281,8 @@ export function ArenaDesignerView({
 	close,
 	tool,
 	pickTool,
-}: ArenaDesignerViewProps): ReactElement {
+}: ArenaDesignerViewProps): ReactElement
+{
 	const painted = preset.filter((k) => k !== null).length;
 
 	return (
@@ -262,14 +316,21 @@ export function ArenaDesignerView({
 							type="button"
 							className="bp spw"
 							aria-pressed={seats === n}
-							onClick={() => {
+							onClick={() =>
+							{
 								setSeats(n);
 							}}
 						>
 							{n}
 						</button>
 					))}
-					<span className="hint" style={{marginLeft: 8}}>
+					<span
+						className="hint"
+						style={
+						{
+							marginLeft: 8,
+						}}
+					>
 						players
 					</span>
 				</div>
@@ -290,7 +351,8 @@ export function ArenaDesignerView({
  * Owns the one thing the designer decides for itself: which material the next square gets. It only
  * exists while the designer is up, so every visit opens on fire the way a new save does.
  */
-function DesignBox(view: DesignView): ReactElement {
+function DesignBox(view: DesignView): ReactElement
+{
 	const [tool, setTool] = useState("fire");
 
 	return <ArenaDesignerView {...view} tool={tool} pickTool={setTool} />;
@@ -300,7 +362,8 @@ function DesignBox(view: DesignView): ReactElement {
  * The board builder off the setup screen: paint the ground a match will be fought over, square by
  * square, with every seat's starting spot marked so nobody is walled in before the first turn.
  */
-export function ArenaDesigner(): ReactElement | null {
+export function ArenaDesigner(): ReactElement | null
+{
 	const view = useSyncExternalStore(designStore.subscribe, designStore.get, designStore.get);
 
 	return view === null ? null : <DesignBox {...view} />;

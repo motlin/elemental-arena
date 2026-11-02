@@ -16,7 +16,12 @@ import {T} from "../../src/game/data/index.js";
 import type {Player} from "../../src/game/types.js";
 
 /** A two-seat match, dealt the way an online one is. */
-function twoSeats(): {watcher: Player; hider: Player} {
+function twoSeats():
+{
+	watcher: Player;
+	hider: Player;
+}
+{
 	S.np = 2;
 	S.dim = 9;
 	S.preset = null;
@@ -25,11 +30,15 @@ function twoSeats(): {watcher: Player; hider: Player} {
 	startMatch();
 	S.handoff = false;
 	const [watcher, hider] = S.players;
-	return {watcher: watcher!, hider: hider!};
+	return {
+		watcher: watcher!,
+		hider: hider!,
+	};
 }
 
 /** Lays hiding ground and stands a fighter on it, which is the whole of how concealment works. */
-function conceal(q: Player, x: number, y: number): void {
+function conceal(q: Player, x: number, y: number): void
+{
 	q.x = x;
 	q.y = y;
 	const cell = S.board[idx(x, y)]!;
@@ -41,8 +50,10 @@ function conceal(q: Player, x: number, y: number): void {
 
 beforeEach(forget);
 
-describe("a seat's own replay", () => {
-	it("is one frame per arena the room sent, in the order they arrived", () => {
+describe("a seat's own replay", () =>
+{
+	it("is one frame per arena the room sent, in the order they arrived", () =>
+	{
 		const {watcher} = twoSeats();
 		keep(seatState(watcher.i));
 		watcher.hp -= 5;
@@ -54,7 +65,8 @@ describe("a seat's own replay", () => {
 
 	/* A seat sitting back down is sent the match over again. Watching the same board twice is not
 	   something that happened, so it is not something the replay steps through. */
-	it("is not lengthened by being sent the same arena twice", () => {
+	it("is not lengthened by being sent the same arena twice", () =>
+	{
 		const {watcher} = twoSeats();
 
 		keep(seatState(watcher.i));
@@ -65,7 +77,8 @@ describe("a seat's own replay", () => {
 
 	/* The frames are built from the seat views and from nothing else, so what a seat could not see
 	   while it was playing is not something its replay can show it afterwards. */
-	it("stands a fighter this seat never saw nowhere at all", () => {
+	it("stands a fighter this seat never saw nowhere at all", () =>
+	{
 		const {watcher, hider} = twoSeats();
 		conceal(hider, 7, 7);
 
@@ -76,7 +89,8 @@ describe("a seat's own replay", () => {
 		expect(kept()[0]?.players[watcher.i]?.x).toBe(watcher.x);
 	});
 
-	it("names this seat's own hand and leaves everybody else's face down", () => {
+	it("names this seat's own hand and leaves everybody else's face down", () =>
+	{
 		const {watcher, hider} = twoSeats();
 
 		keep(seatState(watcher.i));
@@ -87,7 +101,8 @@ describe("a seat's own replay", () => {
 		expect(frame?.players[hider.i]?.hand).toStrictEqual(hider.hand.map(() => "?"));
 	});
 
-	it("says who was to move, which is the one thing a frame narrates", () => {
+	it("says who was to move, which is the one thing a frame narrates", () =>
+	{
 		const {watcher, hider} = twoSeats();
 		S.turn = hider.i;
 
@@ -97,7 +112,8 @@ describe("a seat's own replay", () => {
 		expect(kept()[0]?.turn).toBe(hider.i);
 	});
 
-	it("is put down when the match is", () => {
+	it("is put down when the match is", () =>
+	{
 		const {watcher} = twoSeats();
 		keep(seatState(watcher.i));
 

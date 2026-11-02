@@ -3,7 +3,8 @@
 import {logit, place, setTerrain, spend} from "./cards.js";
 import {PAT, T, W, boon} from "./data/index.js";
 import type {Offset} from "./data/index.js";
-import {
+import
+{
 	foeEls,
 	forgeOf,
 	isComp,
@@ -24,15 +25,19 @@ import type {Player, WeaponSpec} from "./types.js";
 import {markIrreversible} from "./undo.js";
 import {redraw} from "./view.js";
 
-export function attackTiles(p: Player, c: WeaponSpec): Offset[] {
+export function attackTiles(p: Player, c: WeaponSpec): Offset[]
+{
 	const out = new Set<string>();
-	if (c.ids.some((id) => W[id]!.pat === "any")) {
+	if (c.ids.some((id) => W[id]!.pat === "any"))
+	{
 		// a cannon reaches the whole arena
 		for (let y = 0; y < S.dim; y++)
 			for (let x = 0; x < S.dim; x++) if (x !== p.x || y !== p.y) out.add(x + "," + y);
 	}
-	c.ids.forEach((id) => {
-		(W[id]!.pat === "any" ? [] : PAT[W[id]!.pat]!()).forEach(([dx, dy]) => {
+	c.ids.forEach((id) =>
+	{
+		(W[id]!.pat === "any" ? [] : PAT[W[id]!.pat]!()).forEach(([dx, dy]) =>
+		{
 			const x = p.x + dx,
 				y = p.y + dy;
 			if (inb(x, y)) out.add(x + "," + y);
@@ -40,10 +45,12 @@ export function attackTiles(p: Player, c: WeaponSpec): Offset[] {
 	});
 	return [...out].map((k) => k.split(",").map(Number) as Offset);
 }
-export function liveTargets(p: Player, c: WeaponSpec): Offset[] {
+export function liveTargets(p: Player, c: WeaponSpec): Offset[]
+{
 	return attackTiles(p, c).filter(([x, y]) => occupantsAt(x, y).some((v) => v !== p && !ally(v, p) && !hidden(v)));
 }
-export function doAttack(tx: number, ty: number): void {
+export function doAttack(tx: number, ty: number): void
+{
 	const p = cur(),
 		c = held(p);
 	if (!c) return;
@@ -54,9 +61,11 @@ export function doAttack(tx: number, ty: number): void {
 	const tiles: Offset[] = ring ? attackTiles(p, c) : [[tx, ty]];
 	const dmg = wepDmg(c);
 	const struck: string[] = [];
-	tiles.forEach(([x, y]) => {
+	tiles.forEach(([x, y]) =>
+	{
 		S.fx.push([idx(x, y), "struck"]);
-		occupantsAt(x, y).forEach((v) => {
+		occupantsAt(x, y).forEach((v) =>
+		{
 			if (v === p || ally(v, p)) return;
 			if (hidden(v)) markIrreversible();
 			struck.push(v.name);
@@ -80,7 +89,8 @@ export function doAttack(tx: number, ty: number): void {
  * was made in. A weapon nobody is holding has no leavings to set, and neither row takes ground the
  * other was offered: a gift only ever goes under your own feet, a punishment only ever under theirs.
  */
-export function setLeaving(row: "self" | "foe", el: string): void {
+export function setLeaving(row: "self" | "foe", el: string): void
+{
 	const c = held(cur());
 	if (!c) return;
 	const mine = row === "self";
@@ -89,16 +99,20 @@ export function setLeaving(row: "self" | "foe", el: string): void {
 	else c.leaveFoe = el;
 	redraw();
 }
-function applyOnHit(p: Player, c: WeaponSpec, v: Player, x: number, y: number): void {
+function applyOnHit(p: Player, c: WeaponSpec, v: Player, x: number, y: number): void
+{
 	layFor(p.i);
 	const bite = wepDmg(c);
 	const mine = leaveSelf(c),
 		theirs = leaveFoe(c);
-	c.els.forEach((e) => {
+	c.els.forEach((e) =>
+	{
 		if (forgeOf(e).steal) p.hp = Math.min(p.max, p.hp + Math.round(bite / 2));
-		if (isComp(e)) {
+		if (isComp(e))
+		{
 			const wanted = boon(e) ? e === mine : e === theirs;
-			if (wanted) {
+			if (wanted)
+			{
 				const sp = T[e]!.spread;
 				T[e]!.spread = 0;
 				// a gift belongs under your own feet, never under the person you just hit
@@ -113,10 +127,12 @@ function applyOnHit(p: Player, c: WeaponSpec, v: Player, x: number, y: number): 
 		if (forgeOf(e).dark) v.darkTurns = 2;
 		if (forgeOf(e).freeze) v.rootTurns = 1;
 		if (forgeOf(e).glow) v.litTurns = 2;
-		if (forgeOf(e).drag && !anchored(v)) {
+		if (forgeOf(e).drag && !anchored(v))
+		{
 			const dx = Math.sign(p.x - v.x),
 				dy = Math.sign(p.y - v.y);
-			if ((dx || dy) && canStand(v.x + dx, v.y + dy)) {
+			if ((dx || dy) && canStand(v.x + dx, v.y + dy))
+			{
 				v.x += dx;
 				v.y += dy;
 				afterMove(v);
@@ -125,27 +141,32 @@ function applyOnHit(p: Player, c: WeaponSpec, v: Player, x: number, y: number): 
 		if (e === "water") shove(v, p, 1);
 		if (e === "air") shove(v, p, 3);
 		if (e === "earth") v.drain = (v.drain || 0) + 2;
-		if (e === "bolt") {
+		if (e === "bolt")
+		{
 			const near = S.players.find(
 				(q) => q.alive && q !== p && q !== v && !ally(q, p) && cheb(q.x, q.y, v.x, v.y) <= 2,
 			);
-			if (near) {
+			if (near)
+			{
 				hurt(near, Math.round(wepDmg(c) / 2), p);
 			}
 		}
 	});
 	layFor(null);
 }
-export function anchored(v: Player): boolean {
+export function anchored(v: Player): boolean
+{
 	const c = S.board[idx(v.x, v.y)]!;
 	return !!(c.t && T[c.t]!.anchor);
 }
-function shove(v: Player, from: Player, n: number): void {
+function shove(v: Player, from: Player, n: number): void
+{
 	if (anchored(v)) return;
 	const sx = Math.sign(v.x - from.x) || 0,
 		sy = Math.sign(v.y - from.y) || 0;
 	if (!sx && !sy) return;
-	for (let i = 0; i < n; i++) {
+	for (let i = 0; i < n; i++)
+	{
 		if (!canStand(v.x + sx, v.y + sy)) break;
 		v.x += sx;
 		v.y += sy;
@@ -153,11 +174,13 @@ function shove(v: Player, from: Player, n: number): void {
 	settle(v, sx, sy, 0);
 	afterMove(v);
 }
-function safeSpot(): Offset | null {
+function safeSpot(): Offset | null
+{
 	const bare: Offset[] = [],
 		any: Offset[] = [];
 	for (let y = 0; y < S.dim; y++)
-		for (let x = 0; x < S.dim; x++) {
+		for (let x = 0; x < S.dim; x++)
+		{
 			if (!canStand(x, y)) continue;
 			const c = S.board[idx(x, y)]!;
 			if (c.t && T[c.t]!.gone) continue;
@@ -166,32 +189,38 @@ function safeSpot(): Offset | null {
 	const pool = bare.length ? bare : any;
 	return pool.length ? pool[(Math.random() * pool.length) | 0]! : null;
 }
-export function respawn(v: Player, team: number | null): void {
+export function respawn(v: Player, team: number | null): void
+{
 	v.hp = v.max;
-	if (team != null) {
+	if (team != null)
+	{
 		v.team = team;
 		v.c = PC[team]!;
 	}
 	const spot = safeSpot();
-	if (spot) {
+	if (spot)
+	{
 		v.x = spot[0];
 		v.y = spot[1];
 	}
 	S.fx.push([idx(v.x, v.y), "bloom"]);
 }
 export const smashMult = () => (S.smash ? Math.pow(2, Math.floor(S.round / 5)) : 1);
-export function hurt(v: Player, n: number, src: Player | null): void {
+export function hurt(v: Player, n: number, src: Player | null): void
+{
 	n = Math.round(n * smashMult());
 	if (!v.alive) return;
 	v.hp -= n;
 	S.matchCoins += n;
 	S.coins += n;
 	saveSoon();
-	if (v.hp <= 0) {
+	if (v.hp <= 0)
+	{
 		markIrreversible();
 		S.matchCoins += 40;
 		S.coins += 40;
-		if (S.paint) {
+		if (S.paint)
+		{
 			const cell = S.board[idx(v.x, v.y)]!;
 			const owner = src || (cell.by == null ? null : S.players[cell.by]!);
 			const flip = owner && owner !== v && owner.alive && !ally(owner, v);
@@ -209,17 +238,20 @@ export function hurt(v: Player, n: number, src: Player | null): void {
 		logit(`${v.name} fell`, src || v);
 	}
 }
-export function startAttack(): void {
+export function startAttack(): void
+{
 	const p = cur(),
 		c = held(p);
 	if (!c || p.nrg < wCost(c)) return;
-	if (S.mode === "attack") {
+	if (S.mode === "attack")
+	{
 		S.mode = null;
 		redraw();
 		return;
 	}
 	S.sel = null;
-	if (wRing(c)) {
+	if (wRing(c))
+	{
 		doAttack(p.x, p.y);
 		return;
 	}
