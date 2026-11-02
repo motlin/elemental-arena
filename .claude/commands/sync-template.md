@@ -15,7 +15,7 @@ Template path: !`pwd`
 
 `.mise/config.toml`, `package.json`, `pnpm-workspace.yaml`, `.pre-commit-config.yaml`,
 `.github/workflows/*.yml`, `justfile`, `.fallowrc.json`, `.markdownlint.jsonc`,
-`.markdownlint-cli2.jsonc`, `.yamllint.yaml`, `scripts/configure-github.sh`.
+`.markdownlint-cli2.jsonc`, `.yamllint.yaml`, `scripts/configure-github.sh`, `.oxfmtrc.json`.
 
 ### Ownership
 
@@ -61,7 +61,9 @@ Also check npm-managed tooling with `npm outdated` (and `vp` where applicable).
 
 Suspect configs for this template's toolchain:
 
-- **Formatting (template uses oxfmt):** `.prettierrc*` (`.prettierrc`,
+- **Formatting (template uses [oxfmt-next-line](https://www.npmjs.com/package/oxfmt-next-line),
+  an oxfmt fork with next-line braces, configured in `.oxfmtrc.json`):** a `fmt` block in
+  `vite.config.ts`, `vp fmt` in scripts or hooks, `.prettierrc*` (`.prettierrc`,
   `.prettierrc.json`, `.prettierrc.json5`, `.prettierrc.yaml`, `.prettierrc.js`, …),
   `.prettierignore`, `prettier.config.*`, a `prettier` key in `package.json`,
   `.editorconfig` rules that contradict oxfmt.
