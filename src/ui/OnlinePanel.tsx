@@ -6,10 +6,14 @@ import type {LobbyView} from "../game/bridge.js";
  * does a test, and a Copy button is not worth throwing over: the link is in a box beside it either
  * way, ready to be picked up by hand.
  */
-function copy(url: string): void {
-	try {
+function copy(url: string): void
+{
+	try
+	{
 		void navigator.clipboard.writeText(url).catch(() => undefined);
-	} catch {
+	}
+	catch
+	{
 		/* no clipboard on this page; the link is in the box beside the button either way */
 	}
 }
@@ -18,7 +22,8 @@ function copy(url: string): void {
  * The online panel, posed from plain props so Storybook and tests can look at it without a match
  * server behind it.
  */
-export function OnlinePanel({code, opening, error, link, seats, host, sit, join}: LobbyView): ReactElement {
+export function OnlinePanel({code, opening, error, link, seats, host, sit, join}: LobbyView): ReactElement
+{
 	const [pasted, setPasted] = useState("");
 
 	return (
@@ -42,7 +47,8 @@ export function OnlinePanel({code, opening, error, link, seats, host, sit, join}
 						<button
 							type="button"
 							className="buy"
-							onClick={() => {
+							onClick={() =>
+							{
 								copy(link);
 							}}
 						>
@@ -64,7 +70,8 @@ export function OnlinePanel({code, opening, error, link, seats, host, sit, join}
 						value={pasted}
 						placeholder="Paste an invite link"
 						aria-label="Invite link to join"
-						onChange={(e) => {
+						onChange={(e) =>
+						{
 							setPasted(e.target.value);
 						}}
 					/>
@@ -72,7 +79,8 @@ export function OnlinePanel({code, opening, error, link, seats, host, sit, join}
 						type="button"
 						className="buy"
 						disabled={pasted.trim().length === 0}
-						onClick={() => {
+						onClick={() =>
+						{
 							join(pasted);
 						}}
 					>

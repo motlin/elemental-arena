@@ -6,7 +6,8 @@
 import type {ActionKey} from "./data/index.js";
 
 /** One square of ground. `t` is what it looks like; `el` is the element card that laid it. */
-export interface Cell {
+export interface Cell
+{
 	t: string | null;
 	el: string | null;
 	life: number;
@@ -17,7 +18,8 @@ export interface Cell {
 }
 
 /** The weapon half of a card: the weapons fused into it and the elements forged onto them. */
-export interface WeaponSpec {
+export interface WeaponSpec
+{
 	ids: string[];
 	els: string[];
 	/** Terrain the swing drops under the wielder. */
@@ -26,7 +28,8 @@ export interface WeaponSpec {
 	leaveFoe?: string;
 }
 
-export interface ElCard {
+export interface ElCard
+{
 	uid: number;
 	k: "el";
 	id: string;
@@ -34,14 +37,16 @@ export interface ElCard {
 	mark?: boolean;
 }
 
-export interface WepCard extends WeaponSpec {
+export interface WepCard extends WeaponSpec
+{
 	uid: number;
 	k: "w";
 	mark?: boolean;
 }
 
 /** A plate of food: eaten once, and spoiling from the round it was dealt. */
-export interface FoodCard {
+export interface FoodCard
+{
 	uid: number;
 	k: "f";
 	id: string;
@@ -53,7 +58,8 @@ export interface FoodCard {
 export type Card = ElCard | WepCard | FoodCard;
 
 /** A fighter in the match. One per seat, in seat order. */
-export interface Player {
+export interface Player
+{
 	/** Seat number, which also picks the `p0`..`p7` glyph class. */
 	i: number;
 	name: string;
@@ -92,7 +98,8 @@ export interface Player {
 }
 
 /** One line of the match log, which is also the head of the replay frame it snapshots. */
-export interface LogEntry {
+export interface LogEntry
+{
 	r: number;
 	who: string;
 	c: string;
@@ -101,7 +108,8 @@ export interface LogEntry {
 }
 
 /** A fighter as the replay remembers them: enough to redraw, nothing that can be acted on. */
-interface FrameFighter {
+interface FrameFighter
+{
 	name: string;
 	c: string;
 	team: number;
@@ -116,13 +124,15 @@ interface FrameFighter {
 }
 
 /** The board and everyone on it at the moment one log line was written. */
-export interface Frame extends LogEntry {
+export interface Frame extends LogEntry
+{
 	turn: number;
 	board: (string | null)[];
 	players: FrameFighter[];
 }
 
-export interface ChatMsg {
+export interface ChatMsg
+{
 	id: number;
 	who: string;
 	c: string;
@@ -133,7 +143,8 @@ export interface ChatMsg {
 }
 
 /** A card being dragged along the hand bar. */
-export interface Drag {
+export interface Drag
+{
 	uid: number;
 	el: GameEl;
 	x0: number;
@@ -148,7 +159,8 @@ export interface Drag {
 type Fx = [number, string];
 
 /** What the shop rows need from an element, a weapon, or a piece of footwork. */
-export interface ShopItem {
+export interface ShopItem
+{
 	n: string;
 	c?: string;
 	d?: string;
@@ -157,13 +169,15 @@ export interface ShopItem {
 }
 
 /** Cards a seat has switched off, so they never come up in that seat's hand. */
-export interface Offs {
+export interface Offs
+{
 	el: string[];
 	w: string[];
 }
 
 /** Everything the game knows, both between matches and during one. */
-export interface GameState {
+export interface GameState
+{
 	dim: number;
 	np: number;
 	hp: number;
@@ -239,7 +253,8 @@ export interface GameState {
  * these rather than a nullable `HTMLElement`, and the form properties are widened to the union of
  * what the tags behind those ids actually carry.
  */
-export interface GameEl extends HTMLElement {
+export interface GameEl extends HTMLElement
+{
 	value: string;
 	checked: boolean;
 	max: string;
@@ -255,14 +270,24 @@ export interface GameEl extends HTMLElement {
  * The `window.storage` the game was authored against, provided by public/storage-shim.js here.
  * The trailing flag is vestigial from the Claude artifact host, which used it to mark a cell secret.
  */
-interface ArtifactStorage {
-	get: (key: string, secret?: boolean) => Promise<{key: string; value: string} | null>;
+interface ArtifactStorage
+{
+	get: (
+		key: string,
+		secret?: boolean,
+	) => Promise<
+	{
+		key: string;
+		value: string;
+	} | null>;
 	set: (key: string, value: string, secret?: boolean) => Promise<void>;
 	delete: (key: string, secret?: boolean) => Promise<void>;
 }
 
-declare global {
-	interface Window {
+declare global
+{
+	interface Window
+	{
 		storage: ArtifactStorage;
 	}
 }

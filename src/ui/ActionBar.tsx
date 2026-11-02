@@ -8,8 +8,14 @@ const ALARM = "#ff8f6b";
  * The bar under the board: what the game is waiting for, what can be done about it, and anything
  * left to add afterwards. Every branch the old bar switched between is now just an empty list.
  */
-export function ActionBar({view}: {readonly view: ActionBarView}): ReactElement {
-	const said: CSSProperties = view.alarm ? {color: ALARM} : {};
+export function ActionBar({view}: {readonly view: ActionBarView}): ReactElement
+{
+	const said: CSSProperties = view.alarm
+		?
+			{
+				color: ALARM,
+			}
+		: {};
 
 	return (
 		<div className="actbar">
@@ -18,7 +24,18 @@ export function ActionBar({view}: {readonly view: ActionBarView}): ReactElement 
 					{view.hint.map((part, i) => (
 						// runs only differ by where they fall in the sentence, so the place names them
 						<Fragment key={i}>
-							{part.strong ? <b style={{color: "var(--ink)"}}>{part.text}</b> : part.text}
+							{part.strong ? (
+								<b
+									style={
+									{
+										color: "var(--ink)",
+									}}
+								>
+									{part.text}
+								</b>
+							) : (
+								part.text
+							)}
 						</Fragment>
 					))}
 				</span>

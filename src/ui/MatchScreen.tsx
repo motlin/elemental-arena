@@ -15,7 +15,8 @@ import {WeaponPanel} from "./WeaponPanel.js";
  * match running. The arena keeps its `#game` and `#board` ids because the stylesheet reaches for
  * them by name.
  */
-export function MatchScreenView({view}: {readonly view: MatchView}): ReactElement {
+export function MatchScreenView({view}: {readonly view: MatchView}): ReactElement
+{
 	return (
 		<div id="game" className="on">
 			<MatchTopBar view={view.topbar} />
@@ -45,7 +46,15 @@ export function MatchScreenView({view}: {readonly view: MatchView}): ReactElemen
 					<div className="box">
 						<h3>Fusion codex</h3>
 						<div className="codexline">{view.codex}</div>
-						<button type="button" className="ghost" style={{width: "100%"}} onClick={view.topbar.openTable}>
+						<button
+							type="button"
+							className="ghost"
+							style={
+							{
+								width: "100%",
+							}}
+							onClick={view.topbar.openTable}
+						>
 							Mixing table
 						</button>
 					</div>
@@ -59,7 +68,8 @@ export function MatchScreenView({view}: {readonly view: MatchView}): ReactElemen
  * The board a match is played on and every panel around it. It is up only while a match is, so the
  * whole screen comes down the moment the game publishes nothing.
  */
-export function MatchScreen(): ReactElement | null {
+export function MatchScreen(): ReactElement | null
+{
 	const view = useSyncExternalStore(matchStore.subscribe, matchStore.get, matchStore.get);
 
 	return view === null ? null : <MatchScreenView view={view} />;

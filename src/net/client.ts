@@ -28,7 +28,8 @@ import type {LogEntry} from "../game/types.js";
 import type {Intent, MatchSetup} from "./protocol.js";
 
 /** Everything a seat needs to sit down: which match, which seat of it, and what claims the seat. */
-export interface Invite {
+export interface Invite
+{
 	readonly code: string;
 	readonly seat: number;
 	readonly token: string;
@@ -57,7 +58,8 @@ const ALPHABET = "abcdefghijkmnopqrstuvwxyz2345678";
 /** What the door in worker/index.ts will open for, which a pasted link is held to before it is used. */
 const CODE = /^[A-Za-z0-9_-]{4,64}$/;
 
-export function newCode(): string {
+export function newCode(): string
+{
 	// 32 divides 256, so the byte does not favour the front of the alphabet
 	return Array.from(crypto.getRandomValues(new Uint8Array(8)), (byte) => ALPHABET[byte % 32]).join("");
 }
@@ -67,14 +69,16 @@ export function newCode(): string {
  * query and the fragment come off here rather than at each use, because everything built out of
  * this address is either a socket or an invite, and neither wants whatever the tab was opened on.
  */
-function here(): URL {
+function here(): URL
+{
 	const url = new URL(globalThis.location.href);
 	url.search = "";
 	url.hash = "";
 	return url;
 }
 
-function socketUrl(code: string): string {
+function socketUrl(code: string): string
+{
 	const url = here();
 	url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
 	url.pathname = `/api/match/${code}/socket`;
@@ -85,7 +89,8 @@ function socketUrl(code: string): string {
  * The link that goes round, which is this page and the match to join at it. It names no seat: the
  * room deals those one at a time, so the same link can go to everybody and still seat them apart.
  */
-export function matchLink(code: string): string {
+export function matchLink(code: string): string
+{
 	const url = here();
 	url.searchParams.set("code", code);
 	return url.toString();
@@ -97,7 +102,8 @@ export function matchLink(code: string): string {
  * dealt a seat, so that reloading the tab is that seat sitting back down rather than asking for
  * another one.
  */
-export function inviteLink(invite: Invite): string {
+export function inviteLink(invite: Invite): string
+{
 	const url = new URL(matchLink(invite.code));
 	url.searchParams.set("seat", String(invite.seat));
 	url.searchParams.set("token", invite.token);
@@ -105,11 +111,15 @@ export function inviteLink(invite: Invite): string {
 }
 
 /** The match a link names, whether or not it carries a seat of it, or null for anything else. */
-export function codeFrom(href: string): string | null {
+export function codeFrom(href: string): string | null
+{
 	let url: URL;
-	try {
+	try
+	{
 		url = new URL(href, here());
-	} catch {
+	}
+	catch
+	{
 		return null;
 	}
 	const code = url.searchParams.get("code");
@@ -117,11 +127,15 @@ export function codeFrom(href: string): string | null {
 }
 
 /** The invite a link carries, or null for anything that is not one. */
-export function inviteFrom(href: string): Invite | null {
+export function inviteFrom(href: string): Invite | null
+{
 	let url: URL;
-	try {
+	try
+	{
 		url = new URL(href, here());
-	} catch {
+	}
+	catch
+	{
 		return null;
 	}
 	const code = url.searchParams.get("code");
@@ -129,27 +143,35 @@ export function inviteFrom(href: string): Invite | null {
 	const token = url.searchParams.get("token");
 	if (code === null || seat === null || token === null) return null;
 	if (!CODE.test(code) || !/^[0-7]$/.test(seat) || token.length === 0) return null;
-	return {code, seat: Number(seat), token};
+	return {
+		code,
+		seat: Number(seat),
+		token,
+	};
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown>
+{
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** One seat's claim on a match, as it comes back off the wire. */
-function isToken(value: unknown): value is string {
+function isToken(value: unknown): value is string
+{
 	return typeof value === "string" && value.length > 0;
 }
 
 /** What the room said went wrong, if it troubled to say. */
-function complaint(body: unknown): string | null {
+function complaint(body: unknown): string | null
+{
 	if (!isRecord(body)) return null;
 	const error = body["error"];
 	return typeof error === "string" ? error : null;
 }
 
 /** Why the room would not do what was asked of it, or the bare fact that it would not. */
-function refusal(answer: Response, body: unknown): Error {
+function refusal(answer: Response, body: unknown): Error
+{
 	return new Error(complaint(body) ?? `the match server answered ${answer.status}`);
 }
 
@@ -158,12 +180,19 @@ function refusal(answer: Response, body: unknown): Error {
  * them: whoever opens a match holds no more of it than anybody else does, and gets a seat the same
  * way everybody else does, by asking for one.
  */
-export async function openRoom(code: string, setup: MatchSetup): Promise<number> {
-	const answer = await fetch(`/api/match/${code}/open`, {
-		method: "POST",
-		headers: {"content-type": "application/json"},
-		body: JSON.stringify(setup),
-	});
+export async function openRoom(code: string, setup: MatchSetup): Promise<number>
+{
+	const answer = await fetch(
+		`/api/match/${code}/open`,
+		{
+			method: "POST",
+			headers:
+			{
+				"content-type": "application/json",
+			},
+			body: JSON.stringify(setup),
+		},
+	);
 	const body: unknown = await answer.json().catch(() => null);
 	if (!answer.ok) throw refusal(answer, body);
 	const seats: unknown = isRecord(body) ? body["seats"] : null;
@@ -180,22 +209,37 @@ export async function openRoom(code: string, setup: MatchSetup): Promise<number>
  * a claim -- see the note at the top of this file. A reload is then the same seat sitting back
  * down, rather than a stranger asking the room for another one.
  */
-export async function claimSeat(code: string): Promise<Invite> {
-	const answer = await fetch(`/api/match/${code}/join`, {method: "POST"});
+export async function claimSeat(code: string): Promise<Invite>
+{
+	const answer = await fetch(
+		`/api/match/${code}/join`,
+		{
+			method: "POST",
+		},
+	);
 	const body: unknown = await answer.json().catch(() => null);
 	if (!answer.ok) throw refusal(answer, body);
 	const seat: unknown = isRecord(body) ? body["seat"] : null;
 	const token: unknown = isRecord(body) ? body["token"] : null;
 	if (typeof seat !== "number" || !isToken(token)) throw new Error("the match server dealt no seat");
-	const invite: Invite = {code, seat, token};
+	const invite: Invite =
+	{
+		code,
+		seat,
+		token,
+	};
 	globalThis.history.replaceState(null, "", inviteLink(invite));
 	return invite;
 }
 
 let socket: WebSocket | null = null;
 let seated: Invite | null = null;
-let took: Took = () => {};
-let ended: Ended = () => {};
+let took: Took = () =>
+{
+};
+let ended: Ended = () =>
+{
+};
 let status: NetStatus = "gone";
 let notice: string | null = null;
 
@@ -230,27 +274,40 @@ let shutOut = false;
 let sitting: readonly boolean[] = [];
 
 /** The other seats with nobody in them. This device's own is never one: it is the one asking. */
-function away(mine: number): readonly number[] {
+function away(mine: number): readonly number[]
+{
 	return sitting.flatMap((there, seat) => (there || seat === mine ? [] : [seat]));
 }
 
-function post(): void {
+function post(): void
+{
 	onlineStore.set(
 		seated === null
 			? null
-			: {code: seated.code, seat: seated.seat, status, notice, away: away(seated.seat), dismiss},
+			:
+				{
+					code: seated.code,
+					seat: seated.seat,
+					status,
+					notice,
+					away: away(seated.seat),
+					dismiss,
+				},
 	);
 }
 
-function dismiss(): void {
+function dismiss(): void
+{
 	notice = null;
 	post();
 }
 
-function hear(raw: string): void {
+function hear(raw: string): void
+{
 	const said = parseServerMessage(raw);
 	if (said === null) return;
-	if (said.k === "seated") {
+	if (said.k === "seated")
+	{
 		status = "playing";
 		// sat down again, so the next drop starts its patience over rather than continuing this one
 		wait = FIRST_WAIT;
@@ -258,12 +315,14 @@ function hear(raw: string): void {
 		post();
 		return;
 	}
-	if (said.k === "presence") {
+	if (said.k === "presence")
+	{
 		sitting = said.here;
 		post();
 		return;
 	}
-	if (said.k === "state") {
+	if (said.k === "state")
+	{
 		// the outcome first, so the screen has finished with the move before the arena it made lands
 		const mine = pending;
 		pending = null;
@@ -272,14 +331,16 @@ function hear(raw: string): void {
 		return;
 	}
 	// the arena that ended the match came first, so the screen has it to write the ending from
-	if (said.k === "over") {
+	if (said.k === "over")
+	{
 		ended(said.log);
 		return;
 	}
 	// a refusal changed nothing, so there is nothing to put back: only something to say
 	pending = null;
 	notice = said.why;
-	if (said.k === "closed") {
+	if (said.k === "closed")
+	{
 		shutOut = true;
 		status = "gone";
 	}
@@ -287,19 +348,32 @@ function hear(raw: string): void {
 }
 
 /** Opens a socket and claims the seat, which is the same thing whether it is the first time or not. */
-function connect(): void {
+function connect(): void
+{
 	const invite = seated;
 	if (invite === null) return;
 	retry = null;
 	const ws = new WebSocket(socketUrl(invite.code));
 	socket = ws;
-	ws.addEventListener("open", () => {
-		ws.send(encode({k: "hello", v: PROTOCOL_VERSION, seat: invite.seat, token: invite.token}));
+	ws.addEventListener("open", () =>
+	{
+		ws.send(
+			encode(
+				{
+					k: "hello",
+					v: PROTOCOL_VERSION,
+					seat: invite.seat,
+					token: invite.token,
+				},
+			),
+		);
 	});
-	ws.addEventListener("message", (event: MessageEvent) => {
+	ws.addEventListener("message", (event: MessageEvent) =>
+	{
 		hear(typeof event.data === "string" ? event.data : "");
 	});
-	ws.addEventListener("close", () => {
+	ws.addEventListener("close", () =>
+	{
 		if (socket !== ws) return;
 		socket = null;
 		again();
@@ -312,14 +386,17 @@ function connect(): void {
  * down in. The arena on screen is left exactly where it was throughout: it is still the last thing
  * the room said, and a stale arena under a strip that says so beats an empty page.
  */
-function again(): void {
-	if (shutOut || seated === null) {
+function again(): void
+{
+	if (shutOut || seated === null)
+	{
 		status = "gone";
 		notice ??= "the match server hung up";
 		post();
 		return;
 	}
-	if (tries >= TRIES) {
+	if (tries >= TRIES)
+	{
 		status = "gone";
 		notice ??= "the match server did not come back";
 		post();
@@ -333,7 +410,8 @@ function again(): void {
 }
 
 /** Opens a socket, claims the seat the invite names, and starts drawing whatever comes back. */
-export function sit(invite: Invite, onTook: Took, onEnded: Ended): void {
+export function sit(invite: Invite, onTook: Took, onEnded: Ended): void
+{
 	leave();
 	seated = invite;
 	took = onTook;
@@ -347,18 +425,28 @@ export function sit(invite: Invite, onTook: Took, onEnded: Ended): void {
  * Asks the room for a move. Nothing is applied here and nothing is drawn: the arena only ever
  * changes when the room says it has, which is what a client that cannot desync looks like.
  */
-export function sendIntent(intent: Intent): void {
-	if (socket === null || socket.readyState !== OPEN) {
+export function sendIntent(intent: Intent): void
+{
+	if (socket === null || socket.readyState !== OPEN)
+	{
 		notice = "you are not connected to the match";
 		post();
 		return;
 	}
 	pending = intent;
-	socket.send(encode({k: "move", intent}));
+	socket.send(
+		encode(
+			{
+				k: "move",
+				intent,
+			},
+		),
+	);
 }
 
 /** Gets up: shuts the socket, and puts down everything that was only true while it was open. */
-export function leave(): void {
+export function leave(): void
+{
 	const ws = socket;
 	if (retry !== null) clearTimeout(retry);
 	retry = null;
@@ -367,8 +455,12 @@ export function leave(): void {
 	shutOut = false;
 	socket = null;
 	seated = null;
-	took = () => {};
-	ended = () => {};
+	took = () =>
+	{
+	};
+	ended = () =>
+	{
+	};
 	pending = null;
 	sitting = [];
 	status = "gone";

@@ -2,7 +2,8 @@
  * One square of ground. `end`, `enter`, and `life` are what every tile has; the rest are the
  * powers a given terrain adds. `tHelp` and `tHarm` in ./forge.ts decide which way each one cuts.
  */
-export interface TerrainDef {
+export interface TerrainDef
+{
 	/** Display name. */
 	n: string;
 	/** Tile colour. */
@@ -43,9 +44,19 @@ export interface TerrainDef {
 }
 
 /** The 105 grounds an element card or a fusion can lay. */
-export const T: Record<string, TerrainDef> = {
-	lava: {n: "Fire", c: "#ff5a1e", end: 10, enter: 1, life: 999, d: "End your turn here and take 10"},
-	ocean: {
+export const T: Record<string, TerrainDef> =
+{
+	lava:
+	{
+		n: "Fire",
+		c: "#ff5a1e",
+		end: 10,
+		enter: 1,
+		life: 999,
+		d: "End your turn here and take 10",
+	},
+	ocean:
+	{
 		n: "Water",
 		c: "#2f9dff",
 		end: 0,
@@ -54,7 +65,8 @@ export const T: Record<string, TerrainDef> = {
 		flow: 1,
 		d: "Carries you one more tile the way you came",
 	},
-	stone: {
+	stone:
+	{
 		n: "Earth",
 		c: "#9c7a4d",
 		end: 0,
@@ -63,7 +75,8 @@ export const T: Record<string, TerrainDef> = {
 		los: 1,
 		d: "Slow to climb, and you are blind while on it",
 	},
-	gale: {
+	gale:
+	{
 		n: "Air",
 		c: "#9ef0dc",
 		end: 0,
@@ -72,8 +85,17 @@ export const T: Record<string, TerrainDef> = {
 		gain: 1,
 		d: "Free to cross. Ends your turn with +1 energy",
 	},
-	charge: {n: "Lightning", c: "#ffd24a", end: 5, enter: 1, life: 4, d: "End your turn here and take 5"},
-	glass: {
+	charge:
+	{
+		n: "Lightning",
+		c: "#ffd24a",
+		end: 5,
+		enter: 1,
+		life: 4,
+		d: "End your turn here and take 5",
+	},
+	glass:
+	{
 		n: "Glass",
 		c: "#b6f0e6",
 		end: 0,
@@ -83,7 +105,8 @@ export const T: Record<string, TerrainDef> = {
 		brittle: 1,
 		d: "Razor edges. Crossing it cuts for 9 and shatters it for good",
 	},
-	whirl: {
+	whirl:
+	{
 		n: "Whirlpool",
 		c: "#7ce0ff",
 		end: 0,
@@ -92,7 +115,8 @@ export const T: Record<string, TerrainDef> = {
 		warp: 1,
 		d: "Enter one, come out its twin",
 	},
-	steam: {
+	steam:
+	{
 		n: "Steam",
 		c: "#dbe9f2",
 		end: 0,
@@ -101,7 +125,8 @@ export const T: Record<string, TerrainDef> = {
 		los: 1,
 		d: "Blinds you while you stand in it. Burns off fast",
 	},
-	wildfire: {
+	wildfire:
+	{
 		n: "Wildfire",
 		c: "#ff3a12",
 		end: 12,
@@ -110,8 +135,17 @@ export const T: Record<string, TerrainDef> = {
 		spread: 2,
 		d: "Burns a 5x5. End your turn in it and take 12",
 	},
-	plasma: {n: "Plasma", c: "#ff62e0", end: 8, enter: 1, life: 3, d: "End your turn here and take 8"},
-	mud: {
+	plasma:
+	{
+		n: "Plasma",
+		c: "#ff62e0",
+		end: 8,
+		enter: 1,
+		life: 3,
+		d: "End your turn here and take 8",
+	},
+	mud:
+	{
 		n: "Mud",
 		c: "#7d6136",
 		end: 0,
@@ -120,7 +154,8 @@ export const T: Record<string, TerrainDef> = {
 		root: 1,
 		d: "Step in and you cannot move until the end of your next turn",
 	},
-	surge: {
+	surge:
+	{
 		n: "Surge",
 		c: "#5ef0ff",
 		end: 12,
@@ -128,7 +163,8 @@ export const T: Record<string, TerrainDef> = {
 		life: 3,
 		d: "Live water. End your turn here and take 12",
 	},
-	dust: {
+	dust:
+	{
 		n: "Dust",
 		c: "#c9ae82",
 		end: 0,
@@ -137,7 +173,8 @@ export const T: Record<string, TerrainDef> = {
 		los: 1,
 		d: "Easy to cross, but you are blind while in it",
 	},
-	magnet: {
+	magnet:
+	{
 		n: "Magnetite",
 		c: "#b06fd8",
 		end: 0,
@@ -146,7 +183,8 @@ export const T: Record<string, TerrainDef> = {
 		pull: 1,
 		d: "Drags in anyone who ends a turn beside it",
 	},
-	storm: {
+	storm:
+	{
 		n: "Storm",
 		c: "#b18cff",
 		end: 6,
@@ -155,7 +193,8 @@ export const T: Record<string, TerrainDef> = {
 		shove: 1,
 		d: "Take 6 and get thrown a tile",
 	},
-	space: {
+	space:
+	{
 		n: "Space",
 		c: "#c9a6ff",
 		end: 0,
@@ -164,8 +203,17 @@ export const T: Record<string, TerrainDef> = {
 		gone: 1,
 		d: "Set foot here and you are out of the match",
 	},
-	nova: {n: "Nova", c: "#ff8fd0", end: 25, enter: 1, life: 2, d: "End your turn here and take 25"},
-	rift: {
+	nova:
+	{
+		n: "Nova",
+		c: "#ff8fd0",
+		end: 25,
+		enter: 1,
+		life: 2,
+		d: "End your turn here and take 25",
+	},
+	rift:
+	{
 		n: "Rift",
 		c: "#00e0c8",
 		end: 0,
@@ -174,7 +222,8 @@ export const T: Record<string, TerrainDef> = {
 		scatter: 1,
 		d: "Flings you to a random open tile",
 	},
-	meteor: {
+	meteor:
+	{
 		n: "Meteor",
 		c: "#b05a2a",
 		end: 20,
@@ -182,7 +231,8 @@ export const T: Record<string, TerrainDef> = {
 		life: 999,
 		d: "End your turn here and take 20. Permanent",
 	},
-	vacuum: {
+	vacuum:
+	{
 		n: "Vacuum",
 		c: "#ded4ff",
 		end: 0,
@@ -191,7 +241,8 @@ export const T: Record<string, TerrainDef> = {
 		pull: 2,
 		d: "Drags in anyone ending a turn within two tiles",
 	},
-	pulsar: {
+	pulsar:
+	{
 		n: "Pulsar",
 		c: "#eaff5c",
 		end: 15,
@@ -200,7 +251,8 @@ export const T: Record<string, TerrainDef> = {
 		shove: 1,
 		d: "Take 15 and get thrown a tile",
 	},
-	venom: {
+	venom:
+	{
 		n: "Poison",
 		c: "#7ed321",
 		end: 8,
@@ -209,7 +261,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 6,
 		d: "6 to cross it, 8 more to end your turn in it. Permanent",
 	},
-	blight: {
+	blight:
+	{
 		n: "Blight",
 		c: "#c9d900",
 		end: 18,
@@ -218,7 +271,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 4,
 		d: "4 to cross, 18 to linger. Burns out fast",
 	},
-	sludge: {
+	sludge:
+	{
 		n: "Sludge",
 		c: "#3f5c22",
 		end: 6,
@@ -227,7 +281,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 4,
 		d: "Thick and foul. Costs 3 to wade into. Permanent",
 	},
-	spores: {
+	spores:
+	{
 		n: "Spores",
 		c: "#b9d99b",
 		end: 6,
@@ -237,7 +292,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 3,
 		d: "Blinds you and rots you slowly. Permanent",
 	},
-	miasma: {
+	miasma:
+	{
 		n: "Miasma",
 		c: "#6fa88c",
 		end: 10,
@@ -247,7 +303,8 @@ export const T: Record<string, TerrainDef> = {
 		sap: 2,
 		d: "Blinds you, 10 damage, and drains 2 energy",
 	},
-	necrosis: {
+	necrosis:
+	{
 		n: "Necrosis",
 		c: "#2fd66b",
 		end: 20,
@@ -256,7 +313,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 6,
 		d: "6 to cross, 20 to linger",
 	},
-	entropy: {
+	entropy:
+	{
 		n: "Entropy",
 		c: "#39ff9e",
 		end: 30,
@@ -265,7 +323,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 10,
 		d: "10 to cross, 30 to linger. Permanent",
 	},
-	grove: {
+	grove:
+	{
 		n: "Life",
 		c: "#b6f5c4",
 		end: 0,
@@ -274,7 +333,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 8,
 		d: "Heals 8 if you end your turn here. Permanent",
 	},
-	phoenix: {
+	phoenix:
+	{
 		n: "Phoenix",
 		c: "#ffc48a",
 		end: 0,
@@ -283,7 +343,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 14,
 		d: "Heals 14 a turn, but fades in two rounds",
 	},
-	spring: {
+	spring:
+	{
 		n: "Spring",
 		c: "#8fe8d8",
 		end: 0,
@@ -292,7 +353,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 6,
 		d: "Heals 6 a turn. Permanent",
 	},
-	orchard: {
+	orchard:
+	{
 		n: "Orchard",
 		c: "#84c47a",
 		end: 0,
@@ -302,7 +364,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 5,
 		d: "Blinds you but heals 5 a turn. Permanent",
 	},
-	zephyr: {
+	zephyr:
+	{
 		n: "Zephyr",
 		c: "#d8fff0",
 		end: 0,
@@ -311,7 +374,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 4,
 		d: "Free to cross and heals 4 a turn",
 	},
-	pulse: {
+	pulse:
+	{
 		n: "Pulse",
 		c: "#fff0a8",
 		end: 0,
@@ -320,7 +384,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 15,
 		d: "Heals 15 a turn for three rounds",
 	},
-	rebirth: {
+	rebirth:
+	{
 		n: "Rebirth",
 		c: "#ffffff",
 		end: 0,
@@ -329,7 +394,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 25,
 		d: "Heals 25 a turn, but only for two rounds",
 	},
-	rot: {
+	rot:
+	{
 		n: "Rot",
 		c: "#5c6b3a",
 		end: 15,
@@ -338,7 +404,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 5,
 		d: "Life gone wrong. 5 to cross, 15 to linger. Permanent",
 	},
-	ironground: {
+	ironground:
+	{
 		n: "Iron",
 		c: "#9aa7b8",
 		end: 0,
@@ -347,7 +414,8 @@ export const T: Record<string, TerrainDef> = {
 		anchor: 1,
 		d: "Slow to step onto, but nothing can shove you off it. Permanent",
 	},
-	forge: {
+	forge:
+	{
 		n: "Forge",
 		c: "#ff8c42",
 		end: 14,
@@ -356,7 +424,8 @@ export const T: Record<string, TerrainDef> = {
 		anchor: 1,
 		d: "Molten metal. 14 a turn, and you cannot be shoved out. Permanent",
 	},
-	quench: {
+	quench:
+	{
 		n: "Quench",
 		c: "#7fb2c9",
 		end: 0,
@@ -366,7 +435,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 4,
 		d: "Cool iron. Heals 4 a turn and holds you steady. Permanent",
 	},
-	bastion: {
+	bastion:
+	{
 		n: "Bastion",
 		c: "#8b96a6",
 		end: 0,
@@ -376,7 +446,8 @@ export const T: Record<string, TerrainDef> = {
 		los: 1,
 		d: "Blinds you, but you cannot be moved. Permanent",
 	},
-	shrapnel: {
+	shrapnel:
+	{
 		n: "Shrapnel",
 		c: "#c2c9d4",
 		end: 6,
@@ -385,7 +456,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 8,
 		d: "8 to cross, 6 more to linger",
 	},
-	dynamo: {
+	dynamo:
+	{
 		n: "Dynamo",
 		c: "#ffe066",
 		end: 0,
@@ -394,7 +466,8 @@ export const T: Record<string, TerrainDef> = {
 		gain: 2,
 		d: "End your turn here for 2 extra energy next turn",
 	},
-	lodestone: {
+	lodestone:
+	{
 		n: "Lodestone",
 		c: "#a88fd8",
 		end: 0,
@@ -404,7 +477,8 @@ export const T: Record<string, TerrainDef> = {
 		anchor: 1,
 		d: "Drags in anyone ending a turn within three tiles. Permanent",
 	},
-	rust: {
+	rust:
+	{
 		n: "Rust",
 		c: "#a35a2a",
 		end: 12,
@@ -413,7 +487,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 6,
 		d: "6 to cross, 12 to linger. Permanent",
 	},
-	bulwark: {
+	bulwark:
+	{
 		n: "Bulwark",
 		c: "#c8d6c0",
 		end: 0,
@@ -423,7 +498,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 10,
 		d: "Heals 10 a turn and roots you against shoves. Permanent",
 	},
-	resonance: {
+	resonance:
+	{
 		n: "Echo",
 		c: "#d98fe0",
 		end: 0,
@@ -433,7 +509,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "Hits everyone ending a turn within two tiles for 5. Permanent",
 	},
-	ashfall: {
+	ashfall:
+	{
 		n: "Ashfall",
 		c: "#ff9d6b",
 		end: 6,
@@ -443,7 +520,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "6 to linger, and 6 to anyone within two tiles",
 	},
-	ripple: {
+	ripple:
+	{
 		n: "Ripple",
 		c: "#6fd3ff",
 		end: 0,
@@ -454,7 +532,8 @@ export const T: Record<string, TerrainDef> = {
 		flow: 1,
 		d: "Carries you onward, and hits everyone within two for 4. Permanent",
 	},
-	tremor: {
+	tremor:
+	{
 		n: "Tremor",
 		c: "#b09068",
 		end: 0,
@@ -464,7 +543,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "Hits everyone within two tiles for 7. Permanent",
 	},
-	howl: {
+	howl:
+	{
 		n: "Howl",
 		c: "#bff5e6",
 		end: 8,
@@ -474,7 +554,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 3,
 		d: "8 to linger in, and 4 to anyone within three tiles",
 	},
-	thunder: {
+	thunder:
+	{
 		n: "Thunder",
 		c: "#ffe38a",
 		end: 5,
@@ -484,7 +565,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "5 to linger, and 9 to anyone within two tiles",
 	},
-	singularity: {
+	singularity:
+	{
 		n: "Singularity",
 		c: "#e0b3ff",
 		end: 0,
@@ -495,7 +577,8 @@ export const T: Record<string, TerrainDef> = {
 		pull: 2,
 		d: "Drags you in and hits everyone within three for 12. Permanent",
 	},
-	contagion: {
+	contagion:
+	{
 		n: "Contagion",
 		c: "#a8d94f",
 		end: 10,
@@ -506,7 +589,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 5,
 		d: "5 to cross, 10 to linger, 8 to anyone within two. Permanent",
 	},
-	harmony: {
+	harmony:
+	{
 		n: "Harmony",
 		c: "#ffd9f2",
 		end: 0,
@@ -516,8 +600,17 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "Heals everyone within two tiles for 8 a turn. Permanent",
 	},
-	firestorm: {n: "Firestorm", c: "#ff3b00", end: 22, enter: 1, life: 4, d: "22 a turn. Fire fed on fire"},
-	deluge: {
+	firestorm:
+	{
+		n: "Firestorm",
+		c: "#ff3b00",
+		end: 22,
+		enter: 1,
+		life: 4,
+		d: "22 a turn. Fire fed on fire",
+	},
+	deluge:
+	{
 		n: "Deluge",
 		c: "#0d7fe0",
 		end: 0,
@@ -526,7 +619,8 @@ export const T: Record<string, TerrainDef> = {
 		flow: 1,
 		d: "A current. Free to enter and it carries you on. Permanent",
 	},
-	mountain: {
+	mountain:
+	{
 		n: "Mountain",
 		c: "#6b5533",
 		end: 0,
@@ -535,7 +629,8 @@ export const T: Record<string, TerrainDef> = {
 		solid: 1,
 		d: "An impassable peak. Permanent",
 	},
-	tempest: {
+	tempest:
+	{
 		n: "Tempest",
 		c: "#7fffe4",
 		end: 0,
@@ -544,7 +639,8 @@ export const T: Record<string, TerrainDef> = {
 		gain: 3,
 		d: "Free to cross and worth 3 energy next turn",
 	},
-	overload: {
+	overload:
+	{
 		n: "Overload",
 		c: "#fff07a",
 		end: 14,
@@ -553,7 +649,8 @@ export const T: Record<string, TerrainDef> = {
 		sap: 3,
 		d: "14 a turn and drains 3 energy",
 	},
-	abyss: {
+	abyss:
+	{
 		n: "Abyss",
 		c: "#8c5aff",
 		end: 0,
@@ -563,7 +660,8 @@ export const T: Record<string, TerrainDef> = {
 		spread: 1,
 		d: "A 3x3 hole in the world. Anyone who touches it is gone",
 	},
-	plague: {
+	plague:
+	{
 		n: "Plague",
 		c: "#5aff2f",
 		end: 25,
@@ -572,8 +670,18 @@ export const T: Record<string, TerrainDef> = {
 		bite: 10,
 		d: "10 to cross, 25 to linger. Permanent",
 	},
-	eden: {n: "Eden", c: "#ffffff", end: 0, enter: 1, life: 999, heal: 20, d: "Heals 20 a turn. Permanent"},
-	adamant: {
+	eden:
+	{
+		n: "Eden",
+		c: "#ffffff",
+		end: 0,
+		enter: 1,
+		life: 999,
+		heal: 20,
+		d: "Heals 20 a turn. Permanent",
+	},
+	adamant:
+	{
 		n: "Adamant",
 		c: "#dfe6f0",
 		end: 0,
@@ -583,7 +691,8 @@ export const T: Record<string, TerrainDef> = {
 		ward: 1,
 		d: "No ground effect can touch you here, and nothing can shove you. Permanent",
 	},
-	cacophony: {
+	cacophony:
+	{
 		n: "Cacophony",
 		c: "#ff6fe0",
 		end: 0,
@@ -593,7 +702,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 3,
 		d: "Hits everyone ending a turn within three tiles for 15. Permanent",
 	},
-	shadow: {
+	shadow:
+	{
 		n: "Shadow",
 		c: "#6b5f8f",
 		end: 0,
@@ -602,7 +712,8 @@ export const T: Record<string, TerrainDef> = {
 		hide: 1,
 		d: "Nobody can see you while you stand here. Permanent",
 	},
-	emberveil: {
+	emberveil:
+	{
 		n: "Emberveil",
 		c: "#b5563f",
 		end: 8,
@@ -611,7 +722,8 @@ export const T: Record<string, TerrainDef> = {
 		hide: 1,
 		d: "Hides you, and burns for 8 a turn",
 	},
-	gloom: {
+	gloom:
+	{
 		n: "Gloom",
 		c: "#4a6a8c",
 		end: 0,
@@ -621,7 +733,8 @@ export const T: Record<string, TerrainDef> = {
 		flow: 1,
 		d: "Hides you and carries you onward. Permanent",
 	},
-	cavern: {
+	cavern:
+	{
 		n: "Cavern",
 		c: "#5b5346",
 		end: 0,
@@ -631,7 +744,8 @@ export const T: Record<string, TerrainDef> = {
 		los: 1,
 		d: "Hides you from them and them from you. Permanent",
 	},
-	shade: {
+	shade:
+	{
 		n: "Shade",
 		c: "#9aa8bd",
 		end: 0,
@@ -640,7 +754,8 @@ export const T: Record<string, TerrainDef> = {
 		hide: 1,
 		d: "Free to cross, and hides you",
 	},
-	flicker: {
+	flicker:
+	{
 		n: "Flicker",
 		c: "#c9a86b",
 		end: 7,
@@ -649,7 +764,8 @@ export const T: Record<string, TerrainDef> = {
 		hide: 1,
 		d: "Hides you, and shocks for 7 a turn",
 	},
-	eclipse: {
+	eclipse:
+	{
 		n: "Eclipse",
 		c: "#3b2f5c",
 		end: 16,
@@ -658,7 +774,8 @@ export const T: Record<string, TerrainDef> = {
 		hide: 1,
 		d: "Hides you, and takes 16 a turn. Permanent",
 	},
-	murk: {
+	murk:
+	{
 		n: "Murk",
 		c: "#4f6b3f",
 		end: 14,
@@ -668,7 +785,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 5,
 		d: "Hides you. 5 to cross, 14 to linger. Permanent",
 	},
-	haven: {
+	haven:
+	{
 		n: "Haven",
 		c: "#b8b0d0",
 		end: 0,
@@ -678,7 +796,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 9,
 		d: "Hides you and heals 9 a turn. Permanent",
 	},
-	bunker: {
+	bunker:
+	{
 		n: "Bunker",
 		c: "#7b7a8c",
 		end: 0,
@@ -689,7 +808,8 @@ export const T: Record<string, TerrainDef> = {
 		ward: 1,
 		d: "Hides you, holds you steady, and no ground effect can touch you. Permanent",
 	},
-	whisper: {
+	whisper:
+	{
 		n: "Whisper",
 		c: "#a78fd0",
 		end: 0,
@@ -700,7 +820,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "Hides you, and hits everyone within two for 8. Permanent",
 	},
-	oblivion: {
+	oblivion:
+	{
 		n: "Oblivion",
 		c: "#241d3d",
 		end: 20,
@@ -710,7 +831,8 @@ export const T: Record<string, TerrainDef> = {
 		anchor: 1,
 		d: "Hides you, holds you, and takes 20 a turn. Permanent",
 	},
-	frost: {
+	frost:
+	{
 		n: "Frost",
 		c: "#8fd8f0",
 		end: 4,
@@ -719,7 +841,8 @@ export const T: Record<string, TerrainDef> = {
 		root: 1,
 		d: "Step in and you are frozen until the end of your next turn. Permanent",
 	},
-	meltwater: {
+	meltwater:
+	{
 		n: "Meltwater",
 		c: "#5fb8d8",
 		end: 0,
@@ -728,7 +851,8 @@ export const T: Record<string, TerrainDef> = {
 		flow: 1,
 		d: "Frost gone soft. Carries you onward",
 	},
-	glacier: {
+	glacier:
+	{
 		n: "Glacier",
 		c: "#bfe8f5",
 		end: 0,
@@ -738,7 +862,8 @@ export const T: Record<string, TerrainDef> = {
 		melts: "meltwater",
 		d: "A wall of ice. Nothing passes for six rounds, then it melts into Meltwater",
 	},
-	permafrost: {
+	permafrost:
+	{
 		n: "Permafrost",
 		c: "#9db8c4",
 		end: 6,
@@ -748,7 +873,8 @@ export const T: Record<string, TerrainDef> = {
 		anchor: 1,
 		d: "Frozen solid. 6 a turn, and you can move neither yourself nor be shoved. Permanent",
 	},
-	blizzard: {
+	blizzard:
+	{
 		n: "Blizzard",
 		c: "#dff2ff",
 		end: 8,
@@ -759,7 +885,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "Freezes you, 8 a turn, and 5 to anyone within two",
 	},
-	hail: {
+	hail:
+	{
 		n: "Hail",
 		c: "#c8e4ff",
 		end: 12,
@@ -768,7 +895,8 @@ export const T: Record<string, TerrainDef> = {
 		root: 1,
 		d: "Freezes you and hammers for 12 a turn",
 	},
-	absolute: {
+	absolute:
+	{
 		n: "Absolute Zero",
 		c: "#e8f6ff",
 		end: 22,
@@ -777,7 +905,8 @@ export const T: Record<string, TerrainDef> = {
 		root: 1,
 		d: "Freezes you and takes 22 a turn. Permanent",
 	},
-	rime: {
+	rime:
+	{
 		n: "Rime",
 		c: "#a8d8b0",
 		end: 13,
@@ -787,7 +916,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 5,
 		d: "Freezes you. 5 to cross, 13 to linger. Permanent",
 	},
-	hibernation: {
+	hibernation:
+	{
 		n: "Hibernation",
 		c: "#dcefe8",
 		end: 0,
@@ -797,7 +927,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 14,
 		d: "Freezes you, but heals 14 a turn. Permanent",
 	},
-	coldiron: {
+	coldiron:
+	{
 		n: "Coldiron",
 		c: "#9fb4c0",
 		end: 0,
@@ -808,7 +939,8 @@ export const T: Record<string, TerrainDef> = {
 		ward: 1,
 		d: "Freezes and holds you, but no ground effect can touch you. Permanent",
 	},
-	chill: {
+	chill:
+	{
 		n: "Chill",
 		c: "#c0a8e0",
 		end: 0,
@@ -819,7 +951,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "Freezes you, and hits everyone within two for 9. Permanent",
 	},
-	whiteout: {
+	whiteout:
+	{
 		n: "Whiteout",
 		c: "#b8bcd8",
 		end: 5,
@@ -829,7 +962,8 @@ export const T: Record<string, TerrainDef> = {
 		hide: 1,
 		d: "Freezes and hides you, 5 a turn. Permanent",
 	},
-	deepfreeze: {
+	deepfreeze:
+	{
 		n: "Deepfreeze",
 		c: "#7fc8e8",
 		end: 18,
@@ -839,7 +973,8 @@ export const T: Record<string, TerrainDef> = {
 		anchor: 1,
 		d: "Frozen to the bone. 18 a turn, and nothing moves you. Permanent",
 	},
-	light: {
+	light:
+	{
 		n: "Light",
 		c: "#fff3b0",
 		end: 0,
@@ -848,7 +983,8 @@ export const T: Record<string, TerrainDef> = {
 		reveal: 2,
 		d: "Nobody within two squares can hide. Permanent",
 	},
-	flare: {
+	flare:
+	{
 		n: "Flare",
 		c: "#ffb347",
 		end: 9,
@@ -857,7 +993,8 @@ export const T: Record<string, TerrainDef> = {
 		reveal: 2,
 		d: "9 a turn, and nobody within two can hide",
 	},
-	shimmer: {
+	shimmer:
+	{
 		n: "Shimmer",
 		c: "#bfe9ff",
 		end: 0,
@@ -867,7 +1004,8 @@ export const T: Record<string, TerrainDef> = {
 		flow: 1,
 		d: "Carries you on, and nobody within two can hide. Permanent",
 	},
-	beacon: {
+	beacon:
+	{
 		n: "Beacon",
 		c: "#d8c68a",
 		end: 0,
@@ -877,7 +1015,8 @@ export const T: Record<string, TerrainDef> = {
 		anchor: 1,
 		d: "Holds you fast, and nobody within three can hide. Permanent",
 	},
-	dawn: {
+	dawn:
+	{
 		n: "Dawn",
 		c: "#ffe9c9",
 		end: 0,
@@ -886,7 +1025,8 @@ export const T: Record<string, TerrainDef> = {
 		reveal: 2,
 		d: "Free to cross, and nobody within two can hide",
 	},
-	flash: {
+	flash:
+	{
 		n: "Flash",
 		c: "#fff59a",
 		end: 11,
@@ -895,7 +1035,8 @@ export const T: Record<string, TerrainDef> = {
 		reveal: 3,
 		d: "11 a turn, and nobody within three can hide",
 	},
-	starfall: {
+	starfall:
+	{
 		n: "Starfall",
 		c: "#e8d0ff",
 		end: 19,
@@ -904,7 +1045,8 @@ export const T: Record<string, TerrainDef> = {
 		reveal: 2,
 		d: "19 a turn, and nobody within two can hide. Permanent",
 	},
-	blister: {
+	blister:
+	{
 		n: "Blister",
 		c: "#d9e06a",
 		end: 13,
@@ -914,7 +1056,8 @@ export const T: Record<string, TerrainDef> = {
 		bite: 5,
 		d: "5 to cross, 13 to linger, and no hiding within two. Permanent",
 	},
-	sanctuary: {
+	sanctuary:
+	{
 		n: "Sanctuary",
 		c: "#fff6e0",
 		end: 0,
@@ -924,7 +1067,8 @@ export const T: Record<string, TerrainDef> = {
 		heal: 11,
 		d: "Heals 11 a turn, and nobody within two can hide. Permanent",
 	},
-	lantern: {
+	lantern:
+	{
 		n: "Lantern",
 		c: "#e0d3a8",
 		end: 0,
@@ -935,7 +1079,8 @@ export const T: Record<string, TerrainDef> = {
 		ward: 1,
 		d: "No ground effect touches you, nothing moves you, nobody within three hides. Permanent",
 	},
-	radiance: {
+	radiance:
+	{
 		n: "Radiance",
 		c: "#ffd6f0",
 		end: 0,
@@ -946,7 +1091,8 @@ export const T: Record<string, TerrainDef> = {
 		rad: 2,
 		d: "10 to everyone within two, and none of them can hide. Permanent",
 	},
-	twilight: {
+	twilight:
+	{
 		n: "Twilight",
 		c: "#8c86a8",
 		end: 7,
@@ -954,7 +1100,8 @@ export const T: Record<string, TerrainDef> = {
 		life: 999,
 		d: "Light and shadow cancel. Just 7 a turn. Permanent",
 	},
-	glare: {
+	glare:
+	{
 		n: "Glare",
 		c: "#cfe8f5",
 		end: 6,
@@ -964,7 +1111,8 @@ export const T: Record<string, TerrainDef> = {
 		root: 1,
 		d: "Freezes you, 6 a turn, and no hiding within two. Permanent",
 	},
-	dayburst: {
+	dayburst:
+	{
 		n: "Dayburst",
 		c: "#fffbe0",
 		end: 15,
@@ -973,7 +1121,8 @@ export const T: Record<string, TerrainDef> = {
 		reveal: 4,
 		d: "15 a turn, and nobody within four squares can hide. Permanent",
 	},
-	collapsed: {
+	collapsed:
+	{
 		n: "Collapsed",
 		c: "#ff2f4a",
 		end: 0,
@@ -984,7 +1133,8 @@ export const T: Record<string, TerrainDef> = {
 		gone: 1,
 		d: "This square fell away. Anything in it is gone, and nothing can enter again",
 	},
-	bell: {
+	bell:
+	{
 		n: "Bell",
 		c: "#c4c9d8",
 		end: 0,

@@ -3,15 +3,20 @@ import type {LoadoutChip, LoadoutSetup, ScopeChip} from "../game/bridge.js";
 import {Chip} from "./SetupFields.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type ChipStyle = CSSProperties & {"--cc": string};
+type ChipStyle = CSSProperties &
+{
+	"--cc": string;
+};
 
 /** How the panel words whose loadout the chips below belong to. */
-function scopeName(scopes: readonly ScopeChip[], who: number | "all"): string {
+function scopeName(scopes: readonly ScopeChip[], who: number | "all"): string
+{
 	if (who === "all") return "for everyone";
 	return `for ${scopes.find((scope) => scope.who === who)?.label ?? ""} only`;
 }
 
-interface ChipRowProps {
+interface ChipRowProps
+{
 	readonly heading: string;
 	readonly scope: string;
 	readonly chips: readonly LoadoutChip[];
@@ -21,7 +26,8 @@ interface ChipRowProps {
 }
 
 /** One kind of card, with the fighter it is being set for named beside it. */
-function ChipRow({heading, scope, chips, onPick, children}: ChipRowProps): ReactElement {
+function ChipRow({heading, scope, chips, onPick, children}: ChipRowProps): ReactElement
+{
 	return (
 		<div className="field">
 			<label>
@@ -58,7 +64,8 @@ export function LoadoutPanel({
 	toggleFootwork,
 	setAllFootwork,
 	share,
-}: LoadoutSetup): ReactElement {
+}: LoadoutSetup): ReactElement
+{
 	const scope = scopeName(scopes, who);
 
 	return (
@@ -73,8 +80,12 @@ export function LoadoutPanel({
 					<span className="lname">Setting this for</span>
 				</label>
 				<div className="chips">
-					{scopes.map((chip) => {
-						const style: ChipStyle = {"--cc": chip.colour};
+					{scopes.map((chip) =>
+					{
+						const style: ChipStyle =
+						{
+							"--cc": chip.colour,
+						};
 
 						return (
 							<button
@@ -83,7 +94,8 @@ export function LoadoutPanel({
 								className="chip whoc"
 								style={style}
 								aria-pressed={chip.who === who}
-								onClick={() => {
+								onClick={() =>
+								{
 									setWho(chip.who);
 								}}
 							>
@@ -116,7 +128,8 @@ export function LoadoutPanel({
 							type="button"
 							className="chip mvall"
 							disabled={allFootwork}
-							onClick={() => {
+							onClick={() =>
+							{
 								setAllFootwork(true);
 							}}
 						>
@@ -126,7 +139,8 @@ export function LoadoutPanel({
 							type="button"
 							className="chip mvall"
 							disabled={noFootwork}
-							onClick={() => {
+							onClick={() =>
+							{
 								setAllFootwork(false);
 							}}
 						>

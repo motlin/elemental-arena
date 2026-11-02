@@ -7,7 +7,8 @@ import "../styles/index.css";
 /** Every colour seated at once, which is the biggest table the game deals. */
 const FULL_TABLE = seatRows([0, 1, 2, 3, 4, 5, 6, 7]);
 
-const meta = {
+const meta =
+{
 	title: "Arena/ArenaPanel",
 	component: ArenaPanel,
 	tags: ["autodocs"],
@@ -21,24 +22,57 @@ type Story = StoryObj<typeof meta>;
 export const TwoOnTheirOwn: Story = {};
 
 /** Two seats given the same colour, which puts them on a side together. */
-export const ASideOfTwo: Story = {
-	args: {
-		seats: seatRows([0, 0]).map((row) => ({...row, name: "The Twins"})),
-		teams: [{name: "The Twins", colour: PC[0] ?? "", seats: 2}],
+export const ASideOfTwo: Story =
+{
+	args:
+	{
+		seats: seatRows([0, 0]).map((row) => (
+		{
+			...row,
+			name: "The Twins",
+		})),
+		teams: [
+			{
+				name: "The Twins",
+				colour: PC[0] ?? "",
+				seats: 2,
+			},
+		],
 	},
 };
 
 /** A full table, which is as many seats as there are colours. */
-export const AFullTable: Story = {
-	args: {seats: FULL_TABLE, teams: teamTallies(FULL_TABLE)},
+export const AFullTable: Story =
+{
+	args:
+	{
+		seats: FULL_TABLE,
+		teams: teamTallies(FULL_TABLE),
+	},
 };
 
 /** Every switch thrown, with chaos held back until the match has warmed up. */
-export const EverySwitchOn: Story = {
-	args: {smash: true, paintball: true, chaos: true, chaosRound: 5, hideHands: false},
+export const EverySwitchOn: Story =
+{
+	args:
+	{
+		smash: true,
+		paintball: true,
+		chaos: true,
+		chaosRound: 5,
+		hideHands: false,
+	},
 };
 
 /** The widest board the game deals, fought over by fighters who take some killing. */
-export const AGreatBigArena: Story = {
-	args: {dim: 25, hp: 1000, startNrg: 9, openHand: 12, footworkUses: 99},
+export const AGreatBigArena: Story =
+{
+	args:
+	{
+		dim: 25,
+		hp: 1000,
+		startNrg: 9,
+		openHand: 12,
+		footworkUses: 99,
+	},
 };

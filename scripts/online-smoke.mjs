@@ -26,15 +26,23 @@ import {setTimeout as sleep} from "node:timers/promises";
 import {chromium} from "playwright";
 
 /** Ports nothing else is on, both held open at once so they cannot be handed the same one. */
-async function freePorts(count) {
+async function freePorts(count)
+{
 	const probes = await Promise.all(
-		Array.from({length: count}, () => {
-			const probe = createServer();
-			return new Promise((resolve, reject) => {
-				probe.on("error", reject);
-				probe.listen(0, "127.0.0.1", () => resolve(probe));
-			});
-		}),
+		Array.from(
+			{
+				length: count,
+			},
+			() =>
+			{
+				const probe = createServer();
+				return new Promise((resolve, reject) =>
+				{
+					probe.on("error", reject);
+					probe.listen(0, "127.0.0.1", () => resolve(probe));
+				});
+			},
+		),
 	);
 	const ports = probes.map((probe) => probe.address().port);
 	await Promise.all(probes.map((probe) => new Promise((done) => probe.close(done))));
@@ -47,7 +55,14 @@ const INSPECTOR_PORT = Number(process.env.MULTIPLAYER_INSPECTOR_PORT ?? freeInsp
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const results = [];
-const check = (what, ok = true, detail = "") => results.push({what, ok, detail});
+const check = (what, ok = true, detail = "") =>
+	results.push(
+		{
+			what,
+			ok,
+			detail,
+		},
+	);
 
 /**
  * The modulepreload of the unbuilt entry that the build inlines as a data URI, which the browser
@@ -56,12 +71,17 @@ const check = (what, ok = true, detail = "") => results.push({what, ok, detail})
 const KNOWN_NOISE = /Failed to load module script/;
 
 /** Waits for the match server, not merely for something to answer on the port. */
-async function waitForServer(tries = 60) {
-	for (let i = 0; i < tries; i++) {
-		try {
+async function waitForServer(tries = 60)
+{
+	for (let i = 0; i < tries; i++)
+	{
+		try
+		{
 			const answer = await fetch(`${BASE}/api/match/not-a-door`);
 			if ((await answer.text()) === "no such door") return true;
-		} catch {
+		}
+		catch
+		{
 			// Nothing is listening yet.
 		}
 		await sleep(500);
@@ -69,36 +89,76 @@ async function waitForServer(tries = 60) {
 	return false;
 }
 
-async function run() {
+async function run()
+{
 	const browser = await chromium.launch();
 	// one context is one profile, which is the case the URL-borne seat exists to survive
 	const context = await browser.newContext();
 	const errors = [];
 
-	async function tab() {
+	async function tab()
+	{
 		const page = await context.newPage();
 		page.on("pageerror", (e) => errors.push(String(e)));
-		page.on("console", (m) => {
+		page.on("console", (m) =>
+		{
 			if (m.type() === "error" && !KNOWN_NOISE.test(m.text())) errors.push(m.text());
 		});
 		return page;
 	}
 
-	try {
+	try
+	{
 		const host = await tab();
-		await host.goto(BASE, {waitUntil: "networkidle"});
-		await host.getByRole("button", {name: "Host a match"}).click();
-		await host.getByLabel("Link to this match").waitFor({timeout: 15000});
+		await host.goto(
+			BASE,
+			{
+				waitUntil: "networkidle",
+			},
+		);
+		await host
+			.getByRole(
+				"button",
+				{
+					name: "Host a match",
+				},
+			)
+			.click();
+		await host.getByLabel("Link to this match").waitFor(
+			{
+				timeout: 15000,
+			},
+		);
 		const invite = await host.getByLabel("Link to this match").inputValue();
 		check("hosting deals one link for the whole match, naming no seat", !invite.includes("seat="), invite);
 
-		await host.getByRole("button", {name: "Sit down"}).click();
-		await host.locator("#game").waitFor({timeout: 15000});
+		await host
+			.getByRole(
+				"button",
+				{
+					name: "Sit down",
+				},
+			)
+			.click();
+		await host.locator("#game").waitFor(
+			{
+				timeout: 15000,
+			},
+		);
 		check("whoever opened the match takes a seat and the arena comes up");
 
 		const guest = await tab();
-		await guest.goto(invite.replace(/^https?:\/\/[^/]+/, BASE), {waitUntil: "networkidle"});
-		await guest.locator("#game").waitFor({timeout: 15000});
+		await guest.goto(
+			invite.replace(/^https?:\/\/[^/]+/, BASE),
+			{
+				waitUntil: "networkidle",
+			},
+		);
+		await guest.locator("#game").waitFor(
+			{
+				timeout: 15000,
+			},
+		);
 		check("a second tab follows the same link and is dealt the seat that was left");
 
 		/* The seat was dealt on arrival, so it is only in the address bar afterwards -- which is
@@ -126,8 +186,19 @@ async function run() {
 		const theirs = await hand(guest);
 		check("each tab was dealt a hand of its own", mine.length > 0 && theirs.length > 0);
 
-		await guest.getByRole("button", {name: /End turn/i}).click();
-		await guest.locator(".netnotice").waitFor({timeout: 10000});
+		await guest
+			.getByRole(
+				"button",
+				{
+					name: /End turn/i,
+				},
+			)
+			.click();
+		await guest.locator(".netnotice").waitFor(
+			{
+				timeout: 10000,
+			},
+		);
 		const refusal = (await guest.locator(".netnotice").textContent()) ?? "";
 		check("a move out of turn is refused, and the tab says so", refusal.includes("not your turn"), refusal);
 
@@ -135,31 +206,84 @@ async function run() {
 		check("the seat to move is offered somewhere to walk", steps > 0, `${steps} highlighted squares`);
 		const purse = await host.locator(".roundchip").textContent();
 		await host.locator(".tile.step").first().click();
-		await host.waitForFunction((was) => document.querySelector(".roundchip")?.textContent !== was, purse, {
-			timeout: 10000,
-		});
+		await host.waitForFunction(
+			(was) => document.querySelector(".roundchip")?.textContent !== was,
+			purse,
+			{
+				timeout: 10000,
+			},
+		);
 		check("walking is taken by the room and comes back as a new arena", true, purse ?? "");
 
-		await host.getByRole("button", {name: /End turn/i}).click();
-		await guest.waitForFunction(() => document.querySelectorAll(".tile.step").length > 0, undefined, {
-			timeout: 10000,
-		});
+		await host
+			.getByRole(
+				"button",
+				{
+					name: /End turn/i,
+				},
+			)
+			.click();
+		await guest.waitForFunction(
+			() => document.querySelectorAll(".tile.step").length > 0,
+			undefined,
+			{
+				timeout: 10000,
+			},
+		);
 		check("the turn passing reaches the other tab, which may now move");
 
 		// giving up settles a two-seat match, and the button asks once before it does anything
-		await guest.getByRole("button", {name: "Dismiss"}).click();
-		await guest.getByRole("button", {name: "Forfeit"}).click();
-		await guest.getByRole("button", {name: "Tap again to fall"}).click();
-		await host.locator(".over").waitFor({timeout: 10000});
+		await guest
+			.getByRole(
+				"button",
+				{
+					name: "Dismiss",
+				},
+			)
+			.click();
+		await guest
+			.getByRole(
+				"button",
+				{
+					name: "Forfeit",
+				},
+			)
+			.click();
+		await guest
+			.getByRole(
+				"button",
+				{
+					name: "Tap again to fall",
+				},
+			)
+			.click();
+		await host.locator(".over").waitFor(
+			{
+				timeout: 10000,
+			},
+		);
 		check("the match ending puts the game-over screen up, written from the log the room sent");
 
-		await host.getByRole("button", {name: "Watch the replay"}).click();
-		await host.locator(".replay").waitFor({timeout: 10000});
+		await host
+			.getByRole(
+				"button",
+				{
+					name: "Watch the replay",
+				},
+			)
+			.click();
+		await host.locator(".replay").waitFor(
+			{
+				timeout: 10000,
+			},
+		);
 		const frames = (await host.locator(".rvcount").textContent()) ?? "";
 		check("and the replay this seat kept for itself plays back", /\d+ \/ [1-9]/.test(frames), frames);
 
 		check("neither tab logged an error", errors.length === 0, errors.slice(0, 3).join(" | "));
-	} finally {
+	}
+	finally
+	{
 		await browser.close();
 	}
 }
@@ -167,23 +291,31 @@ async function run() {
 const wrangler = spawn(
 	"node_modules/.bin/wrangler",
 	["dev", "--port", String(PORT), "--inspector-port", String(INSPECTOR_PORT)],
-	{stdio: ["ignore", "pipe", "pipe"]},
+	{
+		stdio: ["ignore", "pipe", "pipe"],
+	},
 );
 let log = "";
 wrangler.stdout.on("data", (chunk) => (log += chunk));
 wrangler.stderr.on("data", (chunk) => (log += chunk));
 
 let failed = false;
-try {
+try
+{
 	if (!(await waitForServer())) throw new Error(`wrangler dev never came up on ${PORT}\n${log}`);
 	await run();
-} catch (error) {
+}
+catch (error)
+{
 	check("the check ran to the end", false, String(error));
-} finally {
+}
+finally
+{
 	wrangler.kill("SIGTERM");
 }
 
-for (const {what, ok, detail} of results) {
+for (const {what, ok, detail} of results)
+{
 	if (!ok) failed = true;
 	console.log(`${ok ? "ok  " : "FAIL"}  ${what}${detail ? `  --  ${detail}` : ""}`);
 }

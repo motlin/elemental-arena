@@ -1,21 +1,25 @@
 /* The match screen chrome, the arena grid, tiles, and fighters. */
-#game {
+#game
+{
 	padding: 14px;
 	min-height: 100vh;
 	display: none;
 	flex-direction: column;
 	gap: 12px;
 }
-#game.on {
+#game.on
+{
 	display: flex;
 }
-.topbar {
+.topbar
+{
 	display: flex;
 	align-items: center;
 	gap: 14px;
 	flex-wrap: wrap;
 }
-.turnchip {
+.turnchip
+{
 	display: flex;
 	align-items: center;
 	gap: 11px;
@@ -24,22 +28,26 @@
 	border-radius: 3px;
 	background: var(--panel);
 }
-.turnchip b {
+.turnchip b
+{
 	font-family: var(--display);
 	text-transform: uppercase;
 	letter-spacing: 0.17em;
 	font-size: 14px;
 }
-.roundchip {
+.roundchip
+{
 	font-family: var(--mono);
 	font-size: 12px;
 	color: var(--muted);
 	letter-spacing: 0.09em;
 }
-.topbar .sp {
+.topbar .sp
+{
 	flex: 1;
 }
-.ghost {
+.ghost
+{
 	padding: 9px 15px;
 	border: 1px solid var(--rule);
 	border-radius: 3px;
@@ -48,21 +56,25 @@
 	letter-spacing: 0.14em;
 	font-size: 12px;
 }
-.ghost:hover:not(:disabled) {
+.ghost:hover:not(:disabled)
+{
 	border-color: var(--accent);
 	color: var(--accent);
 }
-.ghost:disabled {
+.ghost:disabled
+{
 	opacity: 0.32;
 	cursor: not-allowed;
 }
-.arena {
+.arena
+{
 	display: flex;
 	gap: 14px;
 	align-items: flex-start;
 	flex-wrap: nowrap;
 }
-.boardcol {
+.boardcol
+{
 	flex: 1;
 	min-width: 0;
 	display: flex;
@@ -72,10 +84,12 @@
 }
 /* A board can outgrow its column at narrow widths, where the 15px tile floor beats the room
    available. Scrolling it here keeps it off the side panels. */
-.boardscroll {
+.boardscroll
+{
 	max-width: 100%;
 }
-#board {
+#board
+{
 	width: max-content;
 	margin-inline: auto;
 	display: grid;
@@ -85,7 +99,8 @@
 	border: 1px solid var(--rule);
 	border-radius: 4px;
 }
-.tile {
+.tile
+{
 	width: var(--cell);
 	height: var(--cell);
 	border-radius: 3px;
@@ -95,45 +110,55 @@
 		background 0.16s,
 		box-shadow 0.16s;
 }
-.tile.terr {
+.tile.terr
+{
 	background: radial-gradient(circle at 50% 45%, var(--tcs), transparent 74%), var(--tile);
 	box-shadow: inset 0 0 12px -2px var(--tc);
 }
-.tile.void {
+.tile.void
+{
 	background: radial-gradient(circle at 50% 45%, #04020c 34%, var(--tcs) 100%), #04020c;
 	box-shadow:
 		inset 0 0 0 1px var(--tc),
 		0 0 12px -2px var(--tc);
 }
-.tile.solid {
+.tile.solid
+{
 	box-shadow:
 		inset 0 0 0 1px var(--tc),
 		inset 0 0 14px -3px var(--tc);
 }
-.tile.step {
+.tile.step
+{
 	cursor: pointer;
 	box-shadow: inset 0 0 0 1px #7ce0ff66;
 }
-.tile.step:hover {
+.tile.step:hover
+{
 	background: #7ce0ff1f;
 }
-.tile.aim {
+.tile.aim
+{
 	cursor: crosshair;
 	box-shadow: inset 0 0 0 1px #ff6b3d99;
 }
-.tile.aim:hover {
+.tile.aim:hover
+{
 	background: #ff6b3d2b;
 }
-.tile.aimsure {
+.tile.aimsure
+{
 	cursor: crosshair;
 	box-shadow:
 		inset 0 0 0 2px var(--hot),
 		0 0 12px -3px var(--hot);
 }
-.tile.aimsure:hover {
+.tile.aimsure:hover
+{
 	background: #ff6b3d3d;
 }
-.tile.warn {
+.tile.warn
+{
 	box-shadow:
 		inset 0 0 0 2px #ff2f4a,
 		0 0 14px -3px #ff2f4a;
@@ -141,7 +166,8 @@
 /* The throb rides an overlay's opacity rather than the tile's own background. Opacity and transform
    are the only two the compositor can carry by itself; animating a background repaints every warned
    tile every frame, which measured several times the CPU across a board. */
-.tile.warn::after {
+.tile.warn::after
+{
 	content: "";
 	position: absolute;
 	inset: 0;
@@ -151,19 +177,24 @@
 	will-change: opacity;
 	animation: warnpulse 1s ease-in-out infinite;
 }
-@keyframes warnpulse {
-	50% {
+@keyframes warnpulse
+{
+	50%
+	{
 		opacity: 1;
 	}
 }
-.tile.gonezone {
+.tile.gonezone
+{
 	background: #07040a;
 	box-shadow: inset 0 0 0 1px #4a1020;
 }
-.tile.reach {
+.tile.reach
+{
 	box-shadow: inset 0 0 0 1px #ffffff22;
 }
-.tile.litsq {
+.tile.litsq
+{
 	box-shadow:
 		inset 0 0 0 1px #ffe9a8,
 		0 0 12px -3px #ffe9a8;
@@ -171,15 +202,18 @@
 /* .mage.litp carried only drop-shadows, which its clip-path discarded, so a lit mage has never
    actually looked any different. The declaration is gone rather than left costing frames; giving
    the lit state a highlight that reads is a design call, not a cleanup. */
-.tile.look {
+.tile.look
+{
 	box-shadow: inset 0 0 0 2px var(--accent);
 }
-#tileinfo {
+#tileinfo
+{
 	font-size: 12px;
 	line-height: 1.6;
 	color: var(--muted);
 }
-#tileinfo b {
+#tileinfo b
+{
 	color: var(--ink);
 	font-family: var(--display);
 	text-transform: uppercase;
@@ -187,42 +221,54 @@
 	font-size: 12px;
 	font-weight: 600;
 }
-#tileinfo .k {
+#tileinfo .k
+{
 	display: flex;
 	gap: 8px;
 	margin-top: 6px;
 }
-#tileinfo .k span:first-child {
+#tileinfo .k span:first-child
+{
 	color: var(--muted);
 	min-width: 74px;
 }
-#tileinfo .k span:last-child {
+#tileinfo .k span:last-child
+{
 	color: var(--ink);
 }
-.tile.bloom {
+.tile.bloom
+{
 	animation: bloom 0.4s ease-out;
 }
-@keyframes bloom {
-	0% {
+@keyframes bloom
+{
+	0%
+	{
 		transform: scale(0.55);
 		filter: brightness(2.6);
 	}
-	100% {
+	100%
+	{
 		transform: scale(1);
 	}
 }
-.tile.struck {
+.tile.struck
+{
 	animation: struck 0.35s ease-out;
 }
-@keyframes struck {
+@keyframes struck
+{
 	0%,
-	100% {
+	100%
+	{
 	}
-	30% {
+	30%
+	{
 		box-shadow: inset 0 0 0 2px #fff;
 	}
 }
-.stackn {
+.stackn
+{
 	position: absolute;
 	right: 1px;
 	top: 0;
@@ -232,7 +278,8 @@
 	font-weight: 700;
 	z-index: 3;
 }
-.wnum {
+.wnum
+{
 	position: absolute;
 	right: 1px;
 	bottom: 0;
@@ -245,40 +292,50 @@
 /* No drop-shadow here: every .mage carries a clip-path from its .pN class, and a filter is applied
    before the clip, so the halo is drawn around the whole box and then cut away with everything
    outside the shape. It reached the screen as at most a dozen pixels of edge antialiasing. */
-.mage {
+.mage
+{
 	position: absolute;
 	inset: 13%;
 	background: var(--pc);
 }
-.mage.p0 {
+.mage.p0
+{
 	clip-path: polygon(50% 3%, 97% 92%, 3% 92%);
 }
-.mage.p1 {
+.mage.p1
+{
 	clip-path: polygon(50% 2%, 98% 50%, 50% 98%, 2% 50%);
 }
-.mage.p2 {
+.mage.p2
+{
 	clip-path: polygon(50% 2%, 98% 38%, 80% 97%, 20% 97%, 2% 38%);
 }
-.mage.p3 {
+.mage.p3
+{
 	clip-path: polygon(50% 2%, 95% 26%, 95% 74%, 50% 98%, 5% 74%, 5% 26%);
 }
-.mage.p4 {
+.mage.p4
+{
 	clip-path: polygon(7% 7%, 93% 7%, 93% 93%, 7% 93%);
 }
-.mage.p5 {
+.mage.p5
+{
 	clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
 }
-.mage.p6 {
+.mage.p6
+{
 	clip-path: circle(46% at 50% 50%);
 }
-.mage.p7 {
+.mage.p7
+{
 	clip-path: polygon(3% 8%, 97% 8%, 50% 97%);
 }
 /* The pulse cross-fades to a pre-brightened copy of the player's colour. Fading linearly from C to
    1.35 x C is exactly what brightness(1.35) computes, so the throb lands on the same colours the
    filter drew -- but it moves opacity, so the compositor carries it without repainting the mage.
    The dropped drop-shadow was invisible here for the same reason it is on .mage. */
-.mage.active::after {
+.mage.active::after
+{
 	content: "";
 	position: absolute;
 	inset: 0;
@@ -287,49 +344,62 @@
 	will-change: opacity;
 	animation: pulse 1.7s ease-in-out infinite;
 }
-@keyframes pulse {
-	50% {
+@keyframes pulse
+{
+	50%
+	{
 		opacity: 1;
 	}
 }
 
-.side {
+.side
+{
 	width: clamp(150px, 17vw, 212px);
 	flex: none;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
 }
-.side.left {
+.side.left
+{
 	order: 0;
 }
-.boardcol {
+.boardcol
+{
 	order: 1;
 }
-.side.right {
+.side.right
+{
 	order: 2;
 }
-.side.right .wep {
+.side.right .wep
+{
 	width: 100%;
 }
-@media (max-width: 560px) {
-	.arena {
+@media (max-width: 560px)
+{
+	.arena
+	{
 		flex-direction: column;
 		align-items: center;
 		flex-wrap: wrap;
 	}
-	.side {
+	.side
+	{
 		width: 100%;
 		max-width: 640px;
 	}
-	.side.left {
+	.side.left
+	{
 		order: 2;
 	}
-	.boardcol {
+	.boardcol
+	{
 		order: 0;
 		width: 100%;
 	}
-	.side.right {
+	.side.right
+	{
 		order: 1;
 	}
 }

@@ -4,7 +4,8 @@
  * one panel and a story of the whole screen are looking at the same fight.
  */
 
-import type {
+import type
+{
 	ActionBarView,
 	BoardView,
 	ChatView,
@@ -33,7 +34,8 @@ const STONE = "#9aa4b8";
 const WHIRL = "#7c6bff";
 
 /** A square with nothing laid on it and nobody standing there, which every sample tile is an edit or two from. */
-export function sampleTile(patch: Partial<TileView> = {}): TileView {
+export function sampleTile(patch: Partial<TileView> = {}): TileView
+{
 	return {
 		colour: null,
 		shadow: null,
@@ -56,63 +58,138 @@ export function sampleTile(patch: Partial<TileView> = {}): TileView {
 }
 
 /** One fighter standing on a square, alone unless the patch gives them an inset to share it by. */
-export function sampleFighter(seat: number, colour: string, patch: Partial<TileFighter> = {}): TileFighter {
-	return {seat, colour, active: false, lit: false, inset: null, z: null, ...patch};
+export function sampleFighter(seat: number, colour: string, patch: Partial<TileFighter> = {}): TileFighter
+{
+	return {
+		seat,
+		colour,
+		active: false,
+		lit: false,
+		inset: null,
+		z: null,
+		...patch,
+	};
 }
 
 /**
  * Mid-match: lava and stone laid across the middle, a whirlpool pair, the seat whose turn it is
  * with a weapon aimed, and a square two fighters are sharing.
  */
-export function sampleBoard(click: (x: number, y: number) => void = noop): BoardView {
-	const tiles: TileView[] = Array.from({length: SAMPLE_DIM * SAMPLE_DIM}, () => sampleTile());
+export function sampleBoard(click: (x: number, y: number) => void = noop): BoardView
+{
+	const tiles: TileView[] = Array.from(
+		{
+			length: SAMPLE_DIM * SAMPLE_DIM,
+		},
+		() => sampleTile(),
+	);
 
-	tiles[30] = sampleTile({
-		colour: LAVA,
-		shadow: "rgba(255,90,43,0.44)",
-		terrain: true,
-		title: "Lava: burns anyone who ends their turn on it",
-	});
-	tiles[31] = sampleTile({
-		colour: STONE,
-		shadow: "rgba(154,164,184,0.44)",
-		terrain: true,
-		solid: true,
-		title: "Stone: nothing crosses it",
-	});
-	tiles[22] = sampleTile({
-		colour: WHIRL,
-		shadow: "rgba(124,107,255,0.44)",
-		terrain: true,
-		whirl: "A",
-		title: "Whirlpool: steps you across to its pair",
-	});
-	tiles[58] = sampleTile({
-		colour: WHIRL,
-		shadow: "rgba(124,107,255,0.44)",
-		terrain: true,
-		whirl: "A",
-		title: "Whirlpool: steps you across to its pair",
-	});
-	tiles[39] = sampleTile({step: true});
-	tiles[41] = sampleTile({aim: "aim"});
-	tiles[48] = sampleTile({aim: "aim"});
-	tiles[38] = sampleTile({look: true, reach: "linear-gradient(rgba(255,77,141,0.34),rgba(255,77,141,0.34))"});
-	tiles[40] = sampleTile({title: "Vermilion: 44 HP", occupants: [sampleFighter(0, VERMILION, {active: true})]});
-	tiles[42] = sampleTile({
-		aim: "aimsure",
-		title: "Cyan: 31 HP  ·  Amethyst: 18 HP",
-		occupants: [
-			sampleFighter(1, CYAN, {inset: "8% 34% 34% 8%", z: 1}),
-			sampleFighter(3, AMETHYST, {inset: "34% 8% 8% 34%", z: 2}),
-		],
-	});
+	tiles[30] = sampleTile(
+		{
+			colour: LAVA,
+			shadow: "rgba(255,90,43,0.44)",
+			terrain: true,
+			title: "Lava: burns anyone who ends their turn on it",
+		},
+	);
+	tiles[31] = sampleTile(
+		{
+			colour: STONE,
+			shadow: "rgba(154,164,184,0.44)",
+			terrain: true,
+			solid: true,
+			title: "Stone: nothing crosses it",
+		},
+	);
+	tiles[22] = sampleTile(
+		{
+			colour: WHIRL,
+			shadow: "rgba(124,107,255,0.44)",
+			terrain: true,
+			whirl: "A",
+			title: "Whirlpool: steps you across to its pair",
+		},
+	);
+	tiles[58] = sampleTile(
+		{
+			colour: WHIRL,
+			shadow: "rgba(124,107,255,0.44)",
+			terrain: true,
+			whirl: "A",
+			title: "Whirlpool: steps you across to its pair",
+		},
+	);
+	tiles[39] = sampleTile(
+		{
+			step: true,
+		},
+	);
+	tiles[41] = sampleTile(
+		{
+			aim: "aim",
+		},
+	);
+	tiles[48] = sampleTile(
+		{
+			aim: "aim",
+		},
+	);
+	tiles[38] = sampleTile(
+		{
+			look: true,
+			reach: "linear-gradient(rgba(255,77,141,0.34),rgba(255,77,141,0.34))",
+		},
+	);
+	tiles[40] = sampleTile(
+		{
+			title: "Vermilion: 44 HP",
+			occupants: [
+				sampleFighter(
+					0,
+					VERMILION,
+					{
+						active: true,
+					},
+				),
+			],
+		},
+	);
+	tiles[42] = sampleTile(
+		{
+			aim: "aimsure",
+			title: "Cyan: 31 HP  ·  Amethyst: 18 HP",
+			occupants: [
+				sampleFighter(
+					1,
+					CYAN,
+					{
+						inset: "8% 34% 34% 8%",
+						z: 1,
+					},
+				),
+				sampleFighter(
+					3,
+					AMETHYST,
+					{
+						inset: "34% 8% 8% 34%",
+						z: 2,
+					},
+				),
+			],
+		},
+	);
 
-	return {dim: SAMPLE_DIM, tiles, click, fx: []};
+	return {
+		dim: SAMPLE_DIM,
+		tiles,
+		click,
+		fx: [],
+	};
 }
 
 /** The strip along the top, with Inspect off and the forfeit button unarmed. */
-export function sampleTopbar(): TopbarView {
+export function sampleTopbar(): TopbarView
+{
 	return {
 		seat: 0,
 		name: "Vermilion",
@@ -135,7 +212,8 @@ export function sampleTopbar(): TopbarView {
 }
 
 /** Three fighters: the one whose turn it is, one on a side with somebody, and one already down. */
-export function sampleRoster(): RosterCard[] {
+export function sampleRoster(): RosterCard[]
+{
 	return [
 		{
 			seat: 0,
@@ -146,7 +224,11 @@ export function sampleRoster(): RosterCard[] {
 			hp: 44,
 			health: 44 / 60,
 			energy: null,
-			pips: {total: 9, filled: 4},
+			pips:
+			{
+				total: 9,
+				filled: 4,
+			},
 			seen: null,
 			line: "Steam Sword · 14 dmg · 5 in hand",
 		},
@@ -172,7 +254,11 @@ export function sampleRoster(): RosterCard[] {
 			hp: 0,
 			health: 0,
 			energy: null,
-			pips: {total: 9, filled: 0},
+			pips:
+			{
+				total: 9,
+				filled: 0,
+			},
 			seen: null,
 			line: "unarmed · 0 in hand",
 		},
@@ -180,7 +266,8 @@ export function sampleRoster(): RosterCard[] {
 }
 
 /** The footwork this fighter was dealt: a jump still in hand, and a dash already spent. */
-function sampleFootwork(): FootworkView {
+function sampleFootwork(): FootworkView
+{
 	return {
 		any: true,
 		floating: false,
@@ -211,7 +298,8 @@ function sampleFootwork(): FootworkView {
 }
 
 /** The weapon in hand, aimed at nothing yet. */
-function sampleWeapon(): WeaponView {
+function sampleWeapon(): WeaponView
+{
 	return {
 		name: "Steam Sword",
 		colour: "#9ef0dc",
@@ -223,8 +311,20 @@ function sampleWeapon(): WeaponView {
 			{
 				label: "Leaves under them:",
 				options: [
-					{key: "steam", name: "Steam", colour: "#9ef0dc", on: true, choose: noop},
-					{key: "fire", name: "Fire", colour: LAVA, on: false, choose: noop},
+					{
+						key: "steam",
+						name: "Steam",
+						colour: "#9ef0dc",
+						on: true,
+						choose: noop,
+					},
+					{
+						key: "fire",
+						name: "Fire",
+						colour: LAVA,
+						on: false,
+						choose: noop,
+					},
 				],
 			},
 		],
@@ -237,20 +337,39 @@ function sampleWeapon(): WeaponView {
 }
 
 /** The bar under the board, waiting for this fighter to do something. */
-function sampleActions(): ActionBarView {
+function sampleActions(): ActionBarView
+{
 	return {
-		hint: [{text: "Pick a card, or step onto a lit square.", strong: false}],
+		hint: [
+			{
+				text: "Pick a card, or step onto a lit square.",
+				strong: false,
+			},
+		],
 		alarm: false,
 		buttons: [
-			{key: "place", label: "Lay on a tile · 1", disabled: false, facedown: false, click: noop},
-			{key: "merge", label: "Merge · 2", disabled: true, facedown: false, click: noop},
+			{
+				key: "place",
+				label: "Lay on a tile · 1",
+				disabled: false,
+				facedown: false,
+				click: noop,
+			},
+			{
+				key: "merge",
+				label: "Merge · 2",
+				disabled: true,
+				facedown: false,
+				click: noop,
+			},
 		],
 		tail: null,
 	};
 }
 
 /** A hand of three: two elements and the weapon being held. */
-function sampleHand(): HandView {
+function sampleHand(): HandView
+{
 	return {
 		cards: [
 			{
@@ -297,7 +416,8 @@ function sampleHand(): HandView {
 }
 
 /** Table talk with one line answered, and nothing being replied to yet. */
-export function sampleChat(say: (text: string) => void = noop): ChatView {
+export function sampleChat(say: (text: string) => void = noop): ChatView
+{
 	return {
 		lines: [
 			{
@@ -315,7 +435,12 @@ export function sampleChat(say: (text: string) => void = noop): ChatView {
 				colour: CYAN,
 				round: 5,
 				text: "not for long",
-				quote: {who: "Vermilion", colour: VERMILION, text: "the middle is mine"},
+				quote:
+				{
+					who: "Vermilion",
+					colour: VERMILION,
+					text: "the middle is mine",
+				},
 				reply: noop,
 			},
 		],
@@ -326,24 +451,50 @@ export function sampleChat(say: (text: string) => void = noop): ChatView {
 }
 
 /** The tile readout with Inspect on and a lava square being read. */
-export function sampleInspect(): InspectView {
+export function sampleInspect(): InspectView
+{
 	return {
 		inspecting: true,
 		hint: null,
-		tile: {
+		tile:
+		{
 			name: "Lava",
 			colour: LAVA,
 			blurb: "Burns anyone who ends their turn on it.",
 			facts: [
-				{label: "Entering", value: "1 energy"},
-				{label: "Ending here", value: "9 damage"},
-				{label: "Lasts", value: "4 more rounds"},
+				{
+					label: "Entering",
+					value: "1 energy",
+				},
+				{
+					label: "Ending here",
+					value: "9 damage",
+				},
+				{
+					label: "Lasts",
+					value: "4 more rounds",
+				},
 			],
 		},
-		chooser: {
+		chooser:
+		{
 			chips: [
-				{seat: 0, name: "Vermilion", colour: VERMILION, budget: 4, on: true, toggle: noop},
-				{seat: 1, name: "Cyan", colour: CYAN, budget: 6, on: false, toggle: noop},
+				{
+					seat: 0,
+					name: "Vermilion",
+					colour: VERMILION,
+					budget: 4,
+					on: true,
+					toggle: noop,
+				},
+				{
+					seat: 1,
+					name: "Cyan",
+					colour: CYAN,
+					budget: 6,
+					on: false,
+					toggle: noop,
+				},
 			],
 			blinded: false,
 		},
@@ -351,7 +502,8 @@ export function sampleInspect(): InspectView {
 }
 
 /** The whole match screen, mid-fight, from the seat whose turn it is. */
-export function sampleMatch(): MatchView {
+export function sampleMatch(): MatchView
+{
 	return {
 		topbar: sampleTopbar(),
 		board: sampleBoard(),

@@ -5,13 +5,30 @@ import {TileInspector} from "../../src/ui/TileInspector.js";
 import type {InspectView, ReachChooser} from "../../src/game/bridge.js";
 import {sampleInspect} from "../../src/ui/matchSample.js";
 
-function readout(patch: Partial<InspectView> = {}): InspectView {
-	return {inspecting: true, hint: null, tile: null, chooser: null, ...patch};
+function readout(patch: Partial<InspectView> = {}): InspectView
+{
+	return {
+		inspecting: true,
+		hint: null,
+		tile: null,
+		chooser: null,
+		...patch,
+	};
 }
 
-function chooser(patch: Partial<ReachChooser> = {}): ReachChooser {
+function chooser(patch: Partial<ReachChooser> = {}): ReachChooser
+{
 	return {
-		chips: [{seat: 0, name: "Vermilion", colour: "#ff4d8d", budget: 4, on: false, toggle: () => undefined}],
+		chips: [
+			{
+				seat: 0,
+				name: "Vermilion",
+				colour: "#ff4d8d",
+				budget: 4,
+				on: false,
+				toggle: () => undefined,
+			},
+		],
 		blinded: false,
 		...patch,
 	};
@@ -22,9 +39,16 @@ const facts = (container: HTMLElement): string[][] =>
 		[...row.querySelectorAll("span")].map((cell) => cell.textContent),
 	);
 
-describe("TileInspector", () => {
-	it("says what to do next while no square is being read", () => {
-		const view = readout({inspecting: false, hint: "Turn on Inspect to read any square without moving."});
+describe("TileInspector", () =>
+{
+	it("says what to do next while no square is being read", () =>
+	{
+		const view = readout(
+			{
+				inspecting: false,
+				hint: "Turn on Inspect to read any square without moving.",
+			},
+		);
 		const {container} = render(<TileInspector view={view} />);
 
 		expect(container.querySelector("#tileinfo")?.innerHTML).toBe(
@@ -32,7 +56,8 @@ describe("TileInspector", () => {
 		);
 	});
 
-	it("reads a square out: what is on it, what it does, and every number it carries", () => {
+	it("reads a square out: what is on it, what it does, and every number it carries", () =>
+	{
 		const {container} = render(<TileInspector view={sampleInspect()} />);
 
 		expect(container.querySelector("b")?.textContent).toBe("Lava");
@@ -45,25 +70,53 @@ describe("TileInspector", () => {
 		]);
 	});
 
-	it("reads bare ground in the muted grey", () => {
-		const view = readout({
-			tile: {name: "Bare ground", colour: null, blurb: "Nothing has been laid here.", facts: []},
-		});
+	it("reads bare ground in the muted grey", () =>
+	{
+		const view = readout(
+			{
+				tile:
+				{
+					name: "Bare ground",
+					colour: null,
+					blurb: "Nothing has been laid here.",
+					facts: [],
+				},
+			},
+		);
 		const {container} = render(<TileInspector view={view} />);
 
 		expect(container.querySelector("b")?.getAttribute("style")).toBe("color: var(--muted);");
 		expect(facts(container)).toStrictEqual([]);
 	});
 
-	it("offers the reach overlay for everyone it can be drawn for", () => {
-		const view = readout({
-			chooser: chooser({
-				chips: [
-					{seat: 0, name: "Vermilion", colour: "#ff4d8d", budget: 4, on: true, toggle: () => undefined},
-					{seat: 1, name: "Cyan", colour: "#4dd8ff", budget: 6, on: false, toggle: () => undefined},
-				],
-			}),
-		});
+	it("offers the reach overlay for everyone it can be drawn for", () =>
+	{
+		const view = readout(
+			{
+				chooser: chooser(
+					{
+						chips: [
+							{
+								seat: 0,
+								name: "Vermilion",
+								colour: "#ff4d8d",
+								budget: 4,
+								on: true,
+								toggle: () => undefined,
+							},
+							{
+								seat: 1,
+								name: "Cyan",
+								colour: "#4dd8ff",
+								budget: 6,
+								on: false,
+								toggle: () => undefined,
+							},
+						],
+					},
+				),
+			},
+		);
 		const {container} = render(<TileInspector view={view} />);
 		const chips = [...container.querySelectorAll<HTMLElement>(".bp.rch")];
 
@@ -73,32 +126,77 @@ describe("TileInspector", () => {
 		expect(chips[0]?.querySelector(".d")?.getAttribute("style")).toBe("background: rgb(255, 77, 141);");
 	});
 
-	it("hands a chip straight back to the game", () => {
+	it("hands a chip straight back to the game", () =>
+	{
 		let toggled = 0;
-		const view = readout({
-			chooser: chooser({
-				chips: [{seat: 0, name: "Vermilion", colour: "#ff4d8d", budget: 4, on: false, toggle: () => toggled++}],
-			}),
-		});
+		const view = readout(
+			{
+				chooser: chooser(
+					{
+						chips: [
+							{
+								seat: 0,
+								name: "Vermilion",
+								colour: "#ff4d8d",
+								budget: 4,
+								on: false,
+								toggle: () => toggled++,
+							},
+						],
+					},
+				),
+			},
+		);
 		render(<TileInspector view={view} />);
 
-		act(() => {
-			screen.getByRole("button", {name: "Vermilion · 4"}).click();
+		act(() =>
+		{
+			screen
+				.getByRole(
+					"button",
+					{
+						name: "Vermilion · 4",
+					},
+				)
+				.click();
 		});
 
 		expect(toggled).toBe(1);
 	});
 
-	it("says why a blinded seat is only offered their own reach", () => {
-		const {container} = render(<TileInspector view={readout({chooser: chooser({blinded: true})})} />);
+	it("says why a blinded seat is only offered their own reach", () =>
+	{
+		const {container} = render(
+			<TileInspector
+				view={readout(
+					{
+						chooser: chooser(
+							{
+								blinded: true,
+							},
+						),
+					},
+				)}
+			/>,
+		);
 
 		expect(container.querySelector(".hint")?.textContent).toBe(
 			"You are blinded, so only your own reach is available.",
 		);
 	});
 
-	it("offers nobody's reach while Inspect is off", () => {
-		const {container} = render(<TileInspector view={readout({inspecting: false, hint: "Turn on Inspect."})} />);
+	it("offers nobody's reach while Inspect is off", () =>
+	{
+		const {container} = render(
+			<TileInspector
+				view={readout(
+					{
+						inspecting: false,
+						hint: "Turn on Inspect.",
+					},
+				)}
+			/>,
+		);
 
 		expect(container.querySelector(".bpal")).toBe(null);
 	});

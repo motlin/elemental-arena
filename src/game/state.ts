@@ -19,7 +19,8 @@ export const CHAOS = 1; // default only; the live value is S.chaosRound
 export const MVUSES = 3; // default only; the live value is S.mvUses
 export const NRG0 = 2; // default only; the live value is S.startNrg
 export const HAND0 = 3; // default only; the live value is S.openHand
-export const S: GameState = {
+export const S: GameState =
+{
 	dim: 9,
 	np: 2,
 	hp: 60,
@@ -91,19 +92,23 @@ export const nameOf = (i: number): string => teamName(S.cols[i]!);
 export const occupantsAt = (x: number, y: number): Player[] =>
 	S.players.filter((q) => q.alive && q.x === x && q.y === y);
 // a concealed fighter blocks nothing and can be walked on top of
-export function occupant(x: number, y: number): Player | null {
+export function occupant(x: number, y: number): Player | null
+{
 	return occupantsAt(x, y).find((q) => !hidden(q)) || null;
 }
-export function blind(p: Player): boolean {
+export function blind(p: Player): boolean
+{
 	const c = S.board[idx(p.x, p.y)]!;
 	return !!(p.darkTurns > 0 || (c.t && T[c.t]!.los));
 }
-export function hidden(q: Player): boolean {
+export function hidden(q: Player): boolean
+{
 	if (q.lit || q.litTurns > 0) return false; // a glare beats any cover
 	const c = S.board[idx(q.x, q.y)]!;
 	if (!(c.t && T[c.t]!.hide)) return false;
 	// shining ground nearby strips the concealment
-	for (let i = 0; i < S.board.length; i++) {
+	for (let i = 0; i < S.board.length; i++)
+	{
 		const b = S.board[i]!;
 		if (!b.t || !T[b.t]!.reveal) continue;
 		if (cheb(q.x, q.y, i % S.dim, (i / S.dim) | 0) <= T[b.t]!.reveal!) return false;
@@ -114,18 +119,21 @@ export const isLit = (x: number, y: number): boolean => occupantsAt(x, y).some((
 // hiding ground conceals itself too: only the fighter who laid it sees it. Standing on a square is
 // not the same as being told what is under you, and ground that blinked out whenever somebody was
 // hiding on it would tell whoever laid it exactly where that somebody is standing.
-export function seesTile(p: Player, x: number, y: number): boolean {
+export function seesTile(p: Player, x: number, y: number): boolean
+{
 	const c = S.board[idx(x, y)]!;
 	if (!c.t || !T[c.t]!.hide) return true;
 	if (isLit(x, y)) return true; // a glare exposes their ground along with them
 	return c.by === p.i;
 }
 // only a weapon card is ever held, and only an element card is ever selected: see `clickCard`
-export const held = (p: Player): WepCard | null => {
+export const held = (p: Player): WepCard | null =>
+{
 	const c = p.hand.find((q) => q.uid === p.held);
 	return c?.k === "w" ? c : null;
 };
-export const selCard = (p: Player): ElCard | null => {
+export const selCard = (p: Player): ElCard | null =>
+{
 	const c = p.hand.find((q) => q.uid === S.sel);
 	return c?.k === "el" ? c : null;
 };
@@ -133,24 +141,28 @@ export const selCard = (p: Player): ElCard | null => {
 let placedBy: number | null = null;
 
 /** The seat whose card is laying ground right now, or null between cards. */
-export function layingFor(): number | null {
+export function layingFor(): number | null
+{
 	return placedBy;
 }
 
 /** Names the seat a card is laying ground for, so every tile it writes remembers who owns it. */
-export function layFor(seat: number | null): void {
+export function layFor(seat: number | null): void
+{
 	placedBy = seat;
 }
 
 /** The one way ground is written, so `t`, `el` and `by` never drift apart. */
-export function putTerrain(c: Cell, k: string): void {
+export function putTerrain(c: Cell, k: string): void
+{
 	c.t = k;
 	c.el = ELBYT[k] || null;
 	c.life = T[k]!.life;
 	c.by = placedBy;
 }
 /** Swaps between the setup screen and the arena. */
-export function show(s: string): void {
+export function show(s: string): void
+{
 	S.screen = s;
 	// both screens are React's, so each goes up and comes down by being published or not
 	redraw();

@@ -14,18 +14,21 @@ import {load} from "./save.js";
 import {applyTheme} from "./settings.js";
 import {setView} from "./view.js";
 
-setView({
-	redraw: render,
-	redrawCodex: drawCodex,
-	openReplay,
-	redrawMenu: drawMenu,
-});
+setView(
+	{
+		redraw: render,
+		redrawCodex: drawCodex,
+		openReplay,
+		redrawMenu: drawMenu,
+	},
+);
 
 /**
  * The saved progress, then the menu drawn from it. Exported so a test can await the load-time DOM
  * wiring instead of racing it; the page itself just lets it settle.
  */
-export const boot = load().then(() => {
+export const boot = load().then(() =>
+{
 	applyTheme();
 	drawMenu();
 	drawCodex();
@@ -34,7 +37,8 @@ export const boot = load().then(() => {
 	followHere();
 });
 
-export type {
+export type
+{
 	Card,
 	Cell,
 	ChatMsg,
@@ -49,7 +53,8 @@ export type {
 } from "./types.js";
 export {BASE, CFORGE, EL, FUSE, MV, PAT, T, W, WBASE} from "./data/index.js";
 export {S, cur} from "./state.js";
-export {
+export
+{
 	elColor,
 	elName,
 	forgeOf,
@@ -67,7 +72,8 @@ export {
 	wepName,
 	wepOf,
 } from "./lookups.js";
-export {
+export
+{
 	ARENA_BOARD_MAX,
 	ARENA_CELL_MAX,
 	ARENA_CELL_MIN,

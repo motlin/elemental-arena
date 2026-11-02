@@ -24,54 +24,95 @@ export const PROTOCOL_VERSION = 2;
 
 export type ClientMessage =
 	/** Claims a seat. The token is what says this socket is the player who was invited to it. */
-	| {readonly k: "hello"; readonly v: number; readonly seat: number; readonly token: string}
-	| {readonly k: "move"; readonly intent: Intent};
+	|
+	  {
+			readonly k: "hello";
+			readonly v: number;
+			readonly seat: number;
+			readonly token: string;
+	  }
+	|
+	  {
+			readonly k: "move";
+			readonly intent: Intent;
+	  };
 
 export type ServerMessage =
-	| {readonly k: "seated"; readonly v: number; readonly seat: number}
-	| {readonly k: "state"; readonly state: SeatState}
+	|
+	  {
+			readonly k: "seated";
+			readonly v: number;
+			readonly seat: number;
+	  }
+	|
+	  {
+			readonly k: "state";
+			readonly state: SeatState;
+	  }
 	/**
 	 * Which seats have somebody in them, one flag per seat. The arena cannot say it: it looks the
 	 * same whether the player of a seat is thinking or has closed the tab.
 	 */
-	| {readonly k: "presence"; readonly here: readonly boolean[]}
+	|
+	  {
+			readonly k: "presence";
+			readonly here: readonly boolean[];
+	  }
 	/**
 	 * The match is played out, and here is the log of it. It comes at the end and only at the end:
 	 * `logit` narrates every move by name and square, concealed ones included, so a log sent while
 	 * the match was live would hand a seat everything the rest of this wire keeps from it. Once the
 	 * match is decided there is nothing left to keep -- see matchLog in src/game/seat.ts.
 	 */
-	| {readonly k: "over"; readonly log: readonly LogEntry[]}
+	|
+	  {
+			readonly k: "over";
+			readonly log: readonly LogEntry[];
+	  }
 	/** The move was not taken, and why. The state that follows is still the truth. */
-	| {readonly k: "refused"; readonly why: string}
+	|
+	  {
+			readonly k: "refused";
+			readonly why: string;
+	  }
 	/** The socket is being shut, and why. */
-	| {readonly k: "closed"; readonly why: string};
+	|
+	  {
+			readonly k: "closed";
+			readonly why: string;
+	  };
 
-export function encode(message: ClientMessage | ServerMessage): string {
+export function encode(message: ClientMessage | ServerMessage): string
+{
 	return JSON.stringify(message);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown>
+{
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** Whole numbers only: a board index is never 1.5, and NaN is never a square. */
-function isCount(value: unknown): value is number {
+function isCount(value: unknown): value is number
+{
 	return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 /** One square along one axis, or none: the only numbers a move carries that go below zero. */
-function isStep(value: unknown): value is number {
+function isStep(value: unknown): value is number
+{
 	return value === -1 || value === 0 || value === 1;
 }
 
 /** Something said at the table. The cap is the chat box's own, so both ends hold to the same one. */
-function isLine(value: unknown): value is string {
+function isLine(value: unknown): value is string
+{
 	return typeof value === "string" && value.length > 0 && value.length <= SAY_MAX;
 }
 
 /** Which of a weapon's two rows of leavings a pick was made in: under you, or under them. */
-function isRow(value: unknown): value is "self" | "foe" {
+function isRow(value: unknown): value is "self" | "foe"
+{
 	return value === "self" || value === "foe";
 }
 
@@ -82,12 +123,14 @@ const KEY_MAX = 24;
  * A piece of ground, by key. Whether the weapon in hand actually leaves that ground is a rule, and
  * the rules refuse it themselves, so all the parser owes them is a word short enough to be a key.
  */
-function isKey(value: unknown): value is string {
+function isKey(value: unknown): value is string
+{
 	return typeof value === "string" && value.length > 0 && value.length <= KEY_MAX;
 }
 
 /** What each field a move can carry has to be. A field missing from here is a field no move has. */
-const FIELD: Record<string, ((value: unknown) => boolean) | undefined> = {
+const FIELD: Record<string, ((value: unknown) => boolean) | undefined> =
+{
 	x: isCount,
 	y: isCount,
 	uid: isCount,
@@ -101,7 +144,8 @@ const FIELD: Record<string, ((value: unknown) => boolean) | undefined> = {
 };
 
 /** The fields each move carries, which is also the list nothing may be added to. */
-const INTENT_FIELDS = {
+const INTENT_FIELDS =
+{
 	step: ["x", "y"],
 	card: ["uid"],
 	reorder: ["uid", "to"],
@@ -132,29 +176,34 @@ const INTENT_FIELDS = {
 	forfeit: [],
 } as const satisfies Record<Intent["k"], readonly string[]>;
 
-function isIntentKind(kind: unknown): kind is Intent["k"] {
+function isIntentKind(kind: unknown): kind is Intent["k"]
+{
 	return typeof kind === "string" && Object.hasOwn(INTENT_FIELDS, kind);
 }
 
 /** Exactly these keys, no more and no fewer, and every one of them what its field has to be. */
-function shaped(value: Record<string, unknown>, fields: readonly string[]): boolean {
+function shaped(value: Record<string, unknown>, fields: readonly string[]): boolean
+{
 	const keys = Object.keys(value).filter((key) => key !== "k");
 	if (keys.length !== fields.length) return false;
 	return fields.every((field) => FIELD[field]?.(value[field]) === true);
 }
 
 /** A checked field, as a number. `shaped` has already said the ones a move needs are there. */
-function count(value: unknown): number {
+function count(value: unknown): number
+{
 	return typeof value === "number" ? value : 0;
 }
 
 /** A checked field, as text. */
-function line(value: unknown): string {
+function line(value: unknown): string
+{
 	return typeof value === "string" ? value : "";
 }
 
 /** A checked field, as one of the two rows a weapon leaves ground in. */
-function row(value: unknown): "self" | "foe" {
+function row(value: unknown): "self" | "foe"
+{
 	return value === "foe" ? "foe" : "self";
 }
 
@@ -162,28 +211,58 @@ function row(value: unknown): "self" | "foe" {
  * A move, rebuilt field by field rather than waved through. Building the move here rather than
  * casting the message into one is what keeps a client from smuggling a field past the parser.
  */
-function parseIntent(value: unknown): Intent | null {
+function parseIntent(value: unknown): Intent | null
+{
 	if (!isRecord(value) || !isIntentKind(value["k"])) return null;
 	const k = value["k"];
 	if (!shaped(value, INTENT_FIELDS[k])) return null;
 	const x = count(value["x"]),
 		y = count(value["y"]),
 		uid = count(value["uid"]);
-	switch (k) {
+	switch (k)
+	{
 		case "step":
-			return {k, x, y};
+			return {
+				k,
+				x,
+				y,
+			};
 		case "card":
-			return {k, uid};
+			return {
+				k,
+				uid,
+			};
 		case "reorder":
-			return {k, uid, to: count(value["to"])};
+			return {
+				k,
+				uid,
+				to: count(value["to"]),
+			};
 		case "place":
-			return {k, uid, x, y};
+			return {
+				k,
+				uid,
+				x,
+				y,
+			};
 		case "swing":
-			return {k, x, y};
+			return {
+				k,
+				x,
+				y,
+			};
 		case "leaving":
-			return {k, row: row(value["row"]), el: line(value["el"])};
+			return {
+				k,
+				row: row(value["row"]),
+				el: line(value["el"]),
+			};
 		case "merge":
-			return {k, uid, into: count(value["into"])};
+			return {
+				k,
+				uid,
+				into: count(value["into"]),
+			};
 		case "jump":
 		case "dash":
 		case "leap":
@@ -193,53 +272,98 @@ function parseIntent(value: unknown): Intent | null {
 		case "mark":
 		case "light":
 		case "theft":
-			return {k, x, y};
+			return {
+				k,
+				x,
+				y,
+			};
 		case "float":
 		case "spin":
 		case "wipe":
 		case "ultra":
 		case "trail":
 		case "smash":
-			return {k};
-		case "shift": {
+			return {
+				k,
+			};
+		case "shift":
+		{
 			// the four the shift bar offers: standing still is not a direction, and nor is a diagonal
 			const dx = count(value["dx"]),
 				dy = count(value["dy"]);
-			return Math.abs(dx) + Math.abs(dy) === 1 ? {k, dx, dy} : null;
+			return Math.abs(dx) + Math.abs(dy) === 1
+				?
+					{
+						k,
+						dx,
+						dy,
+					}
+				: null;
 		}
 		case "take":
-			return {k, uid};
+			return {
+				k,
+				uid,
+			};
 		case "toss":
-			return {k, uid};
+			return {
+				k,
+				uid,
+			};
 		case "chat":
-			return {k, text: line(value["text"]), to: count(value["to"])};
+			return {
+				k,
+				text: line(value["text"]),
+				to: count(value["to"]),
+			};
 		case "end":
-			return {k};
+			return {
+				k,
+			};
 		case "forfeit":
-			return {k};
+			return {
+				k,
+			};
 	}
 	return null;
 }
 
 /** A client's bytes, or null for anything the server was never taught to hear. */
-export function parseClientMessage(raw: string): ClientMessage | null {
+export function parseClientMessage(raw: string): ClientMessage | null
+{
 	let parsed: unknown;
-	try {
+	try
+	{
 		parsed = JSON.parse(raw);
-	} catch {
+	}
+	catch
+	{
 		return null;
 	}
 	if (!isRecord(parsed)) return null;
-	if (parsed["k"] === "hello") {
+	if (parsed["k"] === "hello")
+	{
 		const {v, seat, token} = parsed;
 		if (Object.keys(parsed).length !== 4) return null;
 		if (v !== PROTOCOL_VERSION || !isCount(seat) || typeof token !== "string" || !token) return null;
-		return {k: "hello", v, seat, token};
+		return {
+			k: "hello",
+			v,
+			seat,
+			token,
+		};
 	}
-	if (parsed["k"] === "move") {
+	if (parsed["k"] === "move")
+	{
 		if (Object.keys(parsed).length !== 2) return null;
 		const intent = parseIntent(parsed["intent"]);
-		return intent === null ? null : {k: "move", intent};
+		return intent === null
+			? null
+			:
+				{
+					k: "move",
+					intent,
+				};
 	}
 	return null;
 }
@@ -252,43 +376,76 @@ export function parseClientMessage(raw: string): ClientMessage | null {
  * match it already has every power over. Describing `SeatState` a second time here would buy
  * nothing and would be one more place for the two descriptions to drift apart.
  */
-function carriesArena(value: Record<string, unknown>): value is {readonly state: SeatState} {
+function carriesArena(value: Record<string, unknown>): value is
+{
+	readonly state: SeatState;
+}
+{
 	const state = value["state"];
 	return isRecord(state) && isCount(state["seat"]) && isRecord(state["you"]) && isRecord(state["legal"]);
 }
 
 /** Whether a message is one carrying the match log, whose entries are the room's own as above. */
-function carriesLog(value: Record<string, unknown>): value is {readonly log: readonly LogEntry[]} {
+function carriesLog(value: Record<string, unknown>): value is
+{
+	readonly log: readonly LogEntry[];
+}
+{
 	return Array.isArray(value["log"]) && value["log"].every(isRecord);
 }
 
 /** One flag per seat: whether anybody is sitting in it at the moment. */
-function isRollCall(value: unknown): value is readonly boolean[] {
+function isRollCall(value: unknown): value is readonly boolean[]
+{
 	return Array.isArray(value) && value.every((one) => typeof one === "boolean");
 }
 
 /** What the room said, or null for anything a client was never taught to hear. */
-export function parseServerMessage(raw: string): ServerMessage | null {
+export function parseServerMessage(raw: string): ServerMessage | null
+{
 	let parsed: unknown;
-	try {
+	try
+	{
 		parsed = JSON.parse(raw);
-	} catch {
+	}
+	catch
+	{
 		return null;
 	}
 	if (!isRecord(parsed)) return null;
 	const kind = parsed["k"];
 	if (kind === "seated" && parsed["v"] === PROTOCOL_VERSION && isCount(parsed["seat"]))
-		return {k: "seated", v: PROTOCOL_VERSION, seat: parsed["seat"]};
-	if (kind === "state" && carriesArena(parsed)) return {k: "state", state: parsed.state};
-	if (kind === "presence" && isRollCall(parsed["here"])) return {k: "presence", here: parsed["here"]};
-	if (kind === "over" && carriesLog(parsed)) return {k: "over", log: parsed.log};
+		return {
+			k: "seated",
+			v: PROTOCOL_VERSION,
+			seat: parsed["seat"],
+		};
+	if (kind === "state" && carriesArena(parsed))
+		return {
+			k: "state",
+			state: parsed.state,
+		};
+	if (kind === "presence" && isRollCall(parsed["here"]))
+		return {
+			k: "presence",
+			here: parsed["here"],
+		};
+	if (kind === "over" && carriesLog(parsed))
+		return {
+			k: "over",
+			log: parsed.log,
+		};
 	if ((kind === "refused" || kind === "closed") && typeof parsed["why"] === "string")
-		return {k: kind, why: parsed["why"]};
+		return {
+			k: kind,
+			why: parsed["why"],
+		};
 	return null;
 }
 
 /** One of the numbers a match is opened on, or the default when the host left it out. */
-function within(value: unknown, [low, high]: readonly [number, number], fallback: number): number | null {
+function within(value: unknown, [low, high]: readonly [number, number], fallback: number): number | null
+{
 	if (value === undefined) return fallback;
 	if (!isCount(value) || value < low || value > high) return null;
 	return value;
@@ -299,7 +456,8 @@ function within(value: unknown, [low, high]: readonly [number, number], fallback
  * refused rather than pulled into range: a host who asked for a 40x40 board should be told no, not
  * handed a 25x25 one and left to wonder.
  */
-export function parseSetup(value: unknown): MatchSetup | null {
+export function parseSetup(value: unknown): MatchSetup | null
+{
 	if (!isRecord(value)) return null;
 	if (Object.keys(value).some((key) => !Object.hasOwn(DEFAULT_SETUP, key))) return null;
 	const seats = within(value["seats"], SETUP_LIMITS.seats, DEFAULT_SETUP.seats);
@@ -307,5 +465,10 @@ export function parseSetup(value: unknown): MatchSetup | null {
 	const hp = within(value["hp"], SETUP_LIMITS.hp, DEFAULT_SETUP.hp);
 	const priv = value["priv"] === undefined ? DEFAULT_SETUP.priv : value["priv"];
 	if (seats === null || dim === null || hp === null || typeof priv !== "boolean") return null;
-	return {seats, dim, hp, priv};
+	return {
+		seats,
+		dim,
+		hp,
+		priv,
+	};
 }

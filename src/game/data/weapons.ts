@@ -1,5 +1,6 @@
 /** One weapon a card can carry. Several cards fuse into one swing; see `wCost` and friends. */
-export interface WeaponDef {
+export interface WeaponDef
+{
 	/** Display name. */
 	n: string;
 	/** Card colour. */
@@ -23,8 +24,10 @@ export interface WeaponDef {
 /** The weapons a new save starts with. */
 export const WBASE = ["dagger", "sword", "crossbow"];
 
-export const W: Record<string, WeaponDef> = {
-	dagger: {
+export const W: Record<string, WeaponDef> =
+{
+	dagger:
+	{
 		n: "Dagger",
 		c: "#9fb4cc",
 		cost: 2,
@@ -33,7 +36,8 @@ export const W: Record<string, WeaponDef> = {
 		pat: "adj",
 		d: "Any tile touching you. Strikes twice.",
 	},
-	sword: {
+	sword:
+	{
 		n: "Sword",
 		c: "#e6ebf5",
 		cost: 2,
@@ -42,7 +46,8 @@ export const W: Record<string, WeaponDef> = {
 		pat: "line2",
 		d: "One or two tiles away, straight lines only.",
 	},
-	crossbow: {
+	crossbow:
+	{
 		n: "Crossbow",
 		c: "#d1544a",
 		cost: 2,
@@ -51,7 +56,8 @@ export const W: Record<string, WeaponDef> = {
 		pat: "ray2",
 		d: "Exactly two tiles out, any straight line. Blind up close.",
 	},
-	hammer: {
+	hammer:
+	{
 		n: "Hammer",
 		c: "#8d8798",
 		cost: 3,
@@ -62,7 +68,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 150,
 		d: "Every tile around you at once.",
 	},
-	warpick: {
+	warpick:
+	{
 		n: "Warpick",
 		c: "#5b6f9e",
 		cost: 2,
@@ -72,7 +79,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 120,
 		d: "Diagonals only, one or two tiles out.",
 	},
-	spear: {
+	spear:
+	{
 		n: "Spear",
 		c: "#cf7fd1",
 		cost: 3,
@@ -82,7 +90,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 180,
 		d: "Straight lines, up to three tiles away.",
 	},
-	sling: {
+	sling:
+	{
 		n: "Sling",
 		c: "#6b8f7a",
 		cost: 2,
@@ -92,7 +101,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 200,
 		d: "Anything at exactly three tiles, in any direction.",
 	},
-	javelin: {
+	javelin:
+	{
 		n: "Javelin",
 		c: "#5fc9b0",
 		cost: 3,
@@ -102,7 +112,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 300,
 		d: "Any straight line, one to four tiles out.",
 	},
-	whip: {
+	whip:
+	{
 		n: "Whip",
 		c: "#d98f5a",
 		cost: 3,
@@ -112,7 +123,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 450,
 		d: "Lashes the whole row and column you stand in, edge to edge.",
 	},
-	longbow: {
+	longbow:
+	{
 		n: "Longbow",
 		c: "#63d19e",
 		cost: 3,
@@ -122,7 +134,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 400,
 		d: "Any straight line from three to six tiles out. Useless up close.",
 	},
-	wand: {
+	wand:
+	{
 		n: "Magic Wand",
 		c: "#b98cff",
 		cost: 5,
@@ -132,7 +145,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 700,
 		d: "Every diagonal line to the wall, plus the eight squares a chess knight would reach.",
 	},
-	gun: {
+	gun:
+	{
 		n: "Gun",
 		c: "#f0c04a",
 		cost: 5,
@@ -142,7 +156,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 500,
 		d: "Fires down any straight or diagonal line, all the way to the wall.",
 	},
-	cannon: {
+	cannon:
+	{
 		n: "Cannon",
 		c: "#e8552a",
 		cost: 5,
@@ -152,7 +167,8 @@ export const W: Record<string, WeaponDef> = {
 		price: 900,
 		d: "Fires at any single square on the board, however far.",
 	},
-	flail: {
+	flail:
+	{
 		n: "Flail",
 		c: "#a0704f",
 		cost: 4,
@@ -163,7 +179,8 @@ export const W: Record<string, WeaponDef> = {
 		sweep: 1,
 		d: "Whirls through everything within two squares at once.",
 	},
-	scythe: {
+	scythe:
+	{
 		n: "Scythe",
 		c: "#e0538f",
 		cost: 3,

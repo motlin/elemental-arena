@@ -10,7 +10,8 @@ import type {FoodCard, Player} from "../../src/game/types.js";
  * it spoils, and eating it then costs life and gives back less.
  */
 
-function twoSeats(): Player {
+function twoSeats(): Player
+{
 	S.np = 2;
 	S.dim = 9;
 	S.preset = null;
@@ -23,12 +24,20 @@ function twoSeats(): Player {
 	return S.players[0]!;
 }
 
-function bread(born: number, uid = 500): FoodCard {
-	return {uid, k: "f", id: "bread", born};
+function bread(born: number, uid = 500): FoodCard
+{
+	return {
+		uid,
+		k: "f",
+		id: "bread",
+		born,
+	};
 }
 
-describe("eating food", () => {
-	it("gives its energy at once and leaves the hand", () => {
+describe("eating food", () =>
+{
+	it("gives its energy at once and leaves the hand", () =>
+	{
 		const p = twoSeats();
 		p.hand = [bread(S.round)];
 		const nrg = p.nrg,
@@ -42,7 +51,8 @@ describe("eating food", () => {
 		expect(S.log.at(-1)?.t).toBe("ate Bread for 3 energy");
 	});
 
-	it("raises the cap so the extra energy is drawn, never clipped", () => {
+	it("raises the cap so the extra energy is drawn, never clipped", () =>
+	{
 		const p = twoSeats();
 		p.hand = [bread(S.round)];
 
@@ -51,12 +61,14 @@ describe("eating food", () => {
 		expect(p.cap).toBeGreaterThanOrEqual(p.nrg);
 	});
 
-	it("spoils once it has been held past its keep", () => {
+	it("spoils once it has been held past its keep", () =>
+	{
 		expect(spoiled(bread(1), 1 + FOOD["bread"]!.keep - 1)).toBe(false);
 		expect(spoiled(bread(1), 1 + FOOD["bread"]!.keep)).toBe(true);
 	});
 
-	it("costs life and gives less once spoiled", () => {
+	it("costs life and gives less once spoiled", () =>
+	{
 		const p = twoSeats();
 		S.round = 1 + FOOD["bread"]!.keep;
 		p.hand = [bread(1)];
@@ -71,7 +83,8 @@ describe("eating food", () => {
 		expect(S.log.at(-1)?.t).toBe("ate spoiled Bread, losing 3 life for 2 energy");
 	});
 
-	it("does not carry its energy into the next turn", () => {
+	it("does not carry its energy into the next turn", () =>
+	{
 		const p = twoSeats();
 		p.hand = [bread(S.round)];
 		p.nrg = 1;
@@ -82,7 +95,8 @@ describe("eating food", () => {
 		expect(p.bank).toBe(1);
 	});
 
-	it("banks nothing when the turn spent past what the food gave", () => {
+	it("banks nothing when the turn spent past what the food gave", () =>
+	{
 		const p = twoSeats();
 		p.hand = [bread(S.round)];
 		p.nrg = 4;
@@ -94,9 +108,23 @@ describe("eating food", () => {
 		expect(p.bank).toBe(0);
 	});
 
-	it("never merges with anything", () => {
+	it("never merges with anything", () =>
+	{
 		const p = twoSeats();
-		p.hand = [bread(S.round), {uid: 501, k: "el", id: "fire"}, {uid: 502, k: "w", ids: ["dagger"], els: []}];
+		p.hand = [
+			bread(S.round),
+			{
+				uid: 501,
+				k: "el",
+				id: "fire",
+			},
+			{
+				uid: 502,
+				k: "w",
+				ids: ["dagger"],
+				els: [],
+			},
+		];
 
 		expect(mixPartners(p, p.hand[0])).toStrictEqual([]);
 		expect(mixPartners(p, p.hand[1]).map((c) => c.uid)).toStrictEqual([502]);
@@ -104,10 +132,13 @@ describe("eating food", () => {
 	});
 });
 
-describe("dealing food", () => {
-	it("hands out one plate on every third round, stamped with the round it arrived", () => {
+describe("dealing food", () =>
+{
+	it("hands out one plate on every third round, stamped with the round it arrived", () =>
+	{
 		twoSeats();
-		for (let round = 1; round < FOOD_EVERY; round++) {
+		for (let round = 1; round < FOOD_EVERY; round++)
+		{
 			endTurn();
 			endTurn();
 		}
@@ -119,7 +150,8 @@ describe("dealing food", () => {
 		expect(FOOD[food[0]!.id]).toBeDefined();
 	});
 
-	it("deals none on the opening round", () => {
+	it("deals none on the opening round", () =>
+	{
 		const p = twoSeats();
 
 		expect(p.hand.some((c) => c.k === "f")).toBe(false);

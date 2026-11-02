@@ -19,10 +19,24 @@ const priceOf = (w: WeaponDef): number => w.price ?? 0;
 /** What one swing puts on a single target, before anything is forged onto it. */
 const swingDmg = (w: WeaponDef): number => w.dmg * w.hits;
 
-describe("the weapon table", () => {
+describe("the weapon table", () =>
+{
 	/** Every square this weapon threatens from (x, y), as "x,y" keys. */
-	function reach(key: string, x: number, y: number): Set<string> {
-		return new Set(attackTiles({...FIGHTER, x, y}, {ids: [key], els: []}).map(([tx, ty]) => `${tx},${ty}`));
+	function reach(key: string, x: number, y: number): Set<string>
+	{
+		return new Set(
+			attackTiles(
+				{
+					...FIGHTER,
+					x,
+					y,
+				},
+				{
+					ids: [key],
+					els: [],
+				},
+			).map(([tx, ty]) => `${tx},${ty}`),
+		);
 	}
 
 	/**
@@ -30,16 +44,19 @@ describe("the weapon table", () => {
 	 * Board edges matter: two patterns can look identical mid-board and come apart against a wall,
 	 * which is the whole point of the whip reaching to the edge while the javelin stops at four.
 	 */
-	function coversEverywhere(outer: string, inner: string): boolean {
+	function coversEverywhere(outer: string, inner: string): boolean
+	{
 		for (let y = 0; y < S.dim; y++)
-			for (let x = 0; x < S.dim; x++) {
+			for (let x = 0; x < S.dim; x++)
+			{
 				const wide = reach(outer, x, y);
 				for (const tile of reach(inner, x, y)) if (!wide.has(tile)) return false;
 			}
 		return true;
 	}
 
-	function weapon(key: string): WeaponDef {
+	function weapon(key: string): WeaponDef
+	{
 		const w = W[key];
 		if (w === undefined) throw new Error(`no weapon named ${key}`);
 		return w;
@@ -49,7 +66,8 @@ describe("the weapon table", () => {
 	 * Round one hands out `startNrg` energy, so a starting weapon that costs more than that is a
 	 * card you cannot play on the turn you are given it.
 	 */
-	it("swings all three starting weapons on round one", () => {
+	it("swings all three starting weapons on round one", () =>
+	{
 		const base = [...WBASE];
 		const costs = base.map((k) => weapon(k).cost);
 
@@ -65,13 +83,15 @@ describe("the weapon table", () => {
 	 * has to be about which eight: the dagger takes everything touching you, the sword trades the
 	 * diagonals for a second square out. Equal damage keeps that a choice of shape.
 	 */
-	it("pays the dagger's two strikes off against the sword's one", () => {
+	it("pays the dagger's two strikes off against the sword's one", () =>
+	{
 		expect([swingDmg(weapon("dagger")), swingDmg(weapon("sword"))]).toStrictEqual([10, 10]);
 		expect([reach("dagger", 4, 4).size, reach("sword", 4, 4).size]).toStrictEqual([8, 8]);
 	});
 
 	/** Neither one is the other's shape, so neither can be the other's shape plus extras. */
-	it("keeps the gun and the wand off each other's lines", () => {
+	it("keeps the gun and the wand off each other's lines", () =>
+	{
 		expect([coversEverywhere("wand", "gun"), coversEverywhere("gun", "wand")]).toStrictEqual([false, false]);
 	});
 
@@ -80,7 +100,8 @@ describe("the weapon table", () => {
 	 * the only thing choosing between them: the gun is the cheap all-rounder, the wand pays for the
 	 * hardest hit, the cannon pays for the whole board.
 	 */
-	it("sells the top tier on coins rather than energy", () => {
+	it("sells the top tier on coins rather than energy", () =>
+	{
 		const top = ["gun", "wand", "cannon"] as const;
 
 		expect(top.map((k) => weapon(k).cost)).toStrictEqual([5, 5, 5]);
@@ -93,7 +114,8 @@ describe("the weapon table", () => {
 	 * The cannon is the one weapon that reaches everything every other weapon reaches, which is its
 	 * whole job. It pays for that by hitting softer than anything else that swings for five energy.
 	 */
-	it("charges the cannon for reaching everywhere", () => {
+	it("charges the cannon for reaching everywhere", () =>
+	{
 		const missed = keys.filter((k) => k !== "cannon" && !coversEverywhere("cannon", k));
 		const tier = keys.filter((k) => k !== "cannon" && weapon(k).cost >= weapon("cannon").cost);
 		const softer = tier.filter((k) => swingDmg(weapon(k)) <= swingDmg(weapon("cannon")));
@@ -108,11 +130,13 @@ describe("the weapon table", () => {
 	 * other weapon threatens every square it does, sweeps at least as wide, hits at least as hard,
 	 * and asks for no more energy and no more coins.
 	 */
-	it("leaves no weapon outclassed by another", () => {
+	it("leaves no weapon outclassed by another", () =>
+	{
 		const outclassed: string[] = [];
 
 		for (const loser of keys)
-			for (const winner of keys) {
+			for (const winner of keys)
+			{
 				if (winner === loser) continue;
 				const a = weapon(loser),
 					b = weapon(winner);
@@ -125,7 +149,8 @@ describe("the weapon table", () => {
 	});
 
 	/** A weapon nobody can read is a weapon nobody buys, so the words have to match the numbers. */
-	it("describes the shapes it actually swings", () => {
+	it("describes the shapes it actually swings", () =>
+	{
 		expect([weapon("dagger").d, weapon("wand").d]).toStrictEqual([
 			"Any tile touching you. Strikes twice.",
 			"Every diagonal line to the wall, plus the eight squares a chess knight would reach.",

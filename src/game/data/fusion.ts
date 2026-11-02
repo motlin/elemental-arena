@@ -2,7 +2,8 @@
  * Which pair of elements makes which fused element, keyed by the two names sorted and joined with
  * a pipe. Build the key with `fkey` rather than by hand so the ordering always matches.
  */
-export const FUSE: Record<string, string> = {
+export const FUSE: Record<string, string> =
+{
 	"fire|water": "steam",
 	"earth|fire": "glass",
 	"air|fire": "wildfire",

@@ -6,7 +6,8 @@ import type {FootworkButton, FootworkView} from "../game/bridge.js";
  * cost is only reporting something already true — "Floating", "Jump · spent" — so it prints its
  * label and nothing else.
  */
-function Move({button}: {readonly button: FootworkButton}): ReactElement {
+function Move({button}: {readonly button: FootworkButton}): ReactElement
+{
 	return (
 		<button
 			type="button"
@@ -21,7 +22,12 @@ function Move({button}: {readonly button: FootworkButton}): ReactElement {
 			{button.left !== null && (
 				<>
 					{" "}
-					<span style={{opacity: 0.6}}>{`x${button.left}`}</span>
+					<span
+						style={
+						{
+							opacity: 0.6,
+						}}
+					>{`x${button.left}`}</span>
 				</>
 			)}
 		</button>
@@ -32,12 +38,20 @@ function Move({button}: {readonly button: FootworkButton}): ReactElement {
  * The footwork rail: every special move this fighter was given, priced and counted. Which moves
  * appear at all, and whether each is affordable, is the game's call — the rail only lays them out.
  */
-export function FootworkRail({view}: {readonly view: FootworkView}): ReactElement {
-	if (!view.any) {
+export function FootworkRail({view}: {readonly view: FootworkView}): ReactElement
+{
+	if (!view.any)
+	{
 		return (
 			<div className="wep">
 				<div className="wtop">
-					<span className="wn" style={{color: "var(--muted)"}}>
+					<span
+						className="wn"
+						style={
+						{
+							color: "var(--muted)",
+						}}
+					>
 						No footwork
 					</span>
 				</div>
@@ -50,7 +64,13 @@ export function FootworkRail({view}: {readonly view: FootworkView}): ReactElemen
 		<div className="wep">
 			<div className="wtop">
 				<span className="wn">Footwork</span>
-				<span className="wd" style={{fontSize: 11}}>
+				<span
+					className="wd"
+					style={
+					{
+						fontSize: 11,
+					}}
+				>
 					footwork
 				</span>
 			</div>

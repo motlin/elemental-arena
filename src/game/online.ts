@@ -45,7 +45,8 @@ import type {LogEntry} from "./types.js";
 /** The half of `Local` this device owns, which is every part of it no rule has an opinion about. */
 type Aim = Pick<Local, "mode" | "sel" | "mixFrom" | "tossPick" | "imode" | "look" | "reach" | "replyTo">;
 
-const FRESH: Aim = {
+const FRESH: Aim =
+{
 	mode: null,
 	sel: null,
 	mixFrom: null,
@@ -62,7 +63,8 @@ let armed = false;
 /** Stops listening to the seat views when this device gets up from the match. */
 let stop: (() => void) | null = null;
 
-function local(): Local {
+function local(): Local
+{
 	return {
 		...aim,
 		forfeitArmed: armed,
@@ -79,21 +81,30 @@ function local(): Local {
 }
 
 /** The match as the room last said it stands, or nothing at all once this device has got up. */
-function draw(): void {
+function draw(): void
+{
 	const v = seatStore.get();
 	matchStore.set(v === null ? null : matchView(v, local(), ACTIONS));
 }
 
 /** Every arena the room sends: one more frame of this seat's replay, and then the screen. */
-function heard(): void {
+function heard(): void
+{
 	const v = seatStore.get();
 	if (v !== null) keep(v);
 	draw();
 }
 
 /** The replay of what this seat watched, which is the only replay it is in a position to have. */
-function watchAgain(): void {
-	replayStore.set({frames: kept(), dim: seatStore.get()?.dim ?? 0, close: closeReplay});
+function watchAgain(): void
+{
+	replayStore.set(
+		{
+			frames: kept(),
+			dim: seatStore.get()?.dim ?? 0,
+			close: closeReplay,
+		},
+	);
 }
 
 /**
@@ -101,25 +112,28 @@ function watchAgain(): void {
  * there was nothing left to keep. Nothing is banked: an online match is dealt from the base arsenal
  * and pays into nobody's save (src/game/lobby.ts), so the line hot-seat spends on coins says so.
  */
-function ended(log: readonly LogEntry[]): void {
+function ended(log: readonly LogEntry[]): void
+{
 	const v = seatStore.get();
 	if (v === null) return;
 	const won = v.fighters.filter((who) => who.alive);
 	const first = won[0];
-	overStore.set({
-		seat: first?.seat ?? v.seat,
-		colour: first?.colour ?? NOCOLOUR,
-		headline:
-			first === undefined
-				? "Nobody walks out"
-				: won.length === 1
-					? `${first.name} holds the arena`
-					: `${won.map((who) => who.name).join(" and ")} hold the arena`,
-		earn: "Nothing is banked from an online match",
-		log,
-		openReplay: watchAgain,
-		back: goOffline,
-	});
+	overStore.set(
+		{
+			seat: first?.seat ?? v.seat,
+			colour: first?.colour ?? NOCOLOUR,
+			headline:
+				first === undefined
+					? "Nobody walks out"
+					: won.length === 1
+						? `${first.name} holds the arena`
+						: `${won.map((who) => who.name).join(" and ")} hold the arena`,
+			earn: "Nothing is banked from an online match",
+			log,
+			openReplay: watchAgain,
+			back: goOffline,
+		},
+	);
 }
 
 /**
@@ -132,21 +146,39 @@ function ended(log: readonly LogEntry[]): void {
  * this side has to follow. It is safe to read the hand for it, because a card click never takes a
  * card out of one.
  */
-function settle(intent: Intent): void {
+function settle(intent: Intent): void
+{
 	armed = false;
-	if (intent.k === "card") {
+	if (intent.k === "card")
+	{
 		const card = seatStore.get()?.you.hand.find((c) => c.uid === intent.uid);
 		const picked = card?.k === "el" && aim.sel !== intent.uid;
-		aim = {...aim, mode: null, mixFrom: null, sel: picked ? intent.uid : null};
+		aim =
+		{
+			...aim,
+			mode: null,
+			mixFrom: null,
+			sel: picked ? intent.uid : null,
+		};
 		return;
 	}
-	aim = {...aim, mode: null, sel: null, mixFrom: null, tossPick: null};
+	aim =
+	{
+		...aim,
+		mode: null,
+		sel: null,
+		mixFrom: null,
+		tossPick: null,
+	};
 }
 
-const ACTIONS: MatchActions = {
+const ACTIONS: MatchActions =
+{
 	submit: sendIntent,
-	patch: (next) => {
-		aim = {
+	patch: (next) =>
+	{
+		aim =
+		{
 			mode: "mode" in next ? (next.mode ?? null) : aim.mode,
 			sel: "sel" in next ? (next.sel ?? null) : aim.sel,
 			mixFrom: "mixFrom" in next ? (next.mixFrom ?? null) : aim.mixFrom,
@@ -158,33 +190,45 @@ const ACTIONS: MatchActions = {
 		};
 		draw();
 	},
-	undo: () => {
+	undo: () =>
+	{
 		/* there is no undo online, and `canUndo` above is what greys the button out */
 	},
-	leave: () => {
+	leave: () =>
+	{
 		goOffline();
 	},
 	// the first tap only arms the button; the second is the move, and the room checks nothing else
-	forfeit: () => {
-		if (armed) sendIntent({k: "forfeit"});
-		else {
+	forfeit: () =>
+	{
+		if (armed)
+			sendIntent(
+				{
+					k: "forfeit",
+				},
+			);
+		else
+		{
 			armed = true;
 			draw();
 		}
 	},
 	// the theme is the device's, so it turns over here rather than being asked for
-	toggleTheme: () => {
+	toggleTheme: () =>
+	{
 		flipTheme();
 		draw();
 	},
 	openTable,
-	cancelSteal: () => {
+	cancelSteal: () =>
+	{
 		/* the hand a theft opened belongs to the arena, and only taking a card out of it shuts it */
 	},
 };
 
 /** Sits this device down in a match somebody opened, and gives the arena the screen. */
-export function playOnline(invite: Invite): void {
+export function playOnline(invite: Invite): void
+{
 	stop?.();
 	aim = FRESH;
 	armed = false;
@@ -198,7 +242,8 @@ export function playOnline(invite: Invite): void {
 }
 
 /** Gets up from an online match and goes back to the setup screen, however it ended. */
-export function goOffline(): void {
+export function goOffline(): void
+{
 	stop?.();
 	stop = null;
 	leave();

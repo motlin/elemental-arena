@@ -18,7 +18,8 @@ const DIAG: Offset[] = [
 export const DIR8: Offset[] = [...DIR4, ...DIAG];
 
 /** Every offset exactly `d` king-moves away, i.e. the hollow square at that radius. */
-const shell = (d: number): Offset[] => {
+const shell = (d: number): Offset[] =>
+{
 	const o: Offset[] = [];
 	for (let y = -d; y <= d; y++)
 		for (let x = -d; x <= d; x++) if (Math.max(Math.abs(x), Math.abs(y)) === d) o.push([x, y]);
@@ -27,7 +28,8 @@ const shell = (d: number): Offset[] => {
 
 /** Straight lines out from the centre along each direction, from `min` steps out to `max`. */
 const rays = (dirs: readonly Offset[], max: number, min = 1): Offset[] =>
-	dirs.flatMap(([x, y]) => {
+	dirs.flatMap(([x, y]) =>
+	{
 		const o: Offset[] = [];
 		for (let r = min; r <= max; r++) o.push([x * r, y * r]);
 		return o;
@@ -45,7 +47,8 @@ const KNIGHT: Offset[] = [
 ];
 
 /** The shape each weapon reaches over, named by the `pat` field in ./weapons.ts. */
-export const PAT: Record<string, () => Offset[]> = {
+export const PAT: Record<string, () => Offset[]> =
+{
 	adj: () => shell(1),
 	ring: () => shell(1),
 	line2: () => rays(DIR4, 2),

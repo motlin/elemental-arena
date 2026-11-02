@@ -4,14 +4,16 @@ import type {Player} from "../../src/game/types.js";
  * A whole fighter, so a test that only cares about one or two fields does not have to spell out the
  * rest. The defaults are the ones `startMatch` deals: full health, nothing used, nothing held.
  */
-export function fighter(overrides: Partial<Player> = {}): Player {
+export function fighter(overrides: Partial<Player> = {}): Player
+{
 	return {
 		i: 0,
 		name: "Tester",
 		c: "#ff4d8d",
 		team: 0,
 		mv: 0,
-		used: {
+		used:
+		{
 			place: 0,
 			merge: 0,
 			jump: 0,

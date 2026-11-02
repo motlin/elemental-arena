@@ -9,12 +9,17 @@ const EVERY_ELEMENT = Object.keys(EL);
 const EVERY_FUSION = [...new Set(Object.values(FUSE))];
 const EVERY_MOVE = Object.keys(MV);
 
-const meta = {
+const meta =
+{
 	title: "Arena/MixingTable",
 	component: MixingTableView,
-	parameters: {layout: "fullscreen"},
+	parameters:
+	{
+		layout: "fullscreen",
+	},
 	tags: ["autodocs"],
-	args: {
+	args:
+	{
 		owned: ["fire", "water", "earth"],
 		found: [],
 		footwork: [],
@@ -31,36 +36,69 @@ type Story = StoryObj<typeof meta>;
 export const NewSave: Story = {};
 
 /** The first fusion turned up in play, with the pair that makes it lit along both edges. */
-export const AFusionDiscovered: Story = {
-	args: {found: ["steam"], picked: "steam"},
+export const AFusionDiscovered: Story =
+{
+	args:
+	{
+		found: ["steam"],
+		picked: "steam",
+	},
 };
 
 /** An element nobody has bought reads as a price rather than as ground. */
-export const AnElementNotBought: Story = {
-	args: {picked: "air"},
+export const AnElementNotBought: Story =
+{
+	args:
+	{
+		picked: "air",
+	},
 };
 
 /** A pair both bought but never mixed says what to do about it. */
-export const AFusionNotYetMixed: Story = {
-	args: {owned: EVERY_ELEMENT, picked: "steam"},
+export const AFusionNotYetMixed: Story =
+{
+	args:
+	{
+		owned: EVERY_ELEMENT,
+		picked: "steam",
+	},
 };
 
 /** Footwork in the arsenal reads out what it does and what a use costs. */
-export const FootworkOwned: Story = {
-	args: {footwork: EVERY_MOVE, picked: "mv:jump"},
+export const FootworkOwned: Story =
+{
+	args:
+	{
+		footwork: EVERY_MOVE,
+		picked: "mv:jump",
+	},
 };
 
 /** Footwork nobody has bought keeps its trick to itself. */
-export const FootworkNotBought: Story = {
-	args: {picked: "mv:jump"},
+export const FootworkNotBought: Story =
+{
+	args:
+	{
+		picked: "mv:jump",
+	},
 };
 
 /** Everything bought and every fusion turned up. */
-export const EverythingDiscovered: Story = {
-	args: {owned: EVERY_ELEMENT, found: EVERY_FUSION, footwork: EVERY_MOVE},
+export const EverythingDiscovered: Story =
+{
+	args:
+	{
+		owned: EVERY_ELEMENT,
+		found: EVERY_FUSION,
+		footwork: EVERY_MOVE,
+	},
 };
 
 /** Nothing picked at all, which only happens before the first click. */
-export const NothingPicked: Story = {
-	args: {picked: null},
+export const NothingPicked: Story =
+{
+	args:
+	{
+		picked: null,
+	},
 };

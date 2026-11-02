@@ -30,15 +30,23 @@ import {setTimeout as sleep} from "node:timers/promises";
  * running, and deriving the second port by arithmetic can walk off the end of the port range. Both
  * probes are held open at once so they cannot be handed the same port.
  */
-async function freePorts(count) {
+async function freePorts(count)
+{
 	const probes = await Promise.all(
-		Array.from({length: count}, () => {
-			const probe = createServer();
-			return new Promise((resolve, reject) => {
-				probe.on("error", reject);
-				probe.listen(0, "127.0.0.1", () => resolve(probe));
-			});
-		}),
+		Array.from(
+			{
+				length: count,
+			},
+			() =>
+			{
+				const probe = createServer();
+				return new Promise((resolve, reject) =>
+				{
+					probe.on("error", reject);
+					probe.listen(0, "127.0.0.1", () => resolve(probe));
+				});
+			},
+		),
 	);
 	const ports = probes.map((probe) => probe.address().port);
 	await Promise.all(probes.map((probe) => new Promise((done) => probe.close(done))));
@@ -53,19 +61,31 @@ const CODE = `smoke-${Math.random().toString(36).slice(2, 10)}`;
 const PROTOCOL_VERSION = 2;
 
 const results = [];
-const check = (what, ok, detail = "") => results.push({what, ok, detail});
+const check = (what, ok, detail = "") =>
+	results.push(
+		{
+			what,
+			ok,
+			detail,
+		},
+	);
 
 /**
  * Waits for the match server, not merely for something to answer. The assets half of the Worker
  * starts serving before the Worker itself will take a socket, so waiting on `/` returns too early
  * and the first WebSocket is refused.
  */
-async function waitForServer(tries = 60) {
-	for (let i = 0; i < tries; i++) {
-		try {
+async function waitForServer(tries = 60)
+{
+	for (let i = 0; i < tries; i++)
+	{
+		try
+		{
 			const answer = await fetch(`${BASE}/api/match/not-a-door`);
 			if ((await answer.text()) === "no such door") return true;
-		} catch {
+		}
+		catch
+		{
 			// Nothing is listening yet.
 		}
 		await sleep(500);
@@ -74,19 +94,43 @@ async function waitForServer(tries = 60) {
 }
 
 /** One player: a socket in a seat, and everything the server has said to it. */
-async function sit(seat, token) {
+async function sit(seat, token)
+{
 	const ws = new WebSocket(`ws://127.0.0.1:${PORT}/api/match/${CODE}/socket`);
 	const inbox = [];
 	const raw = [];
-	ws.addEventListener("message", (event) => {
+	ws.addEventListener("message", (event) =>
+	{
 		raw.push(event.data);
 		inbox.push(JSON.parse(event.data));
 	});
-	await new Promise((resolve, reject) => {
-		ws.addEventListener("open", resolve, {once: true});
-		ws.addEventListener("error", reject, {once: true});
+	await new Promise((resolve, reject) =>
+	{
+		ws.addEventListener(
+			"open",
+			resolve,
+			{
+				once: true,
+			},
+		);
+		ws.addEventListener(
+			"error",
+			reject,
+			{
+				once: true,
+			},
+		);
 	});
-	ws.send(JSON.stringify({k: "hello", v: PROTOCOL_VERSION, seat, token}));
+	ws.send(
+		JSON.stringify(
+			{
+				k: "hello",
+				v: PROTOCOL_VERSION,
+				seat,
+				token,
+			},
+		),
+	);
 	await sleep(400);
 	return {
 		ws,
@@ -94,14 +138,23 @@ async function sit(seat, token) {
 		raw,
 		said: (kind) => inbox.filter((m) => m.k === kind),
 		latest: (kind) => inbox.filter((m) => m.k === kind).at(-1),
-		move: async (intent) => {
-			ws.send(JSON.stringify({k: "move", intent}));
+		move: async (intent) =>
+		{
+			ws.send(
+				JSON.stringify(
+					{
+						k: "move",
+						intent,
+					},
+				),
+			);
 			await sleep(400);
 		},
 	};
 }
 
-async function run() {
+async function run()
+{
 	const page = await fetch(`${BASE}/`);
 	const html = await page.text();
 	check(
@@ -124,11 +177,22 @@ async function run() {
 		String(door.status),
 	);
 
-	const opened = await fetch(`${BASE}/api/match/${CODE}/open`, {
-		method: "POST",
-		headers: {"content-type": "application/json"},
-		body: JSON.stringify({seats: 2, dim: 9}),
-	});
+	const opened = await fetch(
+		`${BASE}/api/match/${CODE}/open`,
+		{
+			method: "POST",
+			headers:
+			{
+				"content-type": "application/json",
+			},
+			body: JSON.stringify(
+				{
+					seats: 2,
+					dim: 9,
+				},
+			),
+		},
+	);
 	const dealt = await opened.json();
 	check(
 		"a match opens without seating anybody",
@@ -136,7 +200,13 @@ async function run() {
 		JSON.stringify(dealt),
 	);
 
-	const again = await fetch(`${BASE}/api/match/${CODE}/open`, {method: "POST", body: "{}"});
+	const again = await fetch(
+		`${BASE}/api/match/${CODE}/open`,
+		{
+			method: "POST",
+			body: "{}",
+		},
+	);
 	check("the same match cannot be opened twice", again.status === 409);
 
 	/* A room that is turned down still has to take what was posted at it. Leaving the body of a
@@ -144,16 +214,54 @@ async function run() {
 	   told the connection was lost -- which looked like a flaky test for as long as one refused open
 	   per run was all that happened. Ten in a row is not something one unread body survives. */
 	let survived = 0;
-	for (let round = 0; round < 10; round += 1) {
+	for (let round = 0; round < 10; round += 1)
+	{
 		const code = `${CODE}-turned-down-${round}`;
-		await fetch(`${BASE}/api/match/${code}/open`, {method: "POST", body: JSON.stringify({seats: 2, dim: 9})});
-		await fetch(`${BASE}/api/match/${code}/open`, {method: "POST", body: JSON.stringify({seats: 2, dim: 9})});
-		const after = await (await fetch(`${BASE}/api/match/${code}/join`, {method: "POST"})).json();
+		await fetch(
+			`${BASE}/api/match/${code}/open`,
+			{
+				method: "POST",
+				body: JSON.stringify(
+					{
+						seats: 2,
+						dim: 9,
+					},
+				),
+			},
+		);
+		await fetch(
+			`${BASE}/api/match/${code}/open`,
+			{
+				method: "POST",
+				body: JSON.stringify(
+					{
+						seats: 2,
+						dim: 9,
+					},
+				),
+			},
+		);
+		const after = await (
+			await fetch(
+				`${BASE}/api/match/${code}/join`,
+				{
+					method: "POST",
+				},
+			)
+		).json();
 		if (after.seat === 0) survived += 1;
 	}
 	check("a match outlives an open it turned down", survived === 10, `${survived}/10 rooms still answered`);
 
-	const claim = async () => (await fetch(`${BASE}/api/match/${CODE}/join`, {method: "POST"})).json();
+	const claim = async () =>
+		(
+			await fetch(
+				`${BASE}/api/match/${CODE}/join`,
+				{
+					method: "POST",
+				},
+			)
+		).json();
 	const seats = [await claim(), await claim()];
 	const tokens = seats.map((one) => one.token);
 	check(
@@ -189,7 +297,13 @@ async function run() {
 	);
 	check("no seat is sent the match log", !("log" in mine));
 
-	await second.move({k: "step", x: theirs.you.x - 1, y: theirs.you.y});
+	await second.move(
+		{
+			k: "step",
+			x: theirs.you.x - 1,
+			y: theirs.you.y,
+		},
+	);
 	check(
 		"a move out of turn is refused",
 		second.latest("refused")?.why === "not your turn",
@@ -197,7 +311,11 @@ async function run() {
 	);
 
 	const before = first.said("state").length;
-	await first.move({k: "end"});
+	await first.move(
+		{
+			k: "end",
+		},
+	);
 	check(
 		"ending a turn reaches both sockets",
 		first.said("state").length > before && second.latest("state")?.state.turn === 1,
@@ -230,7 +348,18 @@ async function run() {
 	);
 
 	// far more than a person clicking, and far less than a loop: the allowance is 24 in a burst
-	for (let i = 0; i < 30; i++) back.ws.send(JSON.stringify({k: "move", intent: {k: "end"}}));
+	for (let i = 0; i < 30; i++)
+		back.ws.send(
+			JSON.stringify(
+				{
+					k: "move",
+					intent:
+					{
+						k: "end",
+					},
+				},
+			),
+		);
 	await sleep(600);
 	check(
 		"a socket talking faster than a person could click is told to slow down",
@@ -249,7 +378,11 @@ async function run() {
 		first.said("over").length === 0 && back.said("over").length === 0,
 	);
 
-	await first.move({k: "forfeit"});
+	await first.move(
+		{
+			k: "forfeit",
+		},
+	);
 	check(
 		"every seat is handed the log once the match is over",
 		first.latest("over")?.log?.at(-1)?.t?.includes("took the arena") === true &&
@@ -263,23 +396,31 @@ async function run() {
 const wrangler = spawn(
 	"node_modules/.bin/wrangler",
 	["dev", "--port", String(PORT), "--inspector-port", String(INSPECTOR_PORT)],
-	{stdio: ["ignore", "pipe", "pipe"]},
+	{
+		stdio: ["ignore", "pipe", "pipe"],
+	},
 );
 let log = "";
 wrangler.stdout.on("data", (chunk) => (log += chunk));
 wrangler.stderr.on("data", (chunk) => (log += chunk));
 
 let failed = false;
-try {
+try
+{
 	if (!(await waitForServer())) throw new Error(`wrangler dev never came up on ${PORT}\n${log}`);
 	await run();
-} catch (error) {
+}
+catch (error)
+{
 	check("the check ran to the end", false, String(error));
-} finally {
+}
+finally
+{
 	wrangler.kill("SIGTERM");
 }
 
-for (const {what, ok, detail} of results) {
+for (const {what, ok, detail} of results)
+{
 	if (!ok) failed = true;
 	console.log(`${ok ? "ok  " : "FAIL"}  ${what}${detail ? `  --  ${detail}` : ""}`);
 }

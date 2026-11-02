@@ -1,6 +1,7 @@
 import {describe, it, expect} from "vitest";
 import {attackTiles} from "../../src/game/combat.js";
-import {
+import
+{
 	leaveFoe,
 	leaveSelf,
 	elColor,
@@ -28,18 +29,27 @@ const MIDBOARD: Player = fighter();
 const elementKeys = [...Object.keys(EL), ...Object.keys(CFORGE)];
 const weaponKeys = Object.keys(W);
 
-describe("elements crossed with weapons", () => {
-	it("covers every base element, every fusion, and every weapon", () => {
+describe("elements crossed with weapons", () =>
+{
+	it("covers every base element, every fusion, and every weapon", () =>
+	{
 		expect(elementKeys.length).toBe(Object.keys(EL).length + Object.keys(FUSE).length);
 		expect(weaponKeys.length).toBeGreaterThan(3);
 	});
 
-	it("forges every element onto every weapon without a missing lookup", () => {
+	it("forges every element onto every weapon without a missing lookup", () =>
+	{
 		const broken: string[] = [];
 
-		for (const el of elementKeys) {
-			for (const w of weaponKeys) {
-				const card: WeaponSpec = {ids: [w], els: [el]};
+		for (const el of elementKeys)
+		{
+			for (const w of weaponKeys)
+			{
+				const card: WeaponSpec =
+				{
+					ids: [w],
+					els: [el],
+				};
 				const where = `${el} + ${w}`;
 				const dmg = wepDmg(card);
 				const cost = wCost(card);
@@ -52,7 +62,8 @@ describe("elements crossed with weapons", () => {
 					["description", wDesc(card)],
 					["colour", wColor(card)],
 					["strip", wStrip(card)],
-				] as const) {
+				] as const)
+				{
 					if (text === "" || BROKEN.test(text)) broken.push(`${where}: ${label} ${text}`);
 				}
 				if (attackTiles(MIDBOARD, card).length === 0) broken.push(`${where}: reaches no tiles`);
@@ -62,17 +73,25 @@ describe("elements crossed with weapons", () => {
 		expect(broken).toStrictEqual([]);
 	});
 
-	it("picks ground to leave under both fighters without a missing lookup", () => {
+	it("picks ground to leave under both fighters without a missing lookup", () =>
+	{
 		const broken: string[] = [];
 
-		for (const el of elementKeys) {
-			const card: WeaponSpec = {ids: ["dagger"], els: [el]};
+		for (const el of elementKeys)
+		{
+			const card: WeaponSpec =
+			{
+				ids: ["dagger"],
+				els: [el],
+			};
 			for (const [label, pick] of [
 				["leaveSelf", leaveSelf(card)],
 				["leaveFoe", leaveFoe(card)],
-			] as const) {
+			] as const)
+			{
 				if (pick === undefined) continue;
-				if (EL[pick] === undefined && T[pick] === undefined) {
+				if (EL[pick] === undefined && T[pick] === undefined)
+				{
 					broken.push(`${el}: ${label} picked unknown ground ${pick}`);
 				}
 			}
@@ -81,10 +100,12 @@ describe("elements crossed with weapons", () => {
 		expect(broken).toStrictEqual([]);
 	});
 
-	it("gives every element a forge entry and a terrain", () => {
+	it("gives every element a forge entry and a terrain", () =>
+	{
 		const broken: string[] = [];
 
-		for (const el of elementKeys) {
+		for (const el of elementKeys)
+		{
 			// forgeOf promises an entry for every element, so a miss throws here rather than reporting
 			const forge = forgeOf(el);
 			if (forge.fx === "" || BROKEN.test(forge.fx)) broken.push(`${el}: forge effect ${forge.fx}`);
@@ -94,19 +115,23 @@ describe("elements crossed with weapons", () => {
 			if (BROKEN.test(elName(el))) broken.push(`${el}: name ${elName(el)}`);
 			if (!elColor(el).startsWith("#")) broken.push(`${el}: colour ${elColor(el)}`);
 		}
-		for (const key of Object.keys(T)) {
+		for (const key of Object.keys(T))
+		{
 			if (T[key]?.n === undefined) broken.push(`${key}: terrain has no name`);
 		}
 
 		expect(broken).toStrictEqual([]);
 	});
 
-	it("fuses every element pair into a terrain the game knows", () => {
+	it("fuses every element pair into a terrain the game knows", () =>
+	{
 		const keys = Object.keys(EL);
 		const broken: string[] = [];
 
-		for (const a of keys) {
-			for (const b of keys) {
+		for (const a of keys)
+		{
+			for (const b of keys)
+			{
 				const fused = FUSE[[a, b].sort().join("|")];
 				if (fused === undefined) broken.push(`${a} + ${b}: no fusion`);
 				else if (T[fused] === undefined) broken.push(`${a} + ${b}: fuses to unknown terrain ${fused}`);
@@ -116,12 +141,15 @@ describe("elements crossed with weapons", () => {
 		expect(broken).toStrictEqual([]);
 	});
 
-	it("resolves every weapon attack pattern", () => {
+	it("resolves every weapon attack pattern", () =>
+	{
 		const broken: string[] = [];
 
-		for (const key of weaponKeys) {
+		for (const key of weaponKeys)
+		{
 			const pattern = W[key]?.pat;
-			if (pattern === undefined) {
+			if (pattern === undefined)
+			{
 				broken.push(`${key}: no pattern`);
 				continue;
 			}

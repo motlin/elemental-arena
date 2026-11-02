@@ -5,27 +5,41 @@ import {PowerSimulator} from "../../src/ui/PowerSimulator.js";
 import {simStore, type SimView} from "../../src/game/bridge.js";
 
 /** Puts the simulator up the way the menu does, with whatever the save has unlocked. */
-function open(overrides: Partial<SimView> = {}): void {
-	act(() => {
-		simStore.set({
-			weapons: ["dagger", "sword"],
-			elements: ["fire", "water"],
-			fusions: ["steam"],
-			hp: 60,
-			close: () => undefined,
-			...overrides,
-		});
+function open(overrides: Partial<SimView> = {}): void
+{
+	act(() =>
+	{
+		simStore.set(
+			{
+				weapons: ["dagger", "sword"],
+				elements: ["fire", "water"],
+				fusions: ["steam"],
+				hp: 60,
+				close: () => undefined,
+				...overrides,
+			},
+		);
 	});
 }
 
-function click(name: string): void {
-	act(() => {
-		screen.getByRole("button", {name}).click();
+function click(name: string): void
+{
+	act(() =>
+	{
+		screen
+			.getByRole(
+				"button",
+				{
+					name,
+				},
+			)
+			.click();
 	});
 }
 
 /** Every figure on the card, as `[number, what it counts]`. */
-function figures(): [string, string][] {
+function figures(): [string, string][]
+{
 	return [...document.querySelectorAll(".sn")].map((sn) => [
 		sn.querySelector("b")?.textContent ?? "",
 		sn.querySelector("span")?.textContent ?? "",
@@ -33,27 +47,33 @@ function figures(): [string, string][] {
 }
 
 /** The tags under the card, as `[what is stacked, how many]`. */
-function parts(): [string, string][] {
+function parts(): [string, string][]
+{
 	return [...document.querySelectorAll(".pt")].map((pt) => [
 		pt.childNodes[1]?.textContent ?? "",
 		pt.querySelector(".ptn")?.textContent ?? "",
 	]);
 }
 
-afterEach(() => {
-	act(() => {
+afterEach(() =>
+{
+	act(() =>
+	{
 		simStore.set(null);
 	});
 });
 
-describe("PowerSimulator", () => {
-	it("paints nothing while the simulator is shut", () => {
+describe("PowerSimulator", () =>
+{
+	it("paints nothing while the simulator is shut", () =>
+	{
 		const {container} = render(<PowerSimulator />);
 
 		expect(container.innerHTML).toBe("");
 	});
 
-	it("shelves everything the save has unlocked", () => {
+	it("shelves everything the save has unlocked", () =>
+	{
 		render(<PowerSimulator />);
 
 		open();
@@ -67,10 +87,17 @@ describe("PowerSimulator", () => {
 		]);
 	});
 
-	it("says which shelves are bare", () => {
+	it("says which shelves are bare", () =>
+	{
 		render(<PowerSimulator />);
 
-		open({weapons: [], elements: [], fusions: []});
+		open(
+			{
+				weapons: [],
+				elements: [],
+				fusions: [],
+			},
+		);
 
 		expect([...document.querySelectorAll(".hint")].map((h) => h.textContent)).toStrictEqual([
 			"No weapons yet.",
@@ -79,7 +106,8 @@ describe("PowerSimulator", () => {
 		]);
 	});
 
-	it("asks for a weapon before it counts anything", () => {
+	it("asks for a weapon before it counts anything", () =>
+	{
 		render(<PowerSimulator />);
 
 		open();
@@ -88,7 +116,8 @@ describe("PowerSimulator", () => {
 		expect(figures()).toStrictEqual([]);
 	});
 
-	it("counts a bare dagger out", () => {
+	it("counts a bare dagger out", () =>
+	{
 		render(<PowerSimulator />);
 		open();
 
@@ -107,7 +136,8 @@ describe("PowerSimulator", () => {
 		]);
 	});
 
-	it("forges an element onto the weapon and renames the card", () => {
+	it("forges an element onto the weapon and renames the card", () =>
+	{
 		render(<PowerSimulator />);
 		open();
 
@@ -128,16 +158,22 @@ describe("PowerSimulator", () => {
 		expect(document.querySelector(".simfx")?.textContent).toBe("On hit: leaves fire under the target.");
 	});
 
-	it("counts the health the game was set to, not the game's default", () => {
+	it("counts the health the game was set to, not the game's default", () =>
+	{
 		render(<PowerSimulator />);
-		open({hp: 1000});
+		open(
+			{
+				hp: 1000,
+			},
+		);
 
 		click("Dagger · 5");
 
 		expect(figures().at(-2)).toStrictEqual(["100", "swings to drop 1000 hp"]);
 	});
 
-	it("collapses a doubled-up part into one tag with a count", () => {
+	it("collapses a doubled-up part into one tag with a count", () =>
+	{
 		render(<PowerSimulator />);
 		open();
 
@@ -148,14 +184,16 @@ describe("PowerSimulator", () => {
 		expect(document.querySelector(".simname")?.textContent).toBe("Dagger x2");
 	});
 
-	it("takes one copy off at a time", () => {
+	it("takes one copy off at a time", () =>
+	{
 		render(<PowerSimulator />);
 		open();
 		click("Dagger · 5");
 		click("Dagger · 5");
 		click("Sword · 10");
 
-		act(() => {
+		act(() =>
+		{
 			screen.getAllByTitle("Remove one")[0]?.click();
 		});
 
@@ -165,7 +203,8 @@ describe("PowerSimulator", () => {
 		]);
 	});
 
-	it("clears the whole card", () => {
+	it("clears the whole card", () =>
+	{
 		render(<PowerSimulator />);
 		open();
 		click("Dagger · 5");
@@ -177,22 +216,29 @@ describe("PowerSimulator", () => {
 		expect(screen.getByText("Add a weapon to begin. Elements on their own cannot be swung.")).toBeDefined();
 	});
 
-	it("shuts through the game's own handler", () => {
+	it("shuts through the game's own handler", () =>
+	{
 		let closed = 0;
 		render(<PowerSimulator />);
-		open({close: () => closed++});
+		open(
+			{
+				close: () => closed++,
+			},
+		);
 
 		click("Close");
 
 		expect(closed).toBe(1);
 	});
 
-	it("starts the next visit with an empty card", () => {
+	it("starts the next visit with an empty card", () =>
+	{
 		render(<PowerSimulator />);
 		open();
 		click("Dagger · 5");
 
-		act(() => {
+		act(() =>
+		{
 			simStore.set(null);
 		});
 		open();

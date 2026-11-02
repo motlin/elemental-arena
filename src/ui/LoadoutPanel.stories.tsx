@@ -5,7 +5,8 @@ import {EVERYTHING, STARTERS, sampleChips, sampleLoadout} from "./setupSamples.j
 import {EL, MV, W} from "../game/data/index.js";
 import "../styles/index.css";
 
-const meta = {
+const meta =
+{
 	title: "Arena/LoadoutPanel",
 	component: LoadoutPanel,
 	tags: ["autodocs"],
@@ -19,13 +20,16 @@ type Story = StoryObj<typeof meta>;
 export const ANewSave: Story = {};
 
 /** Everything bought, so every chip can be switched on and off. */
-export const EverythingBought: Story = {
+export const EverythingBought: Story =
+{
 	args: sampleLoadout(EVERYTHING),
 };
 
 /** A few cards switched off for this match, which greys them out without selling them back. */
-export const SomethingSwitchedOff: Story = {
-	args: {
+export const SomethingSwitchedOff: Story =
+{
+	args:
+	{
 		...sampleLoadout(EVERYTHING),
 		elements: sampleChips(EL, EVERYTHING, ["water", "air"]),
 		weapons: sampleChips(W, EVERYTHING, ["dagger"]),
@@ -33,18 +37,33 @@ export const SomethingSwitchedOff: Story = {
 };
 
 /** One seat being edited, still drawing from the list everybody else does. */
-export const OneSeatOnTheSharedList: Story = {
-	args: {...sampleLoadout(EVERYTHING), who: 0},
+export const OneSeatOnTheSharedList: Story =
+{
+	args:
+	{
+		...sampleLoadout(EVERYTHING),
+		who: 0,
+	},
 };
 
 /** One seat given a list of its own, marked with a star and offered a way back. */
-export const OneSeatWithTheirOwnList: Story = {
-	args: (() => {
+export const OneSeatWithTheirOwnList: Story =
+{
+	args: (() =>
+	{
 		const shared = sampleLoadout(EVERYTHING);
 		return {
 			...shared,
 			who: 0,
-			scopes: shared.scopes.map((scope) => (scope.who === 0 ? {...scope, own: true} : scope)),
+			scopes: shared.scopes.map((scope) =>
+				scope.who === 0
+					?
+						{
+							...scope,
+							own: true,
+						}
+					: scope,
+			),
 			elements: sampleChips(EL, EVERYTHING, ["fire"]),
 			footwork: sampleChips(MV, EVERYTHING, ["jump"]),
 			allFootwork: false,

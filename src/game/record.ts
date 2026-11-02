@@ -34,13 +34,23 @@ let last = "";
  * One fighter's hand, as far as this seat can read it: its own in full, and everybody else's as the
  * cards a mark turned over plus a slot for each one it did not.
  */
-function handOf(v: SeatState, who: SeatFighter): string[] {
+function handOf(v: SeatState, who: SeatFighter): string[]
+{
 	if (who.seat === v.seat) return v.you.hand.map(cardLabel);
-	return [...who.seen, ...Array.from({length: who.cards - who.seen.length}, () => FACEDOWN)];
+	return [
+		...who.seen,
+		...Array.from(
+			{
+				length: who.cards - who.seen.length,
+			},
+			() => FACEDOWN,
+		),
+	];
 }
 
 /** One arena, as the replay will draw it back. */
-function frameOf(v: SeatState): Frame {
+function frameOf(v: SeatState): Frame
+{
 	const mover = v.fighters[v.turn];
 	return {
 		r: v.round,
@@ -50,7 +60,8 @@ function frameOf(v: SeatState): Frame {
 		say: false,
 		turn: v.turn,
 		board: v.tiles.map((tile) => tile.t),
-		players: v.fighters.map((who) => ({
+		players: v.fighters.map((who) => (
+		{
 			name: who.name,
 			c: who.colour,
 			team: who.team,
@@ -66,7 +77,8 @@ function frameOf(v: SeatState): Frame {
 }
 
 /** Puts one more arena in the record, unless it is the one already at the end of it. */
-export function keep(v: SeatState): void {
+export function keep(v: SeatState): void
+{
 	const frame = frameOf(v);
 	const bytes = JSON.stringify(frame);
 	if (bytes === last) return;
@@ -75,12 +87,14 @@ export function keep(v: SeatState): void {
 }
 
 /** The match so far, oldest arena first. A fresh array every time: the replay steps through a copy. */
-export function kept(): readonly Frame[] {
+export function kept(): readonly Frame[]
+{
 	return [...frames];
 }
 
 /** Puts the record down, which is what getting up from a match does to it. */
-export function forget(): void {
+export function forget(): void
+{
 	frames = [];
 	last = "";
 }

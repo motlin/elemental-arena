@@ -10,7 +10,8 @@ import type {Frame, LogEntry} from "./types.js";
 
 type Listener = () => void;
 
-export interface Store<T> {
+export interface Store<T>
+{
 	get: () => T;
 	set: (next: T) => void;
 	subscribe: (listener: Listener) => () => void;
@@ -21,19 +22,23 @@ export interface Store<T> {
  * news. Republishing an equal value is ignored, which keeps React off the treadmill and keeps the
  * snapshot stable enough for `useSyncExternalStore`, which compares snapshots by identity.
  */
-function createStore<T>(initial: T, equals: (a: T, b: T) => boolean): Store<T> {
+function createStore<T>(initial: T, equals: (a: T, b: T) => boolean): Store<T>
+{
 	let value = initial;
 	const listeners = new Set<Listener>();
 	return {
 		get: () => value,
-		set: (next) => {
+		set: (next) =>
+		{
 			if (equals(value, next)) return;
 			value = next;
 			for (const listener of [...listeners]) listener();
 		},
-		subscribe: (listener) => {
+		subscribe: (listener) =>
+		{
 			listeners.add(listener);
-			return () => {
+			return () =>
+			{
 				listeners.delete(listener);
 			};
 		},
@@ -58,7 +63,8 @@ export type NetStatus = "joining" | "playing" | "gone";
  * The strip over an online match: which match this is, which seat this device holds, and anything
  * the room has said that the arena itself does not show -- a move turned down, or a socket gone.
  */
-export interface OnlineView {
+export interface OnlineView
+{
 	readonly code: string;
 	readonly seat: number;
 	readonly status: NetStatus;
@@ -70,7 +76,8 @@ export interface OnlineView {
 	readonly dismiss: () => void;
 }
 
-function sameOnline(a: OnlineView | null, b: OnlineView | null): boolean {
+function sameOnline(a: OnlineView | null, b: OnlineView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	if (a.code !== b.code || a.seat !== b.seat || a.status !== b.status || a.notice !== b.notice) return false;
 	return a.away.length === b.away.length && a.away.every((seat, i) => seat === b.away[i]);
@@ -82,7 +89,8 @@ export const onlineStore = createStore<OnlineView | null>(null, sameOnline);
  * The online panel on the setup screen: opening a match, the link it deals, and the way into
  * somebody else's.
  */
-export interface LobbyView {
+export interface LobbyView
+{
 	/** The code of the match this device opened, or null while it has opened none. */
 	readonly code: string | null;
 	/** True while the room is being opened, which spends the button. */
@@ -103,7 +111,8 @@ export interface LobbyView {
 	readonly join: (link: string) => void;
 }
 
-function sameLobby(a: LobbyView | null, b: LobbyView | null): boolean {
+function sameLobby(a: LobbyView | null, b: LobbyView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	return (
 		a.code === b.code && a.opening === b.opening && a.error === b.error && a.link === b.link && a.seats === b.seats
@@ -113,7 +122,8 @@ function sameLobby(a: LobbyView | null, b: LobbyView | null): boolean {
 export const lobbyStore = createStore<LobbyView | null>(null, sameLobby);
 
 /** What the handoff curtain needs to know about the seat whose turn is starting. */
-export interface HandoffView {
+export interface HandoffView
+{
 	/** Seat number, which picks the glyph's `p0`..`p7` class. */
 	readonly seat: number;
 	readonly name: string;
@@ -123,7 +133,8 @@ export interface HandoffView {
 	readonly dismiss: () => void;
 }
 
-function sameHandoff(a: HandoffView | null, b: HandoffView | null): boolean {
+function sameHandoff(a: HandoffView | null, b: HandoffView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	return a.seat === b.seat && a.name === b.name && a.colour === b.colour && a.dismiss === b.dismiss;
 }
@@ -131,7 +142,8 @@ function sameHandoff(a: HandoffView | null, b: HandoffView | null): boolean {
 export const handoffStore = createStore<HandoffView | null>(null, sameHandoff);
 
 /** What the game-over screen needs to know about the match that just ended. */
-export interface OverView {
+export interface OverView
+{
 	/** The winner's seat number, which picks the glyph's `p0`..`p7` class. */
 	readonly seat: number;
 	/** The winning team's colour, or a grey when nobody walked out. */
@@ -148,7 +160,8 @@ export interface OverView {
 	readonly back: () => void;
 }
 
-function sameOver(a: OverView | null, b: OverView | null): boolean {
+function sameOver(a: OverView | null, b: OverView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	return (
 		a.seat === b.seat &&
@@ -164,7 +177,8 @@ function sameOver(a: OverView | null, b: OverView | null): boolean {
 export const overStore = createStore<OverView | null>(null, sameOver);
 
 /** What the power simulator needs to know about the save it was opened from. */
-export interface SimView {
+export interface SimView
+{
 	/** Weapon keys the save has unlocked, cheapest first. */
 	readonly weapons: readonly string[];
 	/** Element keys the save has unlocked, cheapest first. */
@@ -178,11 +192,13 @@ export interface SimView {
 }
 
 /** A list is the same list whatever array it arrived in. */
-function sameKeys<T>(a: readonly T[], b: readonly T[]): boolean {
+function sameKeys<T>(a: readonly T[], b: readonly T[]): boolean
+{
 	return a.length === b.length && a.every((k, i) => k === b[i]);
 }
 
-function sameSim(a: SimView | null, b: SimView | null): boolean {
+function sameSim(a: SimView | null, b: SimView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	return (
 		a.hp === b.hp &&
@@ -196,7 +212,8 @@ function sameSim(a: SimView | null, b: SimView | null): boolean {
 export const simStore = createStore<SimView | null>(null, sameSim);
 
 /** What the mixing table needs to know about how far the save has got. */
-export interface TableView {
+export interface TableView
+{
 	/** Element keys the save has bought; the rest of the grid reads as a mystery. */
 	readonly owned: readonly string[];
 	/** Fused element keys already discovered in play. */
@@ -207,7 +224,8 @@ export interface TableView {
 	readonly close: () => void;
 }
 
-function sameTable(a: TableView | null, b: TableView | null): boolean {
+function sameTable(a: TableView | null, b: TableView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	return (
 		a.close === b.close &&
@@ -220,7 +238,8 @@ function sameTable(a: TableView | null, b: TableView | null): boolean {
 export const tableStore = createStore<TableView | null>(null, sameTable);
 
 /** What the replay needs to know about the match it steps back through. */
-export interface ReplayView {
+export interface ReplayView
+{
 	/** Every frame `logit` snapshotted, oldest first. */
 	readonly frames: readonly Frame[];
 	/** The grid the match was played on, which every frame's board fills. */
@@ -229,7 +248,8 @@ export interface ReplayView {
 	readonly close: () => void;
 }
 
-function sameReplay(a: ReplayView | null, b: ReplayView | null): boolean {
+function sameReplay(a: ReplayView | null, b: ReplayView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	return a.dim === b.dim && a.frames === b.frames && a.close === b.close;
 }
@@ -237,7 +257,8 @@ function sameReplay(a: ReplayView | null, b: ReplayView | null): boolean {
 export const replayStore = createStore<ReplayView | null>(null, sameReplay);
 
 /** Where one seat starts on the board being painted. */
-export interface SpawnSpot {
+export interface SpawnSpot
+{
 	/** Board index the seat opens the match on. */
 	readonly index: number;
 	/** Who starts there, so the square can say so. */
@@ -247,7 +268,8 @@ export interface SpawnSpot {
 }
 
 /** What the arena designer needs to know about the ground it is painting. */
-export interface DesignView {
+export interface DesignView
+{
 	/** The grid being painted, which is the one the next match is played on. */
 	readonly dim: number;
 	/** One terrain key per square, or null where nothing has been painted. */
@@ -270,17 +292,20 @@ export interface DesignView {
 	readonly close: () => void;
 }
 
-function sameSpawns(a: readonly SpawnSpot[], b: readonly SpawnSpot[]): boolean {
+function sameSpawns(a: readonly SpawnSpot[], b: readonly SpawnSpot[]): boolean
+{
 	return (
 		a.length === b.length &&
-		a.every((spot, i) => {
+		a.every((spot, i) =>
+		{
 			const other = b[i];
 			return other !== undefined && spot.index === other.index && spot.name === other.name;
 		})
 	);
 }
 
-function sameDesign(a: DesignView | null, b: DesignView | null): boolean {
+function sameDesign(a: DesignView | null, b: DesignView | null): boolean
+{
 	if (a === null || b === null) return a === b;
 	return (
 		a.dim === b.dim &&
@@ -299,7 +324,8 @@ function sameDesign(a: DesignView | null, b: DesignView | null): boolean {
 export const designStore = createStore<DesignView | null>(null, sameDesign);
 
 /** One seat on the setup screen: who plays it, and the colour they play it in. */
-export interface SeatRow {
+export interface SeatRow
+{
 	/** Seat number, which picks the glyph's `p0`..`p7` class. */
 	readonly seat: number;
 	/** The name typed for this seat's colour, or "" while it still answers to the default. */
@@ -311,14 +337,16 @@ export interface SeatRow {
 }
 
 /** One colour a seat can be switched to. */
-export interface Swatch {
+export interface Swatch
+{
 	readonly colour: string;
 	/** The short name the swatch is labelled with. */
 	readonly name: string;
 }
 
 /** A side, as the note under the seats counts them up. */
-export interface TeamTally {
+export interface TeamTally
+{
 	readonly name: string;
 	readonly colour: string;
 	/** How many seats play this colour. */
@@ -326,7 +354,8 @@ export interface TeamTally {
 }
 
 /** The arena panel: the seats, and every number a match is dealt from. */
-export interface ArenaSetup {
+export interface ArenaSetup
+{
 	readonly seats: readonly SeatRow[];
 	readonly swatches: readonly Swatch[];
 	readonly teams: readonly TeamTally[];
@@ -357,7 +386,8 @@ export interface ArenaSetup {
 }
 
 /** One thing a fighter can be dealt or denied, as the loadout chips show it. */
-export interface LoadoutChip {
+export interface LoadoutChip
+{
 	readonly key: string;
 	readonly name: string;
 	/** The colour the chip lights up in once it is on. */
@@ -370,7 +400,8 @@ export interface LoadoutChip {
 }
 
 /** Whose loadout the chips belong to: one seat, or the shared list everybody starts from. */
-export interface ScopeChip {
+export interface ScopeChip
+{
 	readonly who: number | "all";
 	readonly label: string;
 	readonly colour: string;
@@ -379,7 +410,8 @@ export interface ScopeChip {
 }
 
 /** The this-match panel: what gets dealt, and who it gets dealt to. */
-export interface LoadoutSetup {
+export interface LoadoutSetup
+{
 	readonly who: number | "all";
 	readonly scopes: readonly ScopeChip[];
 	readonly elements: readonly LoadoutChip[];
@@ -401,7 +433,8 @@ export interface LoadoutSetup {
 }
 
 /** One row of the shop: something to buy, or something already in the arsenal. */
-export interface ShopRow {
+export interface ShopRow
+{
 	readonly key: string;
 	readonly name: string;
 	/** What it does, once it has been bought; before that it is a tease. */
@@ -415,7 +448,8 @@ export interface ShopRow {
 }
 
 /** One shelf of the shop, and the button that sweeps up everything left on it. */
-export interface ShopShelf {
+export interface ShopShelf
+{
 	readonly heading: string;
 	readonly rows: readonly ShopRow[];
 	/** What the rest of the shelf costs together, or null once it is all owned. */
@@ -432,7 +466,8 @@ export interface ShopShelf {
 export type CheatState = "open" | "spent" | "accepted";
 
 /** The arsenal panel: the treasury, the shop, the cheat box and the wipe. */
-export interface ArsenalSetup {
+export interface ArsenalSetup
+{
 	readonly coins: number;
 	/** Why progress is not saving, or null while it is. */
 	readonly saveError: string | null;
@@ -447,7 +482,8 @@ export interface ArsenalSetup {
 }
 
 /** The setup screen, as it stands between matches. */
-export interface MenuView {
+export interface MenuView
+{
 	readonly arena: ArenaSetup;
 	readonly loadout: LoadoutSetup;
 	readonly arsenal: ArsenalSetup;
@@ -465,14 +501,16 @@ export interface MenuView {
  * something on it has actually changed, so every publication is news. All this comparison does is
  * keep a match that is already under way from taking the screen down twice.
  */
-function sameMenu(a: MenuView | null, b: MenuView | null): boolean {
+function sameMenu(a: MenuView | null, b: MenuView | null): boolean
+{
 	return a === null && b === null;
 }
 
 export const menuStore = createStore<MenuView | null>(null, sameMenu);
 
 /** One fighter standing on a square, as the board paints them. */
-export interface TileFighter {
+export interface TileFighter
+{
 	/** Seat number, which picks the glyph's `p0`..`p7` class. */
 	readonly seat: number;
 	/** The seat's colour, fed to the glyph as `--pc`. */
@@ -488,7 +526,8 @@ export interface TileFighter {
 }
 
 /** One square of the board. Anything the seat cannot see has already been left out. */
-export interface TileView {
+export interface TileView
+{
 	/** The ground's colour for `--tc`, or null on a square that reads as bare. */
 	readonly colour: string | null;
 	/** The same colour at the translucency the tile's glow wants, for `--tcs`. */
@@ -522,7 +561,8 @@ export interface TileView {
 }
 
 /** One animation to replay on a square that was just hit. */
-export interface FxHit {
+export interface FxHit
+{
 	/** Board index of the square it plays on. */
 	readonly index: number;
 	/** The class whose keyframes play, restarted from the beginning. */
@@ -530,7 +570,8 @@ export interface FxHit {
 }
 
 /** The grid a match is played on. */
-export interface BoardView {
+export interface BoardView
+{
 	readonly dim: number;
 	/** One square per cell, row by row, `dim * dim` of them. */
 	readonly tiles: readonly TileView[];
@@ -540,7 +581,8 @@ export interface BoardView {
 }
 
 /** The strip along the top: whose turn it is, and everything that ends or leaves it. */
-export interface TopbarView {
+export interface TopbarView
+{
 	/** Seat number, which picks the glyph's `p0`..`p7` class. */
 	readonly seat: number;
 	readonly name: string;
@@ -568,7 +610,8 @@ export interface TopbarView {
 }
 
 /** One button on the footwork rail. */
-export interface FootworkButton {
+export interface FootworkButton
+{
 	/** The move it works, which is also its key in a list. */
 	readonly key: string;
 	/** What the button says: "Jump", "Jump · spent", "Floating", "Trailing Mud". */
@@ -586,7 +629,8 @@ export interface FootworkButton {
 }
 
 /** The footwork rail: every special move this fighter was given. */
-export interface FootworkView {
+export interface FootworkView
+{
 	/** False for a fighter given no special movement at all. */
 	readonly any: boolean;
 	readonly floating: boolean;
@@ -596,7 +640,8 @@ export interface FootworkView {
 }
 
 /** One element a weapon can be told to leave behind. */
-export interface LeaveChoice {
+export interface LeaveChoice
+{
 	readonly key: string;
 	readonly name: string;
 	/** The colour the choice lights up in, fed to the button as `--lc`. */
@@ -606,13 +651,15 @@ export interface LeaveChoice {
 }
 
 /** One row of leavings: what goes under them, or what goes under you. */
-export interface LeaveRow {
+export interface LeaveRow
+{
 	readonly label: string;
 	readonly options: readonly LeaveChoice[];
 }
 
 /** The weapon panel, or null while this fighter's hands are empty. */
-export interface WeaponView {
+export interface WeaponView
+{
 	readonly name: string;
 	readonly colour: string;
 	/** "8", or "8 x 2" for a weapon that swings more than once. */
@@ -633,13 +680,15 @@ export interface WeaponView {
 }
 
 /** A run of the action bar's hint. `strong` picks out the card a question is about. */
-export interface HintPart {
+export interface HintPart
+{
 	readonly text: string;
 	readonly strong: boolean;
 }
 
 /** One button on the action bar. */
-export interface ActionButton {
+export interface ActionButton
+{
 	readonly key: string;
 	readonly label: string;
 	readonly disabled: boolean;
@@ -649,7 +698,8 @@ export interface ActionButton {
 }
 
 /** The bar under the board: what the game is waiting for, and what can be done about it. */
-export interface ActionBarView {
+export interface ActionBarView
+{
 	/** What is going on, said before the buttons. */
 	readonly hint: readonly HintPart[];
 	/** True while the hint is about chaos mode, which is the one that shouts. */
@@ -660,7 +710,8 @@ export interface ActionBarView {
 }
 
 /** One fighter's card in the roster down the left. */
-export interface RosterCard {
+export interface RosterCard
+{
 	/** Seat number, which picks the glyph's `p0`..`p7` class. */
 	readonly seat: number;
 	readonly name: string;
@@ -675,7 +726,11 @@ export interface RosterCard {
 	/** The energy line for a cap too big to draw as pips, or null while the pips are drawn. */
 	readonly energy: string | null;
 	/** The pips, or null once the cap is drawn as a line instead. */
-	readonly pips: {readonly total: number; readonly filled: number} | null;
+	readonly pips:
+	{
+		readonly total: number;
+		readonly filled: number;
+	} | null;
 	/** Cards of theirs this seat has peeked at, or null when it has seen none. */
 	readonly seen: string | null;
 	/** What they are holding, and how much of it. */
@@ -683,7 +738,8 @@ export interface RosterCard {
 }
 
 /** One card in this seat's hand. */
-export interface HandCard {
+export interface HandCard
+{
 	readonly uid: number;
 	/** "ELEMENT", "FUSED" or "WEAPON". */
 	readonly kind: string;
@@ -704,7 +760,8 @@ export interface HandCard {
 }
 
 /** The hand: the cards, and the two things that can be done to one. */
-export interface HandView {
+export interface HandView
+{
 	readonly cards: readonly HandCard[];
 	readonly click: (uid: number) => void;
 	/** Drops a card at a new place in the hand, counted among the cards it left behind. */
@@ -714,7 +771,8 @@ export interface HandView {
 }
 
 /** A line being quoted: the one replied to, above a message or in the reply bar. */
-export interface ChatQuote {
+export interface ChatQuote
+{
 	readonly who: string;
 	readonly colour: string;
 	/** Already cut to length, so the view only has to print it. */
@@ -722,7 +780,8 @@ export interface ChatQuote {
 }
 
 /** One thing said at the table. */
-export interface ChatLine {
+export interface ChatLine
+{
 	readonly id: number;
 	readonly who: string;
 	readonly colour: string;
@@ -734,7 +793,8 @@ export interface ChatLine {
 }
 
 /** Table talk: what has been said, and what is being said back. */
-export interface ChatView {
+export interface ChatView
+{
 	readonly lines: readonly ChatLine[];
 	/** The line the next message answers, or null. */
 	readonly replyingTo: ChatQuote | null;
@@ -743,13 +803,15 @@ export interface ChatView {
 }
 
 /** One line of the tile readout. */
-export interface TileFact {
+export interface TileFact
+{
 	readonly label: string;
 	readonly value: string;
 }
 
 /** One fighter the reach overlay can be drawn for. */
-export interface ReachChip {
+export interface ReachChip
+{
 	/** Seat number, which is also its key in a list. */
 	readonly seat: number;
 	readonly name: string;
@@ -761,14 +823,16 @@ export interface ReachChip {
 }
 
 /** Who the reach overlay can be drawn for, offered under the readout. */
-export interface ReachChooser {
+export interface ReachChooser
+{
 	readonly chips: readonly ReachChip[];
 	/** True when this seat is blinded, which leaves only their own reach to draw. */
 	readonly blinded: boolean;
 }
 
 /** The square Inspect is reading. */
-export interface TileReadout {
+export interface TileReadout
+{
 	readonly name: string;
 	/** The ground's colour, or null for bare ground, which reads in the muted grey. */
 	readonly colour: string | null;
@@ -777,7 +841,8 @@ export interface TileReadout {
 }
 
 /** The tile inspector down the right. */
-export interface InspectView {
+export interface InspectView
+{
 	readonly inspecting: boolean;
 	/** What to do next while no square is being read, or null once one is. */
 	readonly hint: string | null;
@@ -787,7 +852,8 @@ export interface InspectView {
 }
 
 /** The match screen, as it stands after the move just made. */
-export interface MatchView {
+export interface MatchView
+{
 	readonly topbar: TopbarView;
 	readonly board: BoardView;
 	readonly footwork: FootworkView;
@@ -806,7 +872,8 @@ export interface MatchView {
  * Every move changes something on the match screen, so a fresh publication is always news. All this
  * comparison does is keep the screen from being taken down twice on the way back to the menu.
  */
-function sameMatch(a: MatchView | null, b: MatchView | null): boolean {
+function sameMatch(a: MatchView | null, b: MatchView | null): boolean
+{
 	return a === null && b === null;
 }
 

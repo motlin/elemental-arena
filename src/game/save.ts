@@ -6,7 +6,8 @@ import type {Offs} from "./types.js";
 import {redrawMenu} from "./view.js";
 
 /** The saved progress, as it comes back off `window.storage`. */
-interface SavedGame {
+interface SavedGame
+{
 	v?: number;
 	coins?: number;
 	unlocked?: string[];
@@ -23,15 +24,19 @@ interface SavedGame {
 }
 
 /** What went wrong, as the save and load banners word it. */
-export function errText(e: unknown): string {
+export function errText(e: unknown): string
+{
 	if (e instanceof Error && e.message) return e.message;
 	if (typeof e === "string" && e) return e;
 	return "unknown";
 }
-export async function load(): Promise<void> {
-	try {
+export async function load(): Promise<void>
+{
+	try
+	{
 		const r = await window.storage.get("arena:v3", false);
-		if (r?.value) {
+		if (r?.value)
+		{
 			const p = JSON.parse(r.value) as SavedGame;
 			S.coins = p.coins || 0;
 			S.unlocked = [...new Set([...BASE, ...(p.unlocked || [])])];
@@ -48,46 +53,54 @@ export async function load(): Promise<void> {
 			S.munlocked = p.munlocked || [];
 			S.theme = p.theme || "night";
 		}
-	} catch (e) {
+	}
+	catch (e)
+	{
 		S.loadErr = errText(e);
 	}
 }
 let saveQ = Promise.resolve(),
 	saveT: ReturnType<typeof setTimeout> | null = null;
-export async function save(): Promise<void> {
+export async function save(): Promise<void>
+{
 	saveQ = saveQ
 		.then(async () =>
 			window.storage.set(
 				"arena:v3",
-				JSON.stringify({
-					coins: S.coins,
-					unlocked: S.unlocked,
-					v: 2,
-					wunlocked: S.wunlocked,
-					munlocked: S.munlocked,
-					elOff: S.elOff,
-					wOff: S.wOff,
-					pOff: S.pOff,
-					mvShared: S.mvShared,
-					theme: S.theme,
-					codex: S.codex,
-					cheat: S.cheat,
-					tries: S.tries,
-				}),
+				JSON.stringify(
+					{
+						coins: S.coins,
+						unlocked: S.unlocked,
+						v: 2,
+						wunlocked: S.wunlocked,
+						munlocked: S.munlocked,
+						elOff: S.elOff,
+						wOff: S.wOff,
+						pOff: S.pOff,
+						mvShared: S.mvShared,
+						theme: S.theme,
+						codex: S.codex,
+						cheat: S.cheat,
+						tries: S.tries,
+					},
+				),
 				false,
 			),
 		)
-		.then(() => {
+		.then(() =>
+		{
 			S.saveErr = null;
 			if (S.screen === "menu") redrawMenu();
 		})
-		.catch((e: unknown) => {
+		.catch((e: unknown) =>
+		{
 			S.saveErr = errText(e);
 			if (S.screen === "menu") redrawMenu();
 		});
 	return saveQ;
 }
-export function saveSoon(): void {
+export function saveSoon(): void
+{
 	if (saveT !== null) clearTimeout(saveT);
 	saveT = setTimeout(() => void save(), 300);
 }

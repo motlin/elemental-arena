@@ -6,7 +6,8 @@
  */
 
 /** The drawing the rules call for. `setView` fills it in; until then the calls do nothing. */
-export interface View {
+export interface View
+{
 	/** Repaints the whole match screen. */
 	redraw: () => void;
 	/** Republishes the setup screen, which is what coming back to the menu shows. */
@@ -17,27 +18,41 @@ export interface View {
 	openReplay: () => void;
 }
 
-let view: View = {
-	redraw: () => {},
-	redrawMenu: () => {},
-	redrawCodex: () => {},
-	openReplay: () => {},
+let view: View =
+{
+	redraw: () =>
+	{
+	},
+	redrawMenu: () =>
+	{
+	},
+	redrawCodex: () =>
+	{
+	},
+	openReplay: () =>
+	{
+	},
 };
 
 /** Hands the rules the real drawing code. The entry module calls this once, before anything runs. */
-export function setView(next: View): void {
+export function setView(next: View): void
+{
 	view = next;
 }
 
-export const redraw = (): void => {
+export const redraw = (): void =>
+{
 	view.redraw();
 };
-export const redrawMenu = (): void => {
+export const redrawMenu = (): void =>
+{
 	view.redrawMenu();
 };
-export const redrawCodex = (): void => {
+export const redrawCodex = (): void =>
+{
 	view.redrawCodex();
 };
-export const openReplay = (): void => {
+export const openReplay = (): void =>
+{
 	view.openReplay();
 };

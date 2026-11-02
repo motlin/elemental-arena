@@ -74,16 +74,19 @@ export type MatchSnapshot = Pick<GameState, MatchKey>;
 
 // both directions go through one key at a time, so the two sides of the copy share a type parameter
 // and neither has to be told the field it is carrying is the field it is carrying
-function lift<K extends MatchKey>(into: Pick<GameState, K>, key: K): void {
+function lift<K extends MatchKey>(into: Pick<GameState, K>, key: K): void
+{
 	into[key] = S[key];
 }
 
-function drop<K extends MatchKey>(from: Pick<GameState, K>, key: K): void {
+function drop<K extends MatchKey>(from: Pick<GameState, K>, key: K): void
+{
 	S[key] = from[key];
 }
 
 /** The match as it stands, cloned, so nothing the game does next reaches back into the snapshot. */
-export function exportMatch(): MatchSnapshot {
+export function exportMatch(): MatchSnapshot
+{
 	const out = {} as MatchSnapshot;
 	for (const key of MATCH_KEYS) lift(out, key);
 	return structuredClone(out);
@@ -94,7 +97,8 @@ export function exportMatch(): MatchSnapshot {
  * is cloned on the way out, and everything a match leaves behind that a snapshot does not carry is
  * cleared rather than inherited.
  */
-export function importMatch(snap: MatchSnapshot): void {
+export function importMatch(snap: MatchSnapshot): void
+{
 	const fresh = structuredClone(snap);
 	for (const key of MATCH_KEYS) drop(fresh, key);
 	// what the last match left that this one has no opinion about

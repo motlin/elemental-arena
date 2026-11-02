@@ -3,7 +3,8 @@ import {exportMatch, importMatch, type MatchSnapshot} from "./snapshot.js";
 import {S, hidden} from "./state.js";
 import {redraw} from "./view.js";
 
-interface UndoEntry {
+interface UndoEntry
+{
 	snap: MatchSnapshot;
 	coins: number;
 	framesLen: number;
@@ -13,32 +14,39 @@ interface UndoEntry {
 const stack: UndoEntry[] = [];
 const STACK_LIMIT = 20;
 
-export function pushUndo(): void {
-	stack.push({
-		snap: exportMatch(),
-		coins: S.coins,
-		framesLen: S.frames.length,
-		hiddenSeats: S.players.filter(hidden).map((player) => player.i),
-	});
+export function pushUndo(): void
+{
+	stack.push(
+		{
+			snap: exportMatch(),
+			coins: S.coins,
+			framesLen: S.frames.length,
+			hiddenSeats: S.players.filter(hidden).map((player) => player.i),
+		},
+	);
 	if (stack.length > STACK_LIMIT) stack.shift();
 }
 
-export function canUndo(): boolean {
+export function canUndo(): boolean
+{
 	return stack.length > 0;
 }
 
-export function clearUndo(): void {
+export function clearUndo(): void
+{
 	stack.length = 0;
 }
 
 export const markIrreversible = clearUndo;
 
-export function auditReveal(): void {
+export function auditReveal(): void
+{
 	const entry = stack[stack.length - 1];
 	if (entry?.hiddenSeats.some((seat) => !hidden(S.players[seat]!))) clearUndo();
 }
 
-export function undo(): void {
+export function undo(): void
+{
 	if (!stack.length || S.phase !== "act" || S.handoff || S.toss) return;
 	const entry = stack.pop()!;
 	const frames = S.frames;

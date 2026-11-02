@@ -2,9 +2,13 @@ import {useId, useState, type CSSProperties, type ReactElement} from "react";
 import type {LoadoutChip} from "../game/bridge.js";
 
 /** React types `style` as CSSProperties, which leaves no room for the custom properties the game's CSS reads. */
-type ChipStyle = CSSProperties & {"--cc": string};
+type ChipStyle = CSSProperties &
+{
+	"--cc": string;
+};
 
-interface SliderProps {
+interface SliderProps
+{
 	readonly name: string;
 	/** What the number reads as beside the name. */
 	readonly reading: string;
@@ -17,7 +21,8 @@ interface SliderProps {
 }
 
 /** A number dragged rather than typed, which is how the setup screen sets its ranges. */
-export function Slider({name, reading, min, max, step, value, onChange}: SliderProps): ReactElement {
+export function Slider({name, reading, min, max, step, value, onChange}: SliderProps): ReactElement
+{
 	const id = useId();
 
 	return (
@@ -33,7 +38,8 @@ export function Slider({name, reading, min, max, step, value, onChange}: SliderP
 				max={max}
 				step={step ?? 1}
 				value={value}
-				onChange={(e) => {
+				onChange={(e) =>
+				{
 					onChange(Number(e.target.value));
 				}}
 			/>
@@ -41,7 +47,8 @@ export function Slider({name, reading, min, max, step, value, onChange}: SliderP
 	);
 }
 
-interface NumberBoxProps {
+interface NumberBoxProps
+{
 	readonly name: string;
 	/** The note beside the name, which says what the number does rather than what it is. */
 	readonly hint: string;
@@ -59,7 +66,8 @@ interface NumberBoxProps {
  * another value would otherwise snap straight back to the default under your fingers. Leaving the
  * box puts back whatever the game settled on.
  */
-export function NumberBox({name, hint, min, max, value, onChange, tucked}: NumberBoxProps): ReactElement {
+export function NumberBox({name, hint, min, max, value, onChange, tucked}: NumberBoxProps): ReactElement
+{
 	const id = useId();
 	const [typed, setTyped] = useState(String(value));
 
@@ -78,11 +86,13 @@ export function NumberBox({name, hint, min, max, value, onChange, tucked}: Numbe
 				step={1}
 				inputMode="numeric"
 				value={typed}
-				onChange={(e) => {
+				onChange={(e) =>
+				{
 					setTyped(e.target.value);
 					onChange(Number.parseInt(e.target.value, 10));
 				}}
-				onBlur={() => {
+				onBlur={() =>
+				{
 					setTyped(String(value));
 				}}
 			/>
@@ -90,7 +100,8 @@ export function NumberBox({name, hint, min, max, value, onChange, tucked}: Numbe
 	);
 }
 
-interface ToggleProps {
+interface ToggleProps
+{
 	readonly name: string;
 	/** What turning it on does to a match, spelled out under the name. */
 	readonly blurb: string;
@@ -99,7 +110,8 @@ interface ToggleProps {
 }
 
 /** One of the switches that change how a match is played. */
-export function Toggle({name, blurb, on, onChange}: ToggleProps): ReactElement {
+export function Toggle({name, blurb, on, onChange}: ToggleProps): ReactElement
+{
 	return (
 		<label className="toggle">
 			<span>
@@ -109,7 +121,8 @@ export function Toggle({name, blurb, on, onChange}: ToggleProps): ReactElement {
 			<input
 				type="checkbox"
 				checked={on}
-				onChange={(e) => {
+				onChange={(e) =>
+				{
 					onChange(e.target.checked);
 				}}
 			/>
@@ -117,7 +130,8 @@ export function Toggle({name, blurb, on, onChange}: ToggleProps): ReactElement {
 	);
 }
 
-interface ChipProps {
+interface ChipProps
+{
 	readonly chip: LoadoutChip;
 	/** Marks the chip as one of a kind the panel handles together, e.g. `mvc` for footwork. */
 	readonly kind?: string;
@@ -128,8 +142,10 @@ interface ChipProps {
  * One thing a fighter can be dealt. A chip still in the shop says what it costs and cannot be
  * pressed, so the panel reads as the whole game rather than only the part of it bought so far.
  */
-export function Chip({chip, kind, onPick}: ChipProps): ReactElement {
-	if (!chip.owned) {
+export function Chip({chip, kind, onPick}: ChipProps): ReactElement
+{
+	if (!chip.owned)
+	{
 		return (
 			<button
 				type="button"
@@ -141,7 +157,10 @@ export function Chip({chip, kind, onPick}: ChipProps): ReactElement {
 			</button>
 		);
 	}
-	const style: ChipStyle = {"--cc": chip.colour};
+	const style: ChipStyle =
+	{
+		"--cc": chip.colour,
+	};
 
 	return (
 		<button
@@ -149,7 +168,8 @@ export function Chip({chip, kind, onPick}: ChipProps): ReactElement {
 			className={kind === undefined ? "chip" : `chip ${kind}`}
 			style={style}
 			aria-pressed={chip.on}
-			onClick={() => {
+			onClick={() =>
+			{
 				onPick(chip.key);
 			}}
 		>
