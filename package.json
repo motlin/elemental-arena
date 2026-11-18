@@ -41,7 +41,7 @@
 		"@storybook/addon-a11y": "^10.6.6",
 		"@storybook/addon-docs": "^10.6.7",
 		"@storybook/addon-onboarding": "^10.6.7",
-		"@storybook/addon-vitest": "^10.6.6",
+		"@storybook/addon-vitest": "^10.6.7",
 		"@storybook/react-vite": "^10.6.7",
 		"@storybook/test-runner": "^0.24.4",
 		"@tanstack/react-query-devtools": "^5.107.1",
