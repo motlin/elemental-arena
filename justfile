@@ -61,6 +61,10 @@ multiplayer-check: build
 online-check: build
     vp run multiplayer:online
 
+# Render the link preview image public/og.jpg from the built game
+og-image: build
+    node scripts/og-image.ts
+
 # Run Storybook
 storybook *args: install
     vp run storybook {{ args }}
