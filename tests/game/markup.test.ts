@@ -37,4 +37,39 @@ describe("static markup", () =>
 			["apple-touch-icon", "apple-touch-icon.png", true],
 		]);
 	});
+
+	/* A link pasted into a chat or a post unfurls from these tags. Crawlers want the image as an
+	   absolute URL, and it is served from public/ like the icons, so the file has to be there too. */
+	it("describes the link preview with an image that ships with the site", () =>
+	{
+		const tags = Object.fromEntries(
+			[...html.matchAll(/<meta\s+(?:property|name)="((?:og|twitter):[^"]*)"\s+content="([^"]*)"/g)].map((m) => [
+				m[1],
+				m[2],
+			]),
+		);
+		const image = new URL(tags["og:image"] ?? "https://elemental-arena.motlin.com/missing");
+
+		expect(tags).toStrictEqual(
+			{
+				"og:type": "website",
+				"og:site_name": "Elemental Arena",
+				"og:title": "Elemental Arena",
+				"og:description":
+					"A hot-seat tactical card game played on a grid of fusing elemental terrain. Lay fire, water, earth and lightning, fuse them where they meet, and fight on what you made.",
+				"og:url": "https://elemental-arena.motlin.com/",
+				"og:image": "https://elemental-arena.motlin.com/og.jpg",
+				"og:image:width": "1200",
+				"og:image:height": "630",
+				"og:image:alt":
+					"The title Elemental Arena and its tagline Fight battles with elements over a hand of Fire, Air and Sword cards, beside a nine by nine arena of glowing fire, water, earth and lightning squares fused into new ground where they meet, with a pink triangle and a cyan diamond fighter in opposite corners",
+				"twitter:card": "summary_large_image",
+				"twitter:title": "Elemental Arena",
+				"twitter:description":
+					"A hot-seat tactical card game played on a grid of fusing elemental terrain. Lay fire, water, earth and lightning, fuse them where they meet, and fight on what you made.",
+				"twitter:image": "https://elemental-arena.motlin.com/og.jpg",
+			},
+		);
+		expect(existsSync(path.join(import.meta.dirname, "..", "..", "public", image.pathname))).toBe(true);
+	});
 });
